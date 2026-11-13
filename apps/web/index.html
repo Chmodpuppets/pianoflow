@@ -16,6 +16,7 @@
         <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" hidden />
         <button id="libraryBtn" title="Song library">📚 Songs</button>
         <button id="midiBtn" title="MIDI devices">🎛 MIDI</button>
+        <button id="pluginsBtn" title="Plugins">🧩 Plugins</button>
         <div class="spacer"></div>
         <span id="soundStatus" class="badge">loading…</span>
         <span id="midiStatus" class="badge">MIDI: —</span>
@@ -97,6 +98,15 @@
       <div id="midiSupport" class="midi-support"></div>
       <div id="midiDeviceList"></div>
       <div class="midi-monitor">Last note: <span id="midiLastNote">—</span></div>
+    </div>
+
+    <div id="pluginsPanel" class="drawer hidden" aria-label="Plugins">
+      <div class="drawer-head">
+        <span>🧩 Plugins</span>
+        <button id="pluginsClose" title="Close">✕</button>
+      </div>
+      <div class="plugins-hint">Extend PianoFlow with overlays and practice aids. Toggles are saved.</div>
+      <div id="pluginsList"></div>
     </div>
 
     <div id="resultOverlay" class="overlay hidden">

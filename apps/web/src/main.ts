@@ -42,6 +42,10 @@ const midiClose = $<HTMLButtonElement>('midiClose');
 const midiSupport = $<HTMLDivElement>('midiSupport');
 const midiDeviceList = $<HTMLDivElement>('midiDeviceList');
 const midiLastNote = $<HTMLSpanElement>('midiLastNote');
+const pluginsBtn = $<HTMLButtonElement>('pluginsBtn');
+const pluginsPanel = $<HTMLDivElement>('pluginsPanel');
+const pluginsClose = $<HTMLButtonElement>('pluginsClose');
+const pluginsList = $<HTMLDivElement>('pluginsList');
 const playBtn = $<HTMLButtonElement>('playBtn');
 const stopBtn = $<HTMLButtonElement>('stopBtn');
 const seek = $<HTMLInputElement>('seek');
@@ -151,6 +155,7 @@ window.addEventListener('keydown', (e) => {
   } else if (e.code === 'Escape') {
     closeLibrary();
     closeMidi();
+    closePlugins();
     resultOverlay.classList.add('hidden');
   }
 });
@@ -347,6 +352,51 @@ function closeMidi(): void {
 }
 midiBtn.addEventListener('click', openMidi);
 midiClose.addEventListener('click', closeMidi);
+
+function buildPlugins(): void {
+  pluginsList.innerHTML = '';
+  for (const p of app.plugins.list()) {
+    const item = document.createElement('div');
+    item.className = 'plugin-item' + (p.enabled ? '' : ' off');
+
+    const main = document.createElement('div');
+    main.className = 'plugin-main';
+    const name = document.createElement('div');
+    name.className = 'plugin-name';
+    name.textContent = p.name + (p.version ? ` · v${p.version}` : '');
+    const desc = document.createElement('div');
+    desc.className = 'plugin-desc';
+    desc.textContent = p.description ?? '';
+    main.append(name, desc);
+
+    const toggle = document.createElement('label');
+    toggle.className = 'plugin-toggle';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = p.enabled;
+    const lbl = document.createElement('span');
+    lbl.textContent = p.enabled ? 'Enabled' : 'Disabled';
+    chk.addEventListener('change', () => {
+      app.plugins.setEnabled(p.id, chk.checked);
+      lbl.textContent = chk.checked ? 'Enabled' : 'Disabled';
+      item.classList.toggle('off', !chk.checked);
+      persist();
+    });
+    toggle.append(chk, lbl);
+
+    item.append(main, toggle);
+    pluginsList.appendChild(item);
+  }
+}
+function openPlugins(): void {
+  buildPlugins();
+  pluginsPanel.classList.remove('hidden');
+}
+function closePlugins(): void {
+  pluginsPanel.classList.add('hidden');
+}
+pluginsBtn.addEventListener('click', openPlugins);
+pluginsClose.addEventListener('click', closePlugins);
 
 function showResult(result: SessionResult, rec: SongRecord, isNewBest: boolean): void {
   resultGrade.textContent = result.grade;

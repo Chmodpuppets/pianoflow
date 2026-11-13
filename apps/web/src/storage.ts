@@ -81,6 +81,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   colorblind: false,
   metronome: false,
   countIn: 0,
+  plugins: {},
 };
 
 /**

@@ -84,9 +84,25 @@ export class Renderer {
     return keyAt(this.layout, x, y - this.keyboardTop, this.keyboardHeight);
   }
 
+  /** The 2D context, exposed so plugin overlays can draw on top of the scene. */
+  get drawingContext(): CanvasRenderingContext2D {
+    return this.ctx;
+  }
+  get viewWidth(): number {
+    return this.cssW;
+  }
+  get viewHeight(): number {
+    return this.cssH;
+  }
+
   render(state: RenderState): void {
     const { ctx, cssW, cssH, config } = this;
     const theme = config.theme;
+    // Guarantee a clean canvas state each frame so a plugin overlay that forgets
+    // to restore cannot corrupt the base scene on the next frame.
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, cssW, cssH);
 

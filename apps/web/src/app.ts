@@ -11,6 +11,10 @@ import {
   type SessionResult,
   type Difficulty,
   type SongStats,
+  PluginManager,
+  createBuiltinPlugins,
+  type PluginHost,
+  type DrawSurface,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -34,6 +38,7 @@ export interface AppSettings {
   colorblind: boolean;
   metronome: boolean;
   countIn: number;
+  plugins: Record<string, boolean>;
 }
 
 export interface AppState {
@@ -70,6 +75,28 @@ function slugify(name: string): string {
   return s || 'local';
 }
 
+/** Adapt a CanvasRenderingContext2D to the platform-agnostic DrawSurface. */
+function canvasSurface(ctx: CanvasRenderingContext2D): DrawSurface {
+  return {
+    save: () => ctx.save(),
+    restore: () => ctx.restore(),
+    fillRect: (x, y, w, h) => ctx.fillRect(x, y, w, h),
+    fillText: (t, x, y) => ctx.fillText(t, x, y),
+    setFillStyle: (c) => {
+      ctx.fillStyle = c;
+    },
+    setFont: (f) => {
+      ctx.font = f;
+    },
+    setTextAlign: (a) => {
+      ctx.textAlign = a;
+    },
+    setGlobalAlpha: (a) => {
+      ctx.globalAlpha = a;
+    },
+  };
+}
+
 /**
  * Framework-agnostic controller: owns audio, rendering, input and scoring.
  * The DOM layer (main.ts) wires controls to these methods and calls frame()
@@ -79,6 +106,9 @@ export class PianoFlowApp {
   readonly engine: AudioEngine;
   readonly renderer: Renderer;
   readonly score = new ScoreKeeper();
+  readonly plugins: PluginManager;
+  private surface: DrawSurface;
+  private lastFrameTs = 0;
 
   private song: MidiSong | null = null;
   private notes: MidiNote[] = [];
@@ -140,6 +170,36 @@ export class PianoFlowApp {
       this.finishIfPractice();
     };
     this.engine.onLoop = () => this.resetJudgingFrom(this.engine.loopStart ?? 0);
+
+    // Plugin system: a platform-agnostic host backed by this app, plus the
+    // bundled plugins. Overlays draw through a cached DrawSurface adapter.
+    const self = this;
+    const host: PluginHost = {
+      get song() {
+        return self.song;
+      },
+      get position() {
+        return self.engine.position;
+      },
+      get playing() {
+        return self.engine.playing;
+      },
+      play() {
+        void self.play();
+      },
+      pause() {
+        self.pause();
+      },
+      seek(t: number) {
+        self.seek(t);
+      },
+      log(...args: unknown[]) {
+        console.log(...args);
+      },
+    };
+    this.plugins = new PluginManager(host);
+    for (const p of createBuiltinPlugins()) this.plugins.register(p);
+    this.surface = canvasSurface(this.renderer.drawingContext);
   }
 
   async init(): Promise<void> {
@@ -173,6 +233,7 @@ export class PianoFlowApp {
     });
     this.clearLoop();
     this.applyConfig();
+    this.plugins.emit({ type: 'song-loaded', song });
   }
 
   setMode(m: Mode): void {
@@ -190,6 +251,7 @@ export class PianoFlowApp {
   setSpeed(s: number): void {
     this.engine.setSpeed(s);
     this.onState?.();
+    this.emitTransport();
   }
   setLabels(b: boolean): void {
     this.labels = b;
@@ -219,6 +281,7 @@ export class PianoFlowApp {
       colorblind: this.colorblind,
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,
+      plugins: this.plugins.states(),
     };
   }
 
@@ -232,6 +295,11 @@ export class PianoFlowApp {
     if (typeof s.colorblind === 'boolean') this.setColorblind(s.colorblind);
     if (typeof s.metronome === 'boolean') this.setMetronome(s.metronome);
     if (typeof s.countIn === 'number' && isFinite(s.countIn)) this.setCountIn(s.countIn);
+    if (s.plugins) {
+      for (const [id, enabled] of Object.entries(s.plugins)) {
+        if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
+      }
+    }
   }
 
   /** Listen to a single MIDI input device by id, or `null` for all devices. */
@@ -279,6 +347,7 @@ export class PianoFlowApp {
     this.waitEnd = -1;
     this.lastJudge = '';
     this.score.reset();
+    this.plugins.emit({ type: 'score-reset' });
     this.engine.stop();
     // In practice mode the engine advances the clock silently; the player
     // produces the sound by hitting keys. In listen mode it auto-plays.
@@ -292,10 +361,12 @@ export class PianoFlowApp {
     this.resultEmitted = false;
     await this.engine.play();
     this.onState?.();
+    this.emitTransport();
   }
   pause(): void {
     this.engine.pause();
     this.onState?.();
+    this.emitTransport();
   }
   async toggle(): Promise<void> {
     if (this.engine.playing) this.pause();
@@ -311,12 +382,24 @@ export class PianoFlowApp {
     this.waitIndex = -1;
     this.waitEnd = -1;
     this.lastJudge = '';
+    this.plugins.emit({ type: 'score-reset' });
     this.onState?.();
+    this.emitTransport();
   }
   seek(t: number): void {
     this.engine.seek(t);
     this.resetJudgingFrom(t);
     this.onState?.();
+    this.emitTransport();
+  }
+
+  private emitTransport(): void {
+    this.plugins.emit({
+      type: 'transport',
+      playing: this.engine.playing,
+      position: this.engine.position,
+      speed: this.engine.speed,
+    });
   }
 
   /** Mark notes before `t` as judged so they are not counted as missed. */
@@ -334,6 +417,9 @@ export class PianoFlowApp {
 
   /** Called once per animation frame. */
   frame(): void {
+    const now = performance.now();
+    const dt = this.lastFrameTs ? Math.min(0.1, (now - this.lastFrameTs) / 1000) : 0.016;
+    this.lastFrameTs = now;
     if (!this.song) {
       this.renderer.render({ position: 0, notes: [], pressed: this.pressed });
       return;
@@ -353,6 +439,15 @@ export class PianoFlowApp {
         end: this.engine.loopEnd ?? 0,
       },
     });
+    const playing = this.engine.playing;
+    this.plugins.emit({ type: 'frame', position: pos, playing, dt });
+    this.plugins.draw(this.surface, {
+      position: pos,
+      playing,
+      dt,
+      width: this.renderer.viewWidth,
+      height: this.renderer.viewHeight,
+    });
   }
 
   private detectMisses(pos: number): void {
@@ -362,6 +457,7 @@ export class PianoFlowApp {
         this.judged[i] = true;
         this.score.registerMiss();
         this.lastJudge = 'miss';
+        this.plugins.emit({ type: 'note-miss', note: this.active[i] });
       }
     }
   }
@@ -385,6 +481,7 @@ export class PianoFlowApp {
       this.waitEnd = this.chordEnd(i);
       this.engine.pause();
       this.onState?.();
+      this.emitTransport();
     }
   }
 
@@ -394,6 +491,7 @@ export class PianoFlowApp {
     this.waitIndex = -1;
     this.waitEnd = -1;
     void this.engine.play();
+    this.emitTransport();
   }
 
   private findHit(midi: number, pos: number): number {
@@ -422,6 +520,12 @@ export class PianoFlowApp {
         this.judged[idx] = true;
         this.score.registerHit(grade);
         this.lastJudge = grade;
+        this.plugins.emit({
+          type: 'note-hit',
+          note: this.active[idx],
+          judgement: grade,
+          combo: this.score.combo,
+        });
         // Chord-aware wait: resume only once every note of the chord is hit.
         if (this.waiting && idx >= this.waitIndex && idx < this.waitEnd) {
           let all = true;
@@ -436,6 +540,7 @@ export class PianoFlowApp {
       } else {
         this.score.registerWrong();
         this.lastJudge = 'wrong';
+        this.plugins.emit({ type: 'note-wrong', midi });
       }
     }
     this.onState?.();
@@ -451,7 +556,9 @@ export class PianoFlowApp {
     if (this.mode !== 'practice' || !this.song || this.resultEmitted) return;
     if (this.score.total === 0) return;
     this.resultEmitted = true;
-    this.onResult?.(summarize(this.score), this.songId);
+    const result = summarize(this.score);
+    this.onResult?.(result, this.songId);
+    this.plugins.emit({ type: 'result', result, songId: this.songId });
   }
 
   currentSongInfo(): {

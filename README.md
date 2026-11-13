@@ -45,6 +45,10 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   miss / wrong breakdown, max combo, and a "new best" indicator, with one-click retry.
 - **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome and
   count-in are remembered across reloads.
+- **Plugin system** — extend PianoFlow with overlays and practice aids through a small,
+  error-isolated API (lifecycle events + a draw surface). Three plugins ship built in
+  (combo overlay, session stats, auto-pause on mistakes); toggle them in the **🧩 Plugins**
+  panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
 
 ## 🚀 Quick start
 
@@ -81,6 +85,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Metronome / Count-in | footer checkbox / selector |
 | Song library | **📚 Songs** button; click a song to load it |
 | MIDI devices | **🎛 MIDI** button; pick a device (or All) and watch the note monitor |
+| Plugins | **🧩 Plugins** button; enable / disable bundled plugins (saved) |
 | Results | shown automatically at the end of a Practice run; **Retry** / **Close** |
 
 ## 🧱 Architecture
@@ -90,7 +95,7 @@ later power a desktop (Tauri) or mobile shell.
 
 ```
 packages/
-  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty, viewport index (no DOM)
+  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty, viewport index, plugin manager (no DOM)
   audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler
   render/    Canvas2D falling-notes renderer (viewport culling + batched draws), keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
@@ -103,6 +108,22 @@ scripts/
 
 The packages export TypeScript source directly and are consumed by Vite via aliases,
 so there is no separate per-package build step during development.
+
+## 🧩 Plugins
+
+A plugin reacts to lifecycle events (song loaded, transport, note hit / miss / wrong,
+score reset, per-frame, result) and can draw overlays through a `DrawSurface`. Each
+plugin runs in isolation — one that throws is logged and skipped, never breaking the app
+or the other plugins. Three ship built in:
+
+| Plugin | What it does | Default |
+| --- | --- | --- |
+| **Combo overlay** | live combo counter + fading judgement flash on the playfield | on |
+| **Session stats** | tallies hits / perfect / good / miss / wrong / max combo, logs a summary | on |
+| **Auto-pause on mistakes** | pauses after N consecutive misses / wrong notes so you can recover | off |
+
+Toggle them in the **🧩 Plugins** panel; choices are saved with your settings. See
+**[PLUGINS.md](PLUGINS.md)** for the full API and a worked example.
 
 ## 🌐 Browser support
 
@@ -122,7 +143,8 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
 - **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
 - **M4 (done)** — expanded public-domain song library (7 tracks) and settings persistence.
-- **M5 (partial)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws (done); WebGL renderer and plugins pending.
+- **M5 (partial)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws (done); WebGL renderer pending.
+- **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with three bundled plugins and a toggle panel.
 
 ## 📄 License & attribution
 
@@ -165,6 +187,8 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；音符标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
+插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停三个插件，
+开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。
 
 **架构**：pnpm monorepo，平台无关的 TypeScript 核心（`core`/`audio`/`render`/`input`），

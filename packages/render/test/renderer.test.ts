@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Renderer } from '../src/index';
-import type { MidiNote } from '@pianoflow/core';
+import {
+  ComboOverlayPlugin,
+  type MidiNote,
+  type DrawSurface,
+  type FrameInfo,
+  type PluginEvent,
+} from '@pianoflow/core';
 
 // Minimal 2D-context mock so the renderer can run headless (node env).
 function mockCtx(): CanvasRenderingContext2D {
@@ -118,5 +124,84 @@ describe('Renderer viewport culling (NoteIndex integration)', () => {
     } finally {
       proto.getIndex = origGetIndex;
     }
+  });
+});
+
+describe('Plugin overlay runtime integration', () => {
+  it('resets dirty canvas state so a bad plugin cannot corrupt the base scene', () => {
+    const ctx = mockCtx();
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    // Capture the alpha at the moment the background is first filled.
+    let firstFillAlpha = -1;
+    ctx.fillRect = () => {
+      if (firstFillAlpha < 0) firstFillAlpha = ctx.globalAlpha;
+    };
+    // Simulate a plugin overlay that forgot to restore its state.
+    ctx.globalAlpha = 0;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    r.render({ position: 0, notes: [note(0.5, 0.5, 60, 'right')], pressed: new Set<number>() });
+    expect(firstFillAlpha).toBe(1); // base scene drawn at full alpha despite dirty input
+    expect(ctx.globalAlpha).toBe(1);
+    expect(ctx.textBaseline).toBe('alphabetic');
+  });
+
+  it('draws the real combo overlay through a DrawSurface adapter and restores state', () => {
+    // A stateful 2D-context mock: save/restore snapshot the drawing state.
+    const stack: Record<string, unknown>[] = [];
+    const texts: { text: string; x: number; y: number }[] = [];
+    const ctx = {
+      fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 1, font: '',
+      textAlign: 'left', textBaseline: 'alphabetic',
+      fillRect: () => {}, strokeRect: () => {}, clearRect: () => {},
+      beginPath: () => {}, moveTo: () => {}, arcTo: () => {}, closePath: () => {}, lineTo: () => {},
+      fill: () => {}, stroke: () => {}, setLineDash: () => {}, setTransform: () => {},
+      fillText: (t: string, x: number, y: number) => texts.push({ text: t, x, y }),
+      save() {
+        stack.push({
+          globalAlpha: this.globalAlpha, fillStyle: this.fillStyle, font: this.font,
+          textAlign: this.textAlign, textBaseline: this.textBaseline,
+        });
+      },
+      restore() {
+        const s = stack.pop();
+        if (s) Object.assign(this, s);
+      },
+    };
+    const surface: DrawSurface = {
+      save: () => ctx.save(),
+      restore: () => ctx.restore(),
+      fillRect: (x, y, w, h) => ctx.fillRect(x, y, w, h),
+      fillText: (t, x, y) => ctx.fillText(t, x, y),
+      setFillStyle: (c) => { ctx.fillStyle = c; },
+      setFont: (f) => { ctx.font = f; },
+      setTextAlign: (a) => { ctx.textAlign = a; },
+      setGlobalAlpha: (a) => { ctx.globalAlpha = a; },
+    };
+    const overlay = new ComboOverlayPlugin();
+    const frame = (dt: number): FrameInfo => ({ position: 1, playing: true, dt, width: 1040, height: 600 });
+
+    // Idle: nothing drawn, state untouched.
+    overlay.onDraw(surface, frame(0.016));
+    expect(texts.length).toBe(0);
+    expect(ctx.globalAlpha).toBe(1);
+
+    // A perfect hit at combo 3 -> counter + judgement flash, alpha restored.
+    const hit: PluginEvent = { type: 'note-hit', note: note(1, 0.5, 60), judgement: 'perfect', combo: 3 };
+    overlay.onEvent(hit);
+    overlay.onDraw(surface, frame(0.016));
+    expect(texts.some((t) => t.text === '3 COMBO')).toBe(true);
+    expect(texts.some((t) => t.text === 'PERFECT')).toBe(true);
+    expect(ctx.globalAlpha).toBe(1);
+    expect(stack.length).toBe(0); // balanced save/restore
+
+    // A miss clears the combo (no new COMBO text) but flashes MISS.
+    overlay.onEvent({ type: 'note-miss', note: note(2, 0.5, 60) });
+    overlay.onDraw(surface, frame(0.016));
+    expect(texts.filter((t) => t.text.endsWith('COMBO')).length).toBe(1);
+    expect(texts.some((t) => t.text === 'MISS')).toBe(true);
+    expect(ctx.globalAlpha).toBe(1);
+    expect(stack.length).toBe(0);
   });
 });
