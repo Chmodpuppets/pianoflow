@@ -40,6 +40,7 @@ export interface AppSettings {
   metronome: boolean;
   countIn: number;
   muted: boolean;
+  volume: number;
   plugins: Record<string, boolean>;
 }
 
@@ -127,6 +128,7 @@ export class PianoFlowApp {
   private noteLabels = false;
   private colorblind = false;
   private muted = false;
+  private volume = 0.9;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -307,6 +309,12 @@ export class PianoFlowApp {
     this.onState?.();
   }
 
+  setVolume(v: number): void {
+    this.volume = Math.min(1, Math.max(0, isFinite(v) ? v : 0));
+    this.engine.setVolume(this.volume);
+    this.onState?.();
+  }
+
   /** Snapshot of user preferences, for persistence. */
   getSettings(): AppSettings {
     return {
@@ -320,6 +328,7 @@ export class PianoFlowApp {
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,
       muted: this.muted,
+      volume: this.volume,
       plugins: this.plugins.states(),
     };
   }
@@ -336,6 +345,7 @@ export class PianoFlowApp {
     if (typeof s.metronome === 'boolean') this.setMetronome(s.metronome);
     if (typeof s.countIn === 'number' && isFinite(s.countIn)) this.setCountIn(s.countIn);
     if (typeof s.muted === 'boolean') this.setMuted(s.muted);
+    if (typeof s.volume === 'number' && isFinite(s.volume)) this.setVolume(s.volume);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);

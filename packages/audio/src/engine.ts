@@ -1,6 +1,7 @@
 import { Soundfont } from 'smplr';
 import { buildBeatGrid, type Beat, type MeterInput, type MidiNote } from '@pianoflow/core';
 import { PianoSynth } from './synth';
+import { masterGainValue } from './volume';
 
 export interface AudioEngineOptions {
   lookahead?: number;
@@ -25,6 +26,7 @@ export class AudioEngine {
   /** Master output gain — the single mute point for synth + soundfont + metronome. */
   private masterGain: GainNode;
   private _muted = false;
+  private _volume = 0.9;
   private sf: Soundfont | null = null;
   private synth: PianoSynth;
   private notes: MidiNote[] = [];
@@ -62,7 +64,7 @@ export class AudioEngine {
   constructor(opts: AudioEngineOptions = {}) {
     this.ctx = new AudioContext();
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 1;
+    this.masterGain.gain.value = masterGainValue(this._muted, this._volume);
     this.masterGain.connect(this.ctx.destination);
     this.synth = new PianoSynth(this.ctx, this.masterGain);
     this.lookahead = opts.lookahead ?? 0.2;
@@ -122,10 +124,17 @@ export class AudioEngine {
   /** Mute/unmute all audio (synth, soundfont, metronome) via the master gain. */
   setMuted(muted: boolean): void {
     this._muted = muted;
-    this.masterGain.gain.value = muted ? 0 : 1;
+    this.masterGain.gain.value = masterGainValue(this._muted, this._volume);
   }
   get muted(): boolean {
     return this._muted;
+  }
+  setVolume(volume: number): void {
+    this._volume = Math.min(1, Math.max(0, isFinite(volume) ? volume : 0));
+    this.masterGain.gain.value = masterGainValue(this._muted, this._volume);
+  }
+  get volume(): number {
+    return this._volume;
   }
 
   load(notes: MidiNote[], duration: number): void {

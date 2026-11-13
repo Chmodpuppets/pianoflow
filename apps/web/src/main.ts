@@ -109,6 +109,7 @@ const sLabels = $<HTMLInputElement>('sLabels');
 const sNoteLabels = $<HTMLInputElement>('sNoteLabels');
 const sColorblind = $<HTMLInputElement>('sColorblind');
 const sMute = $<HTMLInputElement>('sMute');
+const sVolume = $<HTMLInputElement>('sVolume');
 const openMidiBtn = $<HTMLButtonElement>('openMidiBtn');
 const openPluginsBtn = $<HTMLButtonElement>('openPluginsBtn');
 const settingsSound = $<HTMLElement>('settingsSound');
@@ -133,6 +134,11 @@ const timeEl = $<HTMLElement>('time');
 const scoreEl = $<HTMLElement>('score');
 const judgeEl = $<HTMLElement>('judge');
 const stage = $<HTMLElement>('stage');
+const volumeSlider = $<HTMLInputElement>('volume');
+const pauseOverlay = $<HTMLElement>('pauseOverlay');
+const pauseResume = $<HTMLButtonElement>('pauseResume');
+const pauseRestart = $<HTMLButtonElement>('pauseRestart');
+const pauseBack = $<HTMLButtonElement>('pauseBack');
 
 const playerSettings = $<HTMLElement>('playerSettings');
 const playerSettingsClose = $<HTMLButtonElement>('playerSettingsClose');
@@ -203,6 +209,7 @@ function showScreen(name: ScreenName): void {
     app.pause();
   }
   closeAllDrawers();
+  hidePause();
   syncControls();
 }
 function showView(name: string): void {
@@ -489,6 +496,7 @@ function showResult(result: SessionResult, songId: string): void {
     `Accuracy ${Math.round(result.accuracy * 100)}% · ${result.hits}/${result.total} hits<br>` +
     `Perfect ${result.perfect} · Good ${result.good} · Miss ${result.miss} · Wrong ${result.wrong}<br>` +
     `Max combo ${result.maxCombo}`;
+  hidePause();
   resultOverlay.classList.remove('hidden');
 }
 app.onResult = (result, songId) => {
@@ -542,6 +550,9 @@ function syncControls(): void {
   sColorblind.checked = s.colorblind;
   pMetro.checked = s.metronome;
   sMute.checked = s.muted;
+  const volPct = Math.round(s.volume * 100);
+  sVolume.value = String(volPct);
+  volumeSlider.value = String(volPct);
   loopChk.checked = st.loopEnabled;
   speedVal.textContent = Math.round(st.speed * 100) + '%';
   metroBtn.setAttribute('aria-pressed', String(s.metronome));
@@ -578,7 +589,20 @@ function doResize(): void {
 }
 window.addEventListener('resize', () => { if (currentScreen === 'player') doResize(); });
 
-playBtn.addEventListener('click', () => { void app.toggle(); });
+playBtn.addEventListener('click', () => { userToggle(); });
+
+// Pause overlay: shown only on an explicit user pause (not wait-mode/auto-pause).
+function showPause(): void { pauseOverlay.classList.remove('hidden'); }
+function hidePause(): void { pauseOverlay.classList.add('hidden'); }
+function userToggle(): void {
+  if (app.getState().playing) { app.pause(); showPause(); }
+  else { hidePause(); void app.play(); }
+}
+pauseResume.addEventListener('click', () => { hidePause(); void app.play(); });
+pauseRestart.addEventListener('click', () => { hidePause(); app.seek(0); void app.play(); });
+pauseBack.addEventListener('click', () => { hidePause(); app.pause(); showScreen('library'); });
+sVolume.addEventListener('input', () => { app.setVolume(Number(sVolume.value) / 100); persist(); });
+volumeSlider.addEventListener('input', () => { app.setVolume(Number(volumeSlider.value) / 100); persist(); });
 backBtn.addEventListener('click', () => { app.pause(); showScreen('library'); });
 nextBtn.addEventListener('click', () => {
   if (!bundledSongs.length) return;
@@ -651,16 +675,17 @@ navButtons.forEach((b) => b.addEventListener('click', () => showView(b.dataset.v
 window.addEventListener('keydown', (e) => {
   const target = e.target as HTMLElement;
   if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
-  if (e.code === 'Space' && currentScreen === 'player') { e.preventDefault(); void app.toggle(); }
+  if (e.code === 'Space' && currentScreen === 'player') { e.preventDefault(); userToggle(); }
   if (e.key === 'Escape') {
-    if (!resultOverlay.classList.contains('hidden')) resultOverlay.classList.add('hidden');
+    if (!pauseOverlay.classList.contains('hidden')) { hidePause(); void app.play(); }
+    else if (!resultOverlay.classList.contains('hidden')) resultOverlay.classList.add('hidden');
     else if (!profileModal.classList.contains('hidden')) closeProfileModal();
     else closeAllDrawers();
   }
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.13.0';
+aboutVersion.textContent = 'v0.14.0';
 refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);

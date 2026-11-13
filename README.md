@@ -26,6 +26,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   strike line for immediate, satisfying feedback.
 - **Master mute** — one always-visible 🔊 button in the top bar silences everything
   (piano + metronome) in a single click; sound is on by default and the choice is saved.
+- **Player comfort** — a persisted volume slider (mute always wins), a pause overlay with
+  Resume / Restart / Back, and an on-stage hand-color legend (blue = right, green = left).
 - **Real piano sound, fully offline** — FluidR3_GM SoundFont samples via [`smplr`](https://github.com/danigb/smplr),
   bundled locally (no CDN needed); falls back to the CDN, then a built-in additive synth.
 - **Standard MIDI file parsing** — zero-dependency SMF parser (format 0/1, tempo map,
@@ -177,6 +179,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M11 (done)** — loop trainer plugin: per-lap accuracy over the A-B region with optional speed-up (host loop API).
 - **M12 (done)** — three-screen UI redesign: animated welcome + local profiles, searchable/filterable song library with favorites, and a focused full-screen player with Practice / Progress / Settings views.
 - **M13 (done)** — playfield feedback: hand-colored anticipation glow on upcoming keys and hit-spark particles at the strike line.
+- **M14 (done)** — player comfort: persisted volume control, pause overlay (resume/restart/back), and a hand-color legend.
 
 ## 📄 License & attribution
 
@@ -220,7 +223,7 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
-舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；
+舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。

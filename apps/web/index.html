@@ -103,6 +103,7 @@
               <label class="chk"><input id="sNoteLabels" type="checkbox" /> Note names on falling notes</label>
               <label class="chk"><input id="sColorblind" type="checkbox" /> Colorblind-friendly palette</label>
               <label class="chk"><input id="sMute" type="checkbox" /> Mute all sound</label>
+              <label class="vol-row">Volume <input id="sVolume" type="range" min="0" max="100" value="90" /></label>
             </div>
           </div>
           <div class="panel">
@@ -162,8 +163,24 @@
           <div id="score">Hits 0/0 · Combo 0 · Acc 100%</div>
           <div id="judge" class="judge"></div>
         </div>
+        <div id="handLegend" aria-hidden="true">
+          <span class="lg right">Right</span>
+          <span class="lg left">Left</span>
+        </div>
       </main>
     </section>
+
+    <!-- ============ PAUSE OVERLAY ============ -->
+    <div id="pauseOverlay" class="overlay hidden" role="dialog" aria-label="Paused">
+      <div class="modal-card pause-card">
+        <h2>Paused</h2>
+        <div class="pause-actions">
+          <button id="pauseResume" class="btn btn-primary">▶ Resume</button>
+          <button id="pauseRestart" class="btn btn-ghost">↺ Restart</button>
+          <button id="pauseBack" class="btn btn-ghost">‹ Back to songs</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ============ PLAYER SETTINGS DRAWER ============ -->
     <div id="playerSettings" class="drawer hidden" aria-label="Practice settings">
@@ -183,6 +200,7 @@
           <label class="chk"><input id="labels" type="checkbox" /> Key labels</label>
           <label class="chk"><input id="noteLabels" type="checkbox" /> Note names</label>
           <label class="chk"><input id="colorblind" type="checkbox" /> Colorblind palette</label>
+          <label class="vol-row">Volume <input id="volume" type="range" min="0" max="100" value="90" /></label>
         </div>
         <div class="loopgroup">
           <label class="chk"><input id="loopEnabled" type="checkbox" /> Loop region</label>

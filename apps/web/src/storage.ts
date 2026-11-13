@@ -90,6 +90,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   metronome: false,
   countIn: 0,
   muted: false,
+  volume: 0.9,
   plugins: {},
 };
 
