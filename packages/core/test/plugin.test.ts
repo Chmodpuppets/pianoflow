@@ -5,6 +5,7 @@ import {
   AutoPausePlugin,
   ComboOverlayPlugin,
   PracticeHudPlugin,
+  TempoTrainerPlugin,
   createBuiltinPlugins,
   type Plugin,
   type PluginEvent,
@@ -22,7 +23,7 @@ function frame(dt: number, width = 800, height = 600): FrameInfo {
 }
 
 function makeHost() {
-  const calls = { play: 0, pause: 0, seek: [] as number[], logs: [] as unknown[][] };
+  const calls = { play: 0, pause: 0, seek: [] as number[], speeds: [] as number[], logs: [] as unknown[][] };
   const host: PluginHost & { playing: boolean } = {
     song: null,
     position: 0,
@@ -36,6 +37,9 @@ function makeHost() {
     },
     seek(t: number) {
       calls.seek.push(t);
+    },
+    setSpeed(s: number) {
+      calls.speeds.push(s);
     },
     log(...args: unknown[]) {
       calls.logs.push(args);
@@ -385,21 +389,132 @@ describe('PracticeHudPlugin', () => {
   });
 });
 
+describe('TempoTrainerPlugin', () => {
+  function hostWithSong() {
+    const { host, calls } = makeHost();
+    host.song = { duration: 10 } as unknown as MidiSong;
+    return { host, calls };
+  }
+  const result = (accuracy: number): PluginEvent => ({
+    type: 'result',
+    songId: 't',
+    result: { total: 10, hits: Math.round(accuracy * 10), perfect: 0, good: 0, miss: 0, wrong: 0, maxCombo: 0, accuracy, grade: 'A' },
+  });
+  const load = (p: TempoTrainerPlugin, host: PluginHost) =>
+    p.onEvent({ type: 'song-loaded', song: host.song as MidiSong });
+
+  it('is disabled by default', () => {
+    expect(new TempoTrainerPlugin().defaultEnabled).toBe(false);
+  });
+
+  it('sets the start speed when a song loads', () => {
+    const { host, calls } = hostWithSong();
+    const p = new TempoTrainerPlugin({ startSpeed: 0.5, targetSpeed: 1.0 });
+    p.setup(host);
+    load(p, host);
+    expect(p.currentSpeed).toBe(0.5);
+    expect(calls.speeds).toContain(0.5);
+  });
+
+  it('speeds up after the required clean passes and flashes a message', () => {
+    const { host, calls } = hostWithSong();
+    const p = new TempoTrainerPlugin({ startSpeed: 0.5, targetSpeed: 1.0, step: 0.1, passesRequired: 2 });
+    p.setup(host);
+    load(p, host);
+    p.onEvent(result(0.95));
+    expect(p.passes).toBe(1);
+    expect(p.currentSpeed).toBe(0.5); // not yet
+    p.onEvent(result(0.95));
+    expect(p.currentSpeed).toBe(0.6);
+    expect(p.passes).toBe(0);
+    expect(calls.speeds).toContain(0.6);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts.some((t) => t.text.startsWith('Speed up!'))).toBe(true);
+  });
+
+  it('resets the clean-pass streak on a low-accuracy run', () => {
+    const { host } = hostWithSong();
+    const p = new TempoTrainerPlugin({ passesRequired: 2 });
+    p.setup(host);
+    load(p, host);
+    p.onEvent(result(0.95));
+    p.onEvent(result(0.5)); // dirty
+    expect(p.passes).toBe(0);
+    expect(p.currentSpeed).toBe(0.5);
+    p.onEvent(result(0.95));
+    expect(p.passes).toBe(1); // streak restarted, not 2
+  });
+
+  it('clamps the speed at the target', () => {
+    const { host } = hostWithSong();
+    const p = new TempoTrainerPlugin({ startSpeed: 0.9, targetSpeed: 1.0, step: 0.2, passesRequired: 1 });
+    p.setup(host);
+    load(p, host);
+    p.onEvent(result(0.95)); // 0.9 + 0.2 -> clamped to 1.0
+    expect(p.currentSpeed).toBe(1.0);
+    p.onEvent(result(0.95)); // already at target
+    expect(p.currentSpeed).toBe(1.0);
+  });
+
+  it('respects a manual speed change via the transport event', () => {
+    const { host } = hostWithSong();
+    const p = new TempoTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent({ type: 'transport', playing: true, position: 0, speed: 0.8 });
+    expect(p.currentSpeed).toBe(0.8);
+  });
+
+  it('draws a speed badge when active', () => {
+    const { host } = hostWithSong();
+    const p = new TempoTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts.some((t) => t.text.includes('→'))).toBe(true);
+    expect(texts.some((t) => t.text.includes('clean passes'))).toBe(true);
+  });
+
+  it('draws nothing before a song is loaded', () => {
+    const { host } = hostWithSong();
+    const p = new TempoTrainerPlugin();
+    p.setup(host);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts).toHaveLength(0);
+  });
+
+  it('clears the streak on score-reset but keeps the speed', () => {
+    const { host } = hostWithSong();
+    const p = new TempoTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent(result(0.95));
+    expect(p.passes).toBe(1);
+    p.onEvent({ type: 'score-reset' });
+    expect(p.passes).toBe(0);
+    expect(p.currentSpeed).toBe(0.5);
+  });
+});
+
 describe('createBuiltinPlugins', () => {
-  it('bundles the four built-ins with unique ids', () => {
+  it('bundles the five built-ins with unique ids', () => {
     const plugins = createBuiltinPlugins();
     const ids = plugins.map((p) => p.id);
-    expect(ids).toEqual(['session-stats', 'auto-pause', 'combo-overlay', 'practice-hud']);
-    expect(new Set(ids).size).toBe(4);
+    expect(ids).toEqual(['session-stats', 'auto-pause', 'combo-overlay', 'practice-hud', 'tempo-trainer']);
+    expect(new Set(ids).size).toBe(5);
   });
 
   it('registers and runs end-to-end through the manager', () => {
     const { host } = makeHost();
     const m = new PluginManager(host);
     for (const p of createBuiltinPlugins()) m.register(p);
-    expect(m.list()).toHaveLength(4);
+    expect(m.list()).toHaveLength(5);
     expect(m.isEnabled('auto-pause')).toBe(false);
     expect(m.isEnabled('practice-hud')).toBe(false);
+    expect(m.isEnabled('tempo-trainer')).toBe(false);
     const { surface } = makeSurface();
     m.emit({ type: 'note-hit', note: note(60), judgement: 'perfect', combo: 1 });
     m.draw(surface, frame(0.016));

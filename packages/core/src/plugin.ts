@@ -57,6 +57,7 @@ export interface PluginHost {
   play(): void;
   pause(): void;
   seek(time: number): void;
+  setSpeed(speed: number): void;
   log(...args: unknown[]): void;
 }
 

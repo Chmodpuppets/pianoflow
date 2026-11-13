@@ -47,9 +47,9 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome and
   count-in are remembered across reloads.
 - **Plugin system** — extend PianoFlow with overlays and practice aids through a small,
-  error-isolated API (lifecycle events + a draw surface). Four plugins ship built in
-  (combo overlay, session stats, auto-pause on mistakes, practice HUD); toggle them in the
-  **🧩 Plugins** panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
+  error-isolated API (lifecycle events + a draw surface). Five plugins ship built in
+  (combo overlay, session stats, auto-pause on mistakes, practice HUD, tempo trainer);
+  toggle them in the **🧩 Plugins** panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
 
 ## 🚀 Quick start
 
@@ -115,7 +115,7 @@ so there is no separate per-package build step during development.
 A plugin reacts to lifecycle events (song loaded, transport, note hit / miss / wrong,
 score reset, per-frame, result) and can draw overlays through a `DrawSurface`. Each
 plugin runs in isolation — one that throws is logged and skipped, never breaking the app
-or the other plugins. Four ship built in:
+or the other plugins. Five ship built in:
 
 | Plugin | What it does | Default |
 | --- | --- | --- |
@@ -123,6 +123,7 @@ or the other plugins. Four ship built in:
 | **Session stats** | tallies hits / perfect / good / miss / wrong / max combo, logs a summary | on |
 | **Auto-pause on mistakes** | pauses after N consecutive misses / wrong notes so you can recover | off |
 | **Practice HUD** | live accuracy percentage + a song-progress bar at the top of the playfield | off |
+| **Tempo trainer** | starts a song slow and steps the speed up after consecutive clean passes, toward a target tempo | off |
 
 Toggle them in the **🧩 Plugins** panel; choices are saved with your settings. See
 **[PLUGINS.md](PLUGINS.md)** for the full API and a worked example.
@@ -148,6 +149,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M5 (partial)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws (done); WebGL renderer pending.
 - **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with bundled plugins and a toggle panel.
 - **M7 (done)** — readability & feedback: note-name labels on falling notes and a Practice HUD plugin (live accuracy + song progress).
+- **M8 (done)** — Tempo trainer plugin: gradual speed-up after consecutive clean passes (host `setSpeed` API).
 
 ## 📄 License & attribution
 
@@ -190,7 +192,7 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
-插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD 四个插件，
+插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器五个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。
 

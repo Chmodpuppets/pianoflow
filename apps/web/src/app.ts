@@ -195,6 +195,9 @@ export class PianoFlowApp {
       seek(t: number) {
         self.seek(t);
       },
+      setSpeed(s: number) {
+        self.setSpeed(s);
+      },
       log(...args: unknown[]) {
         console.log(...args);
       },

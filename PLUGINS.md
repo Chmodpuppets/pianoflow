@@ -66,6 +66,7 @@ interface PluginHost {
   play(): void;
   pause(): void;
   seek(time: number): void;
+  setSpeed(speed: number): void;   // change playback speed (0.1–4)
   log(...args: unknown[]): void;   // console-backed logging
 }
 ```
@@ -147,7 +148,7 @@ for (const p of createBuiltinPlugins()) this.plugins.register(p);
 this.plugins.register(new SpeedBadgePlugin());
 ```
 
-`createBuiltinPlugins()` returns fresh instances of the four bundled plugins. To ship a
+`createBuiltinPlugins()` returns fresh instances of the five bundled plugins. To ship a
 new built-in, add it to that factory in
 [`packages/core/src/plugins/index.ts`](packages/core/src/plugins/index.ts).
 
@@ -176,6 +177,7 @@ are saved with the user's settings and restored on startup.
 | `session-stats` | `SessionStatsPlugin` | on | tallies hits / perfect / good / miss / wrong / max combo; resets on `score-reset`; logs a summary on `result` |
 | `auto-pause` | `AutoPausePlugin` | off | pauses after N consecutive misses / wrong notes (constructor `{ threshold }`, default 3) so the player can recover |
 | `practice-hud` | `PracticeHudPlugin` | off | live accuracy percentage + a song-progress bar at the top of the playfield; accuracy appears once notes are judged |
+| `tempo-trainer` | `TempoTrainerPlugin` | off | starts slow and steps the speed up after consecutive clean passes toward a target (constructor `{ startSpeed, targetSpeed, step, passesRequired, accuracyThreshold }`); drives `host.setSpeed`, speed-ups trigger on `result` (Practice only) |
 
 ## Testing a plugin (headless)
 
@@ -186,7 +188,7 @@ import { PluginManager, type PluginHost } from '@pianoflow/core';
 
 const host: PluginHost = {
   song: null, position: 0, playing: false,
-  play() {}, pause() { this.playing = false; }, seek() {}, log() {},
+  play() {}, pause() { this.playing = false; }, seek() {}, setSpeed() {}, log() {},
 };
 const manager = new PluginManager(host);
 manager.register(new SpeedBadgePlugin());
