@@ -70,6 +70,8 @@ export class Renderer {
   private whiteGrad: CanvasGradient | null = null;
   private blackGrad: CanvasGradient | null = null;
   private hitGlowGrad: CanvasGradient | null = null;
+  private noteGradRight: CanvasGradient | null = null;
+  private noteGradLeft: CanvasGradient | null = null;
   // Strike-line pulse (0..1), triggered on a successful hit and decayed per frame.
   private hitPulse = 0;
 
@@ -121,6 +123,7 @@ export class Renderer {
     if (cssW <= 0 || cssH <= 0) {
       this.bgGrad = this.stageGrad = this.vignetteGrad = null;
       this.whiteGrad = this.blackGrad = this.hitGlowGrad = null;
+      this.noteGradRight = this.noteGradLeft = null;
       return;
     }
     const bg = ctx.createLinearGradient(0, 0, 0, cssH);
@@ -160,6 +163,19 @@ export class Renderer {
     hg.addColorStop(0.5, withAlpha(t.hitLine, 0.5));
     hg.addColorStop(1, withAlpha(t.hitLine, 0));
     this.hitGlowGrad = hg;
+
+    // Falling-note vertical gradients: dimmer at the top, full-chroma near the
+    // strike line, echoing the reference playfield's luminous blocks.
+    const nr = ctx.createLinearGradient(0, 0, 0, keyboardTop);
+    nr.addColorStop(0, withAlpha(t.rightNote, 0.62));
+    nr.addColorStop(0.75, t.rightNote);
+    nr.addColorStop(1, t.rightNote);
+    this.noteGradRight = nr;
+    const nl = ctx.createLinearGradient(0, 0, 0, keyboardTop);
+    nl.addColorStop(0, withAlpha(t.leftNote, 0.62));
+    nl.addColorStop(0.75, t.leftNote);
+    nl.addColorStop(1, t.leftNote);
+    this.noteGradLeft = nl;
   }
 
   hitTest(x: number, y: number): number | null {
@@ -221,9 +237,14 @@ export class Renderer {
         this.labelBuf.push(x, y, w, h, n.midi);
       }
     }
-    // One fill per hand instead of one per note.
-    this.fillBatch(this.rightBuf, theme.rightNote);
-    this.fillBatch(this.leftBuf, theme.leftNote);
+    // One fill per hand instead of one per note, with a soft luminous bloom.
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = withAlpha(theme.rightNote, 0.7);
+    this.fillBatch(this.rightBuf, theme.rightNote, this.noteGradRight);
+    ctx.shadowColor = withAlpha(theme.leftNote, 0.7);
+    this.fillBatch(this.leftBuf, theme.leftNote, this.noteGradLeft);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'rgba(0,0,0,0)';
     if (config.showNoteLabels) this.drawNoteLabels(theme);
 
     this.drawHitLine(theme);
@@ -385,10 +406,10 @@ export class Renderer {
     return this.noteIndex;
   }
 
-  private fillBatch(buf: number[], color: string): void {
+  private fillBatch(buf: number[], color: string, gradient?: CanvasGradient | null): void {
     if (buf.length === 0) return;
     const ctx = this.ctx;
-    ctx.fillStyle = color;
+    ctx.fillStyle = gradient ?? color;
     ctx.beginPath();
     for (let i = 0; i < buf.length; i += 5) {
       this.roundRectPath(buf[i], buf[i + 1], buf[i + 2], buf[i + 3], buf[i + 4]);

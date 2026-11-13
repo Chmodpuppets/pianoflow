@@ -11,6 +11,10 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 
 ## ✨ Features
 
+- **Three-screen experience** — an animated welcome screen with local profiles
+  (log in / create / continue as guest), a song library with live search, genre
+  filters and favorites, and a focused full-screen player; a sidebar also gives you
+  Practice, Progress and Settings views.
 - **Falling-notes renderer** — Canvas2D, 88-key keyboard, color-coded hands, HiDPI aware.
 - **Built for dense scores** — a time-bucket note index + viewport culling draws only the
   notes on screen (batched per hand), so very dense "black MIDI" files stay smooth.
@@ -55,9 +59,9 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome,
   count-in and mute are remembered across reloads.
 - **Plugin system** — extend PianoFlow with overlays and practice aids through a small,
-  error-isolated API (lifecycle events + a draw surface). Five plugins ship built in
-  (combo overlay, session stats, auto-pause on mistakes, practice HUD, tempo trainer);
-  toggle them in the **🧩 Plugins** panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
+  error-isolated API (lifecycle events + a draw surface). Six plugins ship built in
+  (combo overlay, session stats, auto-pause on mistakes, practice HUD, tempo trainer,
+  loop trainer); toggle them in the **🧩 Plugins** panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
 
 ## 🚀 Quick start
 
@@ -85,18 +89,22 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 
 | Action | Input |
 | --- | --- |
-| Play / Pause | `Space` or the ▶ button |
+| Play / Pause | `Space` or the ▶ button in the player top bar |
 | Play notes | USB MIDI keyboard, computer keys `A W S E D F T G Y H U J K O L P ;`, or click/touch the keys |
-| Seek | drag the timeline slider |
-| Speed / Hands / Mode | footer selectors |
-| Wait / Key labels / Note names / Colorblind | footer checkboxes |
-| A-B loop | **A** / **B** set the region at the current position, **Loop** toggles, **✕** clears |
-| Metronome / Count-in | footer checkbox / selector |
-| Mute / unmute | the 🔊 button in the top bar (silences piano + metronome; saved) |
-| Song library | **📚 Songs** button; click a song to load it |
-| MIDI devices | **🎛 MIDI** button; pick a device (or All) and watch the note monitor |
-| Plugins | **🧩 Plugins** button; enable / disable bundled plugins (saved) |
-| Practice history | **📈 History** button; overall stats, per-song progress trends and recent sessions |
+| Seek | drag the timeline slider under the player top bar |
+| Speed | the − / + stepper in the player top bar (or Practice view) |
+| Hands / Mode / Count-in | player ⚙ drawer, or the Practice view |
+| Wait / Key labels / Note names / Colorblind | player ⚙ drawer, or the Settings view |
+| A-B loop | player ⚙ drawer: **A** / **B** set the region, **Loop** toggles, **✕** clears |
+| Metronome | the metronome button in the player top bar (or Practice view) |
+| Mute / unmute | the 🔊 button in the player top bar (silences piano + metronome; saved) |
+| Next song | the ⏭ button in the player top bar |
+| Fullscreen | the ⛶ button in the player top bar |
+| Song library | sidebar **Songs**: search, genre chips, ♥ favorite, ▶ Play, or open a local `.mid` |
+| MIDI devices | Settings → MIDI, or player ⚙ → MIDI; pick a device (or All) and watch the note monitor |
+| Plugins | Settings → Plugins, player ⚙, or the Practice view; enable / disable (saved) |
+| Practice history | sidebar **Progress**: overall stats, per-song trends and recent sessions |
+| Profiles | welcome screen, or the sidebar footer (switch / create) |
 | Results | shown automatically at the end of a Practice run; **Retry** / **Close** |
 
 ## 🧱 Architecture
@@ -125,7 +133,7 @@ so there is no separate per-package build step during development.
 A plugin reacts to lifecycle events (song loaded, transport, note hit / miss / wrong,
 score reset, per-frame, result) and can draw overlays through a `DrawSurface`. Each
 plugin runs in isolation — one that throws is logged and skipped, never breaking the app
-or the other plugins. Five ship built in:
+or the other plugins. Six ship built in:
 
 | Plugin | What it does | Default |
 | --- | --- | --- |
@@ -134,6 +142,7 @@ or the other plugins. Five ship built in:
 | **Auto-pause on mistakes** | pauses after N consecutive misses / wrong notes so you can recover | off |
 | **Practice HUD** | live accuracy percentage + a song-progress bar at the top of the playfield | off |
 | **Tempo trainer** | starts a song slow and steps the speed up after consecutive clean passes, toward a target tempo | off |
+| **Loop trainer** | drills the A-B loop region, reports per-lap accuracy and optionally speeds up after clean laps | off |
 
 Toggle them in the **🧩 Plugins** panel; choices are saved with your settings. See
 **[PLUGINS.md](PLUGINS.md)** for the full API and a worked example.
@@ -162,6 +171,8 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M8 (done)** — Tempo trainer plugin: gradual speed-up after consecutive clean passes (host `setSpeed` API).
 - **M9 (done)** — practice session history: per-song progress trends and recent sessions, persisted locally.
 - **M10 (done)** — stage polish: layered gradient backdrop, pulsing hit line, glowing keys, a cohesive UI palette, and a master mute control.
+- **M11 (done)** — loop trainer plugin: per-lap accuracy over the A-B region with optional speed-up (host loop API).
+- **M12 (done)** — three-screen UI redesign: animated welcome + local profiles, searchable/filterable song library with favorites, and a focused full-screen player with Practice / Progress / Settings views.
 
 ## 📄 License & attribution
 
@@ -196,7 +207,8 @@ pnpm songs     # 生成内置公版 MIDI 曲目
 pnpm dev       # 启动开发服务器（http://localhost:5173）
 ```
 
-**核心功能**：Canvas2D 下落音符 + 88 键键盘（时间桶索引 + 视口裁剪 + 批量绘制，密集黑 MIDI 更流畅）；FluidR3_GM SoundFont 真实钢琴音色（采样已
+**核心功能**：三屏体验（动画欢迎页 + 本地档案登录/创建/访客；可搜索/按流派筛选/收藏的曲库；
+专注的全屏播放器，侧栏另含练习/进度/设置视图）；Canvas2D 下落音符 + 88 键键盘（时间桶索引 + 视口裁剪 + 批量绘制，密集黑 MIDI 更流畅）；FluidR3_GM SoundFont 真实钢琴音色（采样已
 本地内置、完全离线可用，缺失时回退 CDN 再回退内置合成器）；MIDI 设备映射（列出/选择输入设备、
 实时音符监视、热插拔检测）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
 两种模式；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
@@ -205,7 +217,7 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；
-插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器五个插件，
+插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。
 

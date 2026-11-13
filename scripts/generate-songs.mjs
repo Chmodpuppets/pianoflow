@@ -225,13 +225,13 @@ const londonBridgeMelody = [
 const londonBridgeRoots = [C3,C3,G2,C3,C3,C3,G2,C3];
 
 const songs = [
-  { id: 'twinkle', title: 'Twinkle Twinkle Little Star', composer: 'Traditional (Public Domain)', file: 'twinkle.mid', melody: twinkleMelody, roots: twinkleRoots },
-  { id: 'ode-to-joy', title: 'Ode to Joy', composer: 'L. van Beethoven (Public Domain)', file: 'ode-to-joy.mid', melody: odeMelody, roots: odeRoots },
-  { id: 'london-bridge', title: 'London Bridge', composer: 'Traditional (Public Domain)', file: 'london-bridge.mid', melody: londonBridgeMelody, roots: londonBridgeRoots },
-  { id: 'happy-birthday', title: 'Happy Birthday', composer: 'Traditional (Public Domain)', file: 'happy-birthday.mid', melody: happyBirthdayMelody, roots: happyBirthdayRoots, bpm: 110, timeSig: [3, 2], measureBeats: 3, pickup: 1 },
-  { id: 'minuet-in-g', title: 'Minuet in G', composer: 'C. Petzold (Public Domain)', file: 'minuet-in-g.mid', melody: minuetMelody, roots: minuetRoots, bpm: 110, timeSig: [3, 2], measureBeats: 3 },
-  { id: 'greensleeves', title: 'Greensleeves', composer: 'Traditional (Public Domain)', file: 'greensleeves.mid', melody: greensleevesMelody, roots: greensleevesRoots, bpm: 100, timeSig: [6, 3], measureBeats: 3, pickup: 0.5, bassPattern: [[0, 1.5, 66], [1.5, 1.5, 55]] },
-  { id: 'fur-elise', title: 'Für Elise', composer: 'L. van Beethoven (Public Domain)', file: 'fur-elise.mid', melody: furEliseMelody, left: furEliseLeft, bpm: 100, timeSig: [3, 3], measureBeats: 1.5, pickup: 0.5 },
+  { id: 'twinkle', title: 'Twinkle Twinkle Little Star', composer: 'Traditional (Public Domain)', genre: 'Traditional', file: 'twinkle.mid', melody: twinkleMelody, roots: twinkleRoots },
+  { id: 'ode-to-joy', title: 'Ode to Joy', composer: 'L. van Beethoven (Public Domain)', genre: 'Classical', file: 'ode-to-joy.mid', melody: odeMelody, roots: odeRoots },
+  { id: 'london-bridge', title: 'London Bridge', composer: 'Traditional (Public Domain)', genre: 'Traditional', file: 'london-bridge.mid', melody: londonBridgeMelody, roots: londonBridgeRoots },
+  { id: 'happy-birthday', title: 'Happy Birthday', composer: 'Traditional (Public Domain)', genre: 'Traditional', file: 'happy-birthday.mid', melody: happyBirthdayMelody, roots: happyBirthdayRoots, bpm: 110, timeSig: [3, 2], measureBeats: 3, pickup: 1 },
+  { id: 'minuet-in-g', title: 'Minuet in G', composer: 'C. Petzold (Public Domain)', genre: 'Classical', file: 'minuet-in-g.mid', melody: minuetMelody, roots: minuetRoots, bpm: 110, timeSig: [3, 2], measureBeats: 3 },
+  { id: 'greensleeves', title: 'Greensleeves', composer: 'Traditional (Public Domain)', genre: 'Folk', file: 'greensleeves.mid', melody: greensleevesMelody, roots: greensleevesRoots, bpm: 100, timeSig: [6, 3], measureBeats: 3, pickup: 0.5, bassPattern: [[0, 1.5, 66], [1.5, 1.5, 55]] },
+  { id: 'fur-elise', title: 'Für Elise', composer: 'L. van Beethoven (Public Domain)', genre: 'Classical', file: 'fur-elise.mid', melody: furEliseMelody, left: furEliseLeft, bpm: 100, timeSig: [3, 3], measureBeats: 1.5, pickup: 0.5 },
 ];
 
 const manifest = [];
@@ -244,7 +244,7 @@ for (const s of songs) {
   ];
   const buf = buildMidi(tracks);
   writeFileSync(join(outDir, s.file), buf);
-  manifest.push({ id: s.id, title: s.title, composer: s.composer, file: s.file });
+  manifest.push({ id: s.id, title: s.title, composer: s.composer, genre: s.genre, file: s.file });
   console.log(`wrote ${s.file} (${buf.length} bytes, ${right.length} right / ${left.length} left notes)`);
 }
 writeFileSync(join(outDir, 'songs.json'), JSON.stringify(manifest, null, 2) + '\n');

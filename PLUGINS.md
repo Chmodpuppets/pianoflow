@@ -52,6 +52,7 @@ All hooks are optional — implement only what you need.
 | `score-reset` | — | the score is cleared (new song, stop, mode change) |
 | `frame` | `position: number; playing: boolean; dt: number` | every animation frame |
 | `result` | `result: SessionResult; songId: string` | a Practice run finishes |
+| `loop` | `start: number; end: number` | the A-B loop region wraps around (one lap completed) |
 
 `Judgement` is `'perfect' | 'good' | 'miss' | 'wrong'`. `SessionResult` carries
 `total / hits / perfect / good / miss / wrong / maxCombo / accuracy / grade`.
@@ -67,6 +68,10 @@ interface PluginHost {
   pause(): void;
   seek(time: number): void;
   setSpeed(speed: number): void;   // change playback speed (0.1–4)
+  readonly loopEnabled: boolean;   // whether an A-B loop is active
+  readonly loopStart: number | null;
+  readonly loopEnd: number | null;
+  setLoopEnabled(on: boolean): void;
   log(...args: unknown[]): void;   // console-backed logging
 }
 ```
@@ -148,7 +153,7 @@ for (const p of createBuiltinPlugins()) this.plugins.register(p);
 this.plugins.register(new SpeedBadgePlugin());
 ```
 
-`createBuiltinPlugins()` returns fresh instances of the five bundled plugins. To ship a
+`createBuiltinPlugins()` returns fresh instances of the six bundled plugins. To ship a
 new built-in, add it to that factory in
 [`packages/core/src/plugins/index.ts`](packages/core/src/plugins/index.ts).
 
@@ -178,6 +183,7 @@ are saved with the user's settings and restored on startup.
 | `auto-pause` | `AutoPausePlugin` | off | pauses after N consecutive misses / wrong notes (constructor `{ threshold }`, default 3) so the player can recover |
 | `practice-hud` | `PracticeHudPlugin` | off | live accuracy percentage + a song-progress bar at the top of the playfield; accuracy appears once notes are judged |
 | `tempo-trainer` | `TempoTrainerPlugin` | off | starts slow and steps the speed up after consecutive clean passes toward a target (constructor `{ startSpeed, targetSpeed, step, passesRequired, accuracyThreshold }`); drives `host.setSpeed`, speed-ups trigger on `result` (Practice only) |
+| `loop-trainer` | `LoopTrainerPlugin` | off | drills the A-B loop region: per-lap accuracy + lap counter, optional speed-up after consecutive clean laps (constructor `{ speedUp, step, targetSpeed, cleanLapsRequired, accuracyThreshold }`); reads `host.loopStart/loopEnd`, reacts to the `loop` event |
 
 ## Testing a plugin (headless)
 
@@ -188,7 +194,8 @@ import { PluginManager, type PluginHost } from '@pianoflow/core';
 
 const host: PluginHost = {
   song: null, position: 0, playing: false,
-  play() {}, pause() { this.playing = false; }, seek() {}, setSpeed() {}, log() {},
+  loopEnabled: false, loopStart: null, loopEnd: null,
+  play() {}, pause() { this.playing = false; }, seek() {}, setSpeed() {}, setLoopEnabled() {}, log() {},
 };
 const manager = new PluginManager(host);
 manager.register(new SpeedBadgePlugin());

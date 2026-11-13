@@ -8,22 +8,154 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="app">
-      <header id="topbar">
-        <div class="brand">🎹 PianoFlow</div>
-        <select id="songSelect" title="Bundled song"></select>
-        <button id="loadBtn" title="Open a local .mid file">Open…</button>
-        <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" hidden />
-        <button id="libraryBtn" title="Song library">📚 Songs</button>
-        <button id="midiBtn" title="MIDI devices">🎛 MIDI</button>
-        <button id="pluginsBtn" title="Plugins">🧩 Plugins</button>
-        <button id="historyBtn" title="Practice history & progress">📈 History</button>
-        <div class="spacer"></div>
-        <button id="muteBtn" class="mute-btn" title="Mute / unmute all sound" aria-pressed="false" aria-label="Mute">🔊</button>
-        <span id="soundStatus" class="badge">loading…</span>
-        <span id="midiStatus" class="badge">MIDI: —</span>
-      </header>
+    <!-- ============ SCREEN 1 · WELCOME ============ -->
+    <section id="screen-welcome" class="screen">
+      <canvas id="welcomeCanvas" aria-hidden="true"></canvas>
+      <div class="welcome-scrim"></div>
+      <div class="welcome-card">
+        <div class="logo-bars" aria-hidden="true"><span></span><span></span><span></span></div>
+        <h1 class="welcome-title">PianoFlow</h1>
+        <p class="welcome-tag">Learn and play piano with falling notes</p>
+        <div class="welcome-actions">
+          <button id="loginBtn" class="btn btn-primary btn-block">👤 Log In</button>
+          <button id="createBtn" class="btn btn-ghost btn-block">Create Account</button>
+          <button id="guestBtn" class="linklike">Continue as Guest</button>
+        </div>
+        <p class="welcome-foot">Open source · GPL-3.0 · no account required</p>
+      </div>
+    </section>
 
+    <!-- ============ SCREEN 2 · LIBRARY ============ -->
+    <section id="screen-library" class="screen hidden">
+      <aside class="sidebar">
+        <div class="brand"><span class="logo-bars sm" aria-hidden="true"><span></span><span></span><span></span></span> PianoFlow</div>
+        <nav class="side-nav">
+          <button id="navSongs" class="side-item active" data-view="songs">🎵 Songs</button>
+          <button id="navPractice" class="side-item" data-view="practice">🎯 Practice</button>
+          <button id="navProgress" class="side-item" data-view="progress">📈 Progress</button>
+          <button id="navSettings" class="side-item" data-view="settings">⚙️ Settings</button>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="profile-chip"><span id="profileAvatar" class="avatar">G</span><span id="profileName" class="profile-name">Guest</span></div>
+          <button id="switchProfileBtn" class="linklike small">Switch profile</button>
+        </div>
+      </aside>
+
+      <main class="lib-main">
+        <!-- Songs view -->
+        <div id="view-songs" class="view">
+          <div class="view-head">
+            <h2>Songs</h2>
+            <div class="head-actions">
+              <button id="loadBtn" class="btn btn-ghost"> Open .mid</button>
+              <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" hidden />
+            </div>
+          </div>
+          <div class="search-row">
+            <input id="songSearch" type="search" placeholder="Search songs, artists, or composers…" autocomplete="off" />
+          </div>
+          <div id="genreChips" class="chips" role="tablist"></div>
+          <div id="songList" class="song-list"></div>
+        </div>
+
+        <!-- Practice view -->
+        <div id="view-practice" class="view hidden">
+          <div class="view-head"><h2>Practice</h2></div>
+          <p class="view-sub">Set up a focused session, then jump into the playfield.</p>
+          <div class="panel">
+            <h3>Session</h3>
+            <div class="form-grid">
+              <label>Hands
+                <select id="pHands"><option value="both">Both</option><option value="right">Right</option><option value="left">Left</option></select>
+              </label>
+              <label>Speed
+                <select id="pSpeed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+              </label>
+              <label>Count-in
+                <select id="pCountIn"><option value="0">Off</option><option value="1">1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select>
+              </label>
+              <label class="chk"><input id="pWait" type="checkbox" /> Wait for correct note</label>
+              <label class="chk"><input id="pMetro" type="checkbox" /> Metronome</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Practice aids (plugins)</h3>
+            <div id="practicePlugins" class="plugin-list"></div>
+          </div>
+          <button id="startPracticeBtn" class="btn btn-primary">▶ Start practicing</button>
+        </div>
+
+        <!-- Progress view -->
+        <div id="view-progress" class="view hidden">
+          <div class="view-head"><h2>Progress</h2></div>
+          <div id="progressSummary" class="history-summary"></div>
+          <div id="progressList" class="progress-list"></div>
+          <div class="history-foot"><button id="progressClear" class="btn btn-ghost danger">Clear history</button></div>
+        </div>
+
+        <!-- Settings view -->
+        <div id="view-settings" class="view hidden">
+          <div class="view-head"><h2>Settings</h2></div>
+          <div class="panel">
+            <h3>Display</h3>
+            <div class="form-grid">
+              <label class="chk"><input id="sLabels" type="checkbox" /> Key labels (C4…)</label>
+              <label class="chk"><input id="sNoteLabels" type="checkbox" /> Note names on falling notes</label>
+              <label class="chk"><input id="sColorblind" type="checkbox" /> Colorblind-friendly palette</label>
+              <label class="chk"><input id="sMute" type="checkbox" /> Mute all sound</label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Devices & extensions</h3>
+            <div class="row-actions">
+              <button id="openMidiBtn" class="btn btn-ghost">🎛 MIDI devices</button>
+              <button id="openPluginsBtn" class="btn btn-ghost">🧩 Plugins</button>
+            </div>
+            <p id="settingsSound" class="muted-line"></p>
+          </div>
+          <div class="panel">
+            <h3>Data</h3>
+            <div class="row-actions">
+              <button id="clearProgressBtn" class="btn btn-ghost danger">Clear best scores</button>
+              <button id="clearHistoryBtn" class="btn btn-ghost danger">Clear session history</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>About</h3>
+            <p class="muted-line">PianoFlow <span id="aboutVersion"></span> · open-source falling-notes piano practice. GPL-3.0. SoundFont: FluidR3_GM (offline). Songs: public-domain arrangements.</p>
+          </div>
+        </div>
+      </main>
+    </section>
+
+    <!-- ============ SCREEN 3 · PLAYER ============ -->
+    <section id="screen-player" class="screen hidden">
+      <header class="player-top">
+        <button id="backBtn" class="btn btn-ghost back">‹ Songs</button>
+        <div class="player-title">
+          <div id="playerTitle" class="pt-name">—</div>
+          <div id="playerComposer" class="pt-sub"></div>
+        </div>
+        <div class="player-transport">
+          <button id="playBtn" class="icon-btn big" title="Play / pause (Space)">▶</button>
+          <button id="nextBtn" class="icon-btn" title="Next song">⏭</button>
+        </div>
+        <div class="speed-stepper" title="Playback speed">
+          <button id="speedDown" class="icon-btn" title="Slower">−</button>
+          <span id="speedVal" class="speed-val">100%</span>
+          <button id="speedUp" class="icon-btn" title="Faster">+</button>
+        </div>
+        <div class="player-right">
+          <button id="metroBtn" class="icon-btn" title="Metronome" aria-pressed="false">𝅗</button>
+          <button id="muteBtn" class="icon-btn" title="Mute / unmute" aria-pressed="false">🔊</button>
+          <button id="gearBtn" class="icon-btn" title="Practice settings">⚙️</button>
+          <button id="fsBtn" class="icon-btn" title="Fullscreen">⛶</button>
+        </div>
+      </header>
+      <div class="player-progress">
+        <input id="seek" type="range" min="0" max="1000" value="0" title="Seek" />
+        <span id="time" class="time">0:00 / 0:00</span>
+      </div>
       <main id="stage">
         <canvas id="canvas"></canvas>
         <div id="hud">
@@ -31,99 +163,76 @@
           <div id="judge" class="judge"></div>
         </div>
       </main>
+    </section>
 
-      <footer id="controls">
-        <button id="playBtn" class="primary">▶ Play</button>
-        <button id="stopBtn" title="Stop and reset">■</button>
-        <input id="seek" type="range" min="0" max="1000" value="0" title="Seek" />
-        <span id="time" class="time">0:00 / 0:00</span>
-
-        <label>Mode
-          <select id="mode">
-            <option value="listen" selected>Listen</option>
-            <option value="practice">Practice</option>
-          </select>
-        </label>
-        <label>Speed
-          <select id="speed">
-            <option value="0.25">0.25×</option>
-            <option value="0.5">0.5×</option>
-            <option value="0.75">0.75×</option>
-            <option value="1" selected>1×</option>
-            <option value="1.25">1.25×</option>
-            <option value="1.5">1.5×</option>
-            <option value="2">2×</option>
-          </select>
-        </label>
-        <label>Hands
-          <select id="hands">
-            <option value="both" selected>Both</option>
-            <option value="right">Right</option>
-            <option value="left">Left</option>
-          </select>
-        </label>
-        <label class="chk"><input id="waitMode" type="checkbox" /> Wait</label>
-        <label class="chk"><input id="labels" type="checkbox" /> Key labels</label>
-        <label class="chk"><input id="noteLabels" type="checkbox" /> Note names</label>
-        <label class="chk"><input id="colorblind" type="checkbox" /> Colorblind</label>
-        <label class="chk"><input id="metronome" type="checkbox" /> Metronome</label>
-        <label>Count-in
-          <select id="countIn">
-            <option value="0" selected>Off</option>
-            <option value="1">1 beat</option>
-            <option value="2">2 beats</option>
-            <option value="4">4 beats</option>
-          </select>
-        </label>
-        <span class="loopgroup">
-          <label class="chk"><input id="loopEnabled" type="checkbox" /> Loop</label>
-          <button id="loopA" title="Set loop start (A) at the current position">A</button>
-          <button id="loopB" title="Set loop end (B) at the current position">B</button>
-          <button id="loopClear" title="Clear the loop region">✕</button>
+    <!-- ============ PLAYER SETTINGS DRAWER ============ -->
+    <div id="playerSettings" class="drawer hidden" aria-label="Practice settings">
+      <div class="drawer-head"><span>⚙️ Practice settings</span><button id="playerSettingsClose" title="Close">✕</button></div>
+      <div class="drawer-body">
+        <div class="form-grid">
+          <label>Mode
+            <select id="mode"><option value="listen">Listen</option><option value="practice">Practice</option></select>
+          </label>
+          <label>Hands
+            <select id="hands"><option value="both">Both</option><option value="right">Right</option><option value="left">Left</option></select>
+          </label>
+          <label>Count-in
+            <select id="countIn"><option value="0">Off</option><option value="1">1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select>
+          </label>
+          <label class="chk"><input id="waitMode" type="checkbox" /> Wait for correct note</label>
+          <label class="chk"><input id="labels" type="checkbox" /> Key labels</label>
+          <label class="chk"><input id="noteLabels" type="checkbox" /> Note names</label>
+          <label class="chk"><input id="colorblind" type="checkbox" /> Colorblind palette</label>
+        </div>
+        <div class="loopgroup">
+          <label class="chk"><input id="loopEnabled" type="checkbox" /> Loop region</label>
+          <div class="row-actions">
+            <button id="loopA" class="btn btn-ghost" title="Set loop start (A)">A</button>
+            <button id="loopB" class="btn btn-ghost" title="Set loop end (B)">B</button>
+            <button id="loopClear" class="btn btn-ghost" title="Clear loop">✕</button>
+          </div>
           <span id="loopReadout" class="time">A –:– · B –:–</span>
-        </span>
-      </footer>
-    </div>
-
-    <div id="library" class="drawer hidden" aria-label="Song library">
-      <div class="drawer-head">
-        <span>📚 Song library</span>
-        <button id="libraryClose" title="Close">✕</button>
+        </div>
+        <div class="row-actions">
+          <button id="psMidiBtn" class="btn btn-ghost">🎛 MIDI</button>
+          <button id="psPluginsBtn" class="btn btn-ghost">🧩 Plugins</button>
+        </div>
       </div>
-      <div id="libraryList"></div>
     </div>
 
+    <!-- ============ GLOBAL DRAWERS ============ -->
     <div id="midiPanel" class="drawer hidden" aria-label="MIDI devices">
-      <div class="drawer-head">
-        <span>🎛 MIDI devices</span>
-        <button id="midiClose" title="Close">✕</button>
+      <div class="drawer-head"><span>🎛 MIDI devices</span><button id="midiClose" title="Close">✕</button></div>
+      <div class="drawer-body">
+        <div id="midiSupport" class="midi-support"></div>
+        <div id="midiDeviceList"></div>
+        <div class="midi-monitor">Last note: <span id="midiLastNote">—</span></div>
       </div>
-      <div id="midiSupport" class="midi-support"></div>
-      <div id="midiDeviceList"></div>
-      <div class="midi-monitor">Last note: <span id="midiLastNote">—</span></div>
     </div>
 
     <div id="pluginsPanel" class="drawer hidden" aria-label="Plugins">
-      <div class="drawer-head">
-        <span>🧩 Plugins</span>
-        <button id="pluginsClose" title="Close">✕</button>
-      </div>
-      <div class="plugins-hint">Extend PianoFlow with overlays and practice aids. Toggles are saved.</div>
-      <div id="pluginsList"></div>
-    </div>
-
-    <div id="historyPanel" class="drawer hidden" aria-label="Practice history">
-      <div class="drawer-head">
-        <span>📈 Practice history</span>
-        <button id="historyClose" title="Close">✕</button>
-      </div>
-      <div id="historySummary" class="history-summary"></div>
-      <div id="historyList"></div>
-      <div class="history-foot">
-        <button id="historyClear" title="Delete all recorded sessions">Clear history</button>
+      <div class="drawer-head"><span>🧩 Plugins</span><button id="pluginsClose" title="Close">✕</button></div>
+      <div class="drawer-body">
+        <div class="plugins-hint">Extend PianoFlow with overlays and practice aids. Toggles are saved.</div>
+        <div id="pluginsList"></div>
       </div>
     </div>
 
+    <!-- ============ PROFILE MODAL ============ -->
+    <div id="profileModal" class="overlay hidden">
+      <div class="modal-card">
+        <h2 id="profileModalTitle">Create a profile</h2>
+        <p class="muted-line">Profiles are stored locally on this device — no server, no password.</p>
+        <input id="profileNameInput" type="text" placeholder="Your name" maxlength="24" autocomplete="off" />
+        <div id="profileList" class="profile-list"></div>
+        <div class="row-actions end">
+          <button id="profileCancel" class="btn btn-ghost">Cancel</button>
+          <button id="profileSave" class="btn btn-primary">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ RESULT OVERLAY ============ -->
     <div id="resultOverlay" class="overlay hidden">
       <div class="result-card">
         <div id="resultGrade" class="result-grade">S</div>
@@ -131,8 +240,8 @@
         <div id="resultBest" class="result-best"></div>
         <div id="resultStats" class="result-stats"></div>
         <div class="result-actions">
-          <button id="resultRetry" class="primary">↻ Retry</button>
-          <button id="resultClose">Close</button>
+          <button id="resultRetry" class="btn btn-primary">↻ Retry</button>
+          <button id="resultClose" class="btn btn-ghost">Close</button>
         </div>
       </div>
     </div>
