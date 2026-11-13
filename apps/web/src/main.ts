@@ -2,6 +2,7 @@ import { PianoFlowApp } from './app';
 import type { AppSettings, Hands, Mode } from './app';
 import { ProgressStore, SettingsStore, HistoryStore } from './storage';
 import { startWelcome } from './welcome';
+import { SheetRenderer } from '@pianoflow/render';
 import {
   parseMidi,
   noteName,
@@ -143,6 +144,11 @@ const metroBtn = $<HTMLButtonElement>('metroBtn');
 const muteBtn = $<HTMLButtonElement>('muteBtn');
 const gearBtn = $<HTMLButtonElement>('gearBtn');
 const fsBtn = $<HTMLButtonElement>('fsBtn');
+const sheetBtn = $<HTMLButtonElement>('sheetBtn');
+const sheetPanel = $<HTMLElement>('sheetPanel');
+const sheetCanvas = $<HTMLCanvasElement>('sheetCanvas');
+const sheetClose = $<HTMLButtonElement>('sheetClose');
+const sheet = new SheetRenderer(sheetCanvas);
 const seek = $<HTMLInputElement>('seek');
 const timeEl = $<HTMLElement>('time');
 const scoreEl = $<HTMLElement>('score');
@@ -620,6 +626,7 @@ function closeAllDrawers(): void {
   playerSettings.classList.add('hidden');
   midiPanel.classList.add('hidden');
   pluginsPanel.classList.add('hidden');
+  closeSheet();
 }
 function openDrawer(el: HTMLElement): void {
   closeAllDrawers();
@@ -635,6 +642,29 @@ midiClose.addEventListener('click', () => midiPanel.classList.add('hidden'));
 openPluginsBtn.addEventListener('click', () => openDrawer(pluginsPanel));
 psPluginsBtn.addEventListener('click', () => openDrawer(pluginsPanel));
 pluginsClose.addEventListener('click', () => pluginsPanel.classList.add('hidden'));
+
+// ---------- sheet music ----------
+function resizeSheet(): void {
+  const r = sheetCanvas.getBoundingClientRect();
+  if (r.width > 0 && r.height > 0) sheet.resize(r.width, r.height);
+}
+function openSheet(): void {
+  sheetPanel.classList.remove('hidden');
+  sheetBtn.setAttribute('aria-pressed', 'true');
+  sheetBtn.classList.add('active');
+  resizeSheet();
+}
+function closeSheet(): void {
+  sheetPanel.classList.add('hidden');
+  sheetBtn.setAttribute('aria-pressed', 'false');
+  sheetBtn.classList.remove('active');
+}
+function toggleSheet(): void {
+  if (sheetPanel.classList.contains('hidden')) openSheet();
+  else closeSheet();
+}
+sheetBtn.addEventListener('click', toggleSheet);
+sheetClose.addEventListener('click', closeSheet);
 
 // ---------- control sync ----------
 function syncControls(): void {
@@ -704,6 +734,7 @@ app.onState = refresh;
 function doResize(): void {
   const r = stage.getBoundingClientRect();
   app.resize(r.width, r.height);
+  if (!sheetPanel.classList.contains('hidden')) resizeSheet();
 }
 window.addEventListener('resize', () => { if (currentScreen === 'player') doResize(); });
 
@@ -811,12 +842,13 @@ window.addEventListener('keydown', (e) => {
     if (!pauseOverlay.classList.contains('hidden')) { hidePause(); void app.play(); }
     else if (!resultOverlay.classList.contains('hidden')) resultOverlay.classList.add('hidden');
     else if (!profileModal.classList.contains('hidden')) closeProfileModal();
+    else if (!sheetPanel.classList.contains('hidden')) closeSheet();
     else closeAllDrawers();
   }
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.20.0';
+aboutVersion.textContent = 'v0.21.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {
@@ -851,6 +883,10 @@ function loop(): void {
   if (currentScreen === 'player') {
     app.frame();
     refresh();
+    if (!sheetPanel.classList.contains('hidden')) {
+      const layout = app.getSheetLayout();
+      if (layout) sheet.render({ layout, position: app.getState().position });
+    }
   }
   requestAnimationFrame(loop);
 }

@@ -26,6 +26,8 @@ import {
   isInstrument,
   DEFAULT_INSTRUMENT,
   instrumentFile,
+  buildSheet,
+  type SheetLayout,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -138,6 +140,8 @@ export class PianoFlowApp {
   private song: MidiSong | null = null;
   private rawNotes: MidiNote[] = [];
   private notes: MidiNote[] = [];
+  private sheetCache: SheetLayout | null = null;
+  private sheetCacheNotes: MidiNote[] | null = null;
   private active: MidiNote[] = [];
   private judged: boolean[] = [];
   private missPtr = 0;
@@ -704,6 +708,16 @@ export class PianoFlowApp {
       stats: this.song ? songStats(this.song) : null,
       difficulty: this.song ? estimateDifficulty(this.song) : null,
     };
+  }
+
+  /** Grand-staff layout for the current song (transposed + hand-assigned), cached by note array. */
+  getSheetLayout(): SheetLayout | null {
+    if (!this.song) return null;
+    if (this.sheetCacheNotes !== this.notes) {
+      this.sheetCache = buildSheet({ ...this.song, notes: this.notes }, this.splitMidi);
+      this.sheetCacheNotes = this.notes;
+    }
+    return this.sheetCache;
   }
 
   // ---------- performance recording ----------

@@ -182,6 +182,7 @@
           <button id="metroBtn" class="icon-btn" title="Metronome" aria-pressed="false">𝅗</button>
           <button id="muteBtn" class="icon-btn" title="Mute / unmute" aria-pressed="false">🔊</button>
           <button id="exportBtn" class="icon-btn" title="Export recording as .mid" disabled>⤓</button>
+          <button id="sheetBtn" class="icon-btn" title="Sheet music" aria-pressed="false">🎼</button>
           <button id="gearBtn" class="icon-btn" title="Practice settings">⚙️</button>
           <button id="fsBtn" class="icon-btn" title="Fullscreen">⛶</button>
         </div>
@@ -201,6 +202,14 @@
           <span class="lg left">Left</span>
         </div>
       </main>
+      <div id="sheetPanel" class="sheet-panel hidden" role="dialog" aria-label="Sheet music">
+        <div class="sheet-head">
+          <span class="sheet-title">🎼 Sheet music</span>
+          <span class="sheet-hint">Treble = right hand · Bass = left hand</span>
+          <button id="sheetClose" class="icon-btn" title="Close sheet music">✕</button>
+        </div>
+        <canvas id="sheetCanvas"></canvas>
+      </div>
     </section>
 
     <!-- ============ PAUSE OVERLAY ============ -->
