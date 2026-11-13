@@ -9,6 +9,7 @@ export * from './transport';
 export * from './meter';
 export * from './progress';
 export * from './history';
+export * from './insights';
 export * from './noteindex';
 export * from './adjust';
 export * from './instruments';

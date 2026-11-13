@@ -13,8 +13,11 @@ import {
   summarizeHistory,
   practicedSongIds,
   INSTRUMENTS,
+  computeStreaks,
+  recentActivity,
+  computeAchievements,
 } from '@pianoflow/core';
-import type { SessionResult, SongStats, Difficulty } from '@pianoflow/core';
+import type { SessionResult, SongStats, Difficulty, SessionEntry } from '@pianoflow/core';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -104,6 +107,9 @@ const startPracticeBtn = $<HTMLButtonElement>('startPracticeBtn');
 
 const progressSummary = $<HTMLElement>('progressSummary');
 const progressList = $<HTMLElement>('progressList');
+const streakStats = $<HTMLElement>('streakStats');
+const activityBars = $<HTMLElement>('activityBars');
+const achievementGrid = $<HTMLElement>('achievementGrid');
 const progressClear = $<HTMLButtonElement>('progressClear');
 
 const sLabels = $<HTMLInputElement>('sLabels');
@@ -477,6 +483,44 @@ function trendBadge(improvement: number): string {
   if (pct < 0) return `<span class="trend-down">▼ ${pct}%</span>`;
   return '<span class="trend-flat">— 0%</span>';
 }
+function renderInsights(log: SessionEntry[]): void {
+  const now = Date.now();
+  const streaks = computeStreaks(log, now);
+  streakStats.innerHTML = `
+    <div class="streak"><div class="streak-val">🔥 ${streaks.current}</div><div class="streak-label">Current streak</div></div>
+    <div class="streak"><div class="streak-val">🏆 ${streaks.longest}</div><div class="streak-label">Longest streak</div></div>
+    <div class="streak"><div class="streak-val">📆 ${streaks.activeDays}</div><div class="streak-label">Active days</div></div>`;
+
+  const act = recentActivity(log, now, 7);
+  const max = Math.max(1, ...act.map((a) => a.count));
+  activityBars.innerHTML = '';
+  for (const a of act) {
+    const col = document.createElement('div');
+    col.className = 'activity-col' + (a.isToday ? ' today' : '');
+    col.title = `${a.key}: ${a.count} session${a.count === 1 ? '' : 's'}`;
+    const h = Math.round((a.count / max) * 100);
+    col.innerHTML = `<div class="activity-bar" style="height:${Math.max(a.count ? 8 : 2, h)}%"></div><div class="activity-label">${a.label}</div>`;
+    activityBars.appendChild(col);
+  }
+
+  const achievements = computeAchievements(log, now);
+  achievementGrid.innerHTML = '';
+  for (const a of achievements) {
+    const card = document.createElement('div');
+    card.className = 'achievement' + (a.earned ? ' earned' : '');
+    const pct = Math.round((a.value / a.target) * 100);
+    card.innerHTML = `
+      <div class="achievement-icon">${a.icon}</div>
+      <div class="achievement-main">
+        <div class="achievement-title">${a.title}</div>
+        <div class="achievement-desc">${a.desc}</div>
+        <div class="achievement-track"><div class="achievement-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="achievement-state">${a.earned ? '✓' : `${a.value}/${a.target}`}</div>`;
+    achievementGrid.appendChild(card);
+  }
+}
+
 function buildHistory(): void {
   const log = history.getAll();
   const sum = summarizeHistory(log);
@@ -485,6 +529,7 @@ function buildHistory(): void {
     <div class="stat"><div class="stat-val">${sum.songsPracticed}</div><div class="stat-label">Songs practiced</div></div>
     <div class="stat"><div class="stat-val">${Math.round(sum.averageAccuracy * 100)}%</div><div class="stat-label">Avg accuracy</div></div>
     <div class="stat"><div class="stat-val">${Math.round(sum.bestAccuracy * 100)}%</div><div class="stat-label">Best accuracy</div></div>`;
+  renderInsights(log);
   progressList.innerHTML = '';
   if (!log.length) {
     progressList.innerHTML = '<div class="empty-note">No sessions yet. Play a song in Practice mode to start tracking progress.</div>';
@@ -771,7 +816,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.19.0';
+aboutVersion.textContent = 'v0.20.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {
