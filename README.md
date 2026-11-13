@@ -54,6 +54,10 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   *London Bridge*, *Happy Birthday*, *Minuet in G*, *Greensleeves*, and *Für Elise*.
 - **Song library** — browse bundled tracks with composer, duration, note count and a
   ★ difficulty estimate; your best grade / accuracy is shown per song.
+- **Bring your own MIDI** — open any local `.mid` from the Songs view (📂 Open .mid) to
+  practice it immediately, or drop files into `apps/web/public/songs/` and list them in
+  `songs/user.json` to add them permanently (survives `pnpm songs` regeneration).
+  Single-track (format 0) files are auto-split into hands by pitch.
 - **Progress persistence** — best accuracy / grade / combo and play count are saved
   locally (localStorage), per song, and survive reloads.
 - **Practice history & trends** — every completed Practice run is logged locally; the

@@ -61,3 +61,28 @@ describe('bundled songs', () => {
     expect(Math.abs(end(0) - end(1))).toBeLessThan(0.1);
   });
 });
+
+describe('imported user songs (format 0)', () => {
+  it('user manifest lists the imported La La Land file', () => {
+    const user = JSON.parse(readFileSync(songsDir + 'user.json', 'utf8')) as { id: string; file: string }[];
+    expect(user.some((s) => s.id === 'la-la-land' && s.file === 'la-la-land.mid')).toBe(true);
+  });
+
+  it('parses a single-track format-0 MIDI and splits hands by pitch', () => {
+    const song = load('la-la-land.mid');
+    expect(song.format).toBe(0);
+    expect(song.ppq).toBe(384);
+    expect(song.tracks.length).toBe(1);
+    expect(song.notes.length).toBeGreaterThan(0);
+    expect(song.duration).toBeGreaterThan(0);
+    assignHands(song.notes);
+    const hands = new Set(song.notes.map((n) => n.hand));
+    expect(hands.has('right')).toBe(true);
+    expect(hands.has('left')).toBe(true);
+    for (const n of song.notes) {
+      expect(n.midi).toBeGreaterThanOrEqual(21);
+      expect(n.midi).toBeLessThanOrEqual(108);
+      expect(n.duration).toBeGreaterThan(0);
+    }
+  });
+});
