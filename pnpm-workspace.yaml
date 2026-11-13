@@ -1,0 +1,10 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+# Allow esbuild's platform-binary postinstall (required by Vite).
+onlyBuiltDependencies:
+  - esbuild
+
+# We install dependencies explicitly; skip the slow pre-run verification install.
+verifyDepsBeforeRun: false

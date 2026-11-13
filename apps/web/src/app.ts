@@ -1,0 +1,434 @@
+import {
+  parseMidi,
+  assignHands,
+  ScoreKeeper,
+  judgeHit,
+  summarize,
+  songStats,
+  estimateDifficulty,
+  type MidiSong,
+  type MidiNote,
+  type SessionResult,
+  type Difficulty,
+  type SongStats,
+} from '@pianoflow/core';
+import { AudioEngine } from '@pianoflow/audio';
+import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
+import {
+  WebMidiInput,
+  ComputerKeyboardInput,
+  PointerInput,
+  type NoteHandlers,
+} from '@pianoflow/input';
+
+export type Mode = 'listen' | 'practice';
+export type Hands = 'both' | 'right' | 'left';
+
+export interface AppState {
+  songName: string;
+  songId: string;
+  mode: Mode;
+  hands: Hands;
+  waitMode: boolean;
+  playing: boolean;
+  position: number;
+  duration: number;
+  speed: number;
+  score: ScoreKeeper;
+  usingSoundfont: boolean;
+  midiSupported: boolean;
+  midiConnected: boolean;
+  lastJudge: string;
+  metronome: boolean;
+  countIn: number;
+  loopEnabled: boolean;
+  loopStart: number | null;
+  loopEnd: number | null;
+}
+
+const GOOD_WINDOW = 0.15;
+const CHORD_EPSILON = 0.03;
+
+function slugify(name: string): string {
+  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s || 'local';
+}
+
+/**
+ * Framework-agnostic controller: owns audio, rendering, input and scoring.
+ * The DOM layer (main.ts) wires controls to these methods and calls frame()
+ * once per requestAnimationFrame.
+ */
+export class PianoFlowApp {
+  readonly engine: AudioEngine;
+  readonly renderer: Renderer;
+  readonly score = new ScoreKeeper();
+
+  private song: MidiSong | null = null;
+  private notes: MidiNote[] = [];
+  private active: MidiNote[] = [];
+  private judged: boolean[] = [];
+  private missPtr = 0;
+  private pressed = new Set<number>();
+
+  private mode: Mode = 'listen';
+  private hands: Hands = 'both';
+  private waitMode = false;
+  private waiting = false;
+  private waitIndex = -1;
+  private waitEnd = -1;
+  private lastJudge = '';
+
+  private loopA: number | null = null;
+  private loopB: number | null = null;
+
+  private songId = '';
+  private songTitle = '';
+  private resultEmitted = false;
+
+  private webmidi: WebMidiInput;
+  private kb: ComputerKeyboardInput;
+  private pointer: PointerInput;
+  private midiConnected = false;
+
+  onState?: () => void;
+  onResult?: (result: SessionResult, songId: string) => void;
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.engine = new AudioEngine();
+    this.renderer = new Renderer(canvas);
+    const handlers: NoteHandlers = {
+      onNoteOn: (m, v) => this.handleNoteOn(m, v),
+      onNoteOff: (m) => this.handleNoteOff(m),
+    };
+    this.webmidi = new WebMidiInput(handlers);
+    this.kb = new ComputerKeyboardInput(handlers);
+    this.pointer = new PointerInput(canvas, handlers, (x, y) => this.renderer.hitTest(x, y));
+    this.engine.onEnded = () => {
+      this.onState?.();
+      this.finishIfPractice();
+    };
+    this.engine.onLoop = () => this.resetJudgingFrom(this.engine.loopStart ?? 0);
+  }
+
+  async init(): Promise<void> {
+    this.kb.attach();
+    this.pointer.attach();
+    if (this.webmidi.supported) {
+      this.midiConnected = await this.webmidi.init();
+    }
+    await this.engine.ready;
+    this.onState?.();
+  }
+
+  resize(w: number, h: number): void {
+    this.renderer.resize(w, h);
+  }
+
+  async loadBuffer(buf: ArrayBuffer, name: string, id?: string): Promise<void> {
+    const song = parseMidi(buf);
+    assignHands(song.notes);
+    this.song = song;
+    this.notes = song.notes;
+    this.songTitle = name;
+    this.songId = id ?? slugify(name);
+    this.engine.setMeter({
+      ppq: song.ppq,
+      tempos: song.tempos,
+      timeSignatures: song.timeSignatures,
+      durationTicks: song.durationTicks,
+    });
+    this.clearLoop();
+    this.applyConfig();
+  }
+
+  setMode(m: Mode): void {
+    this.mode = m;
+    this.applyConfig();
+  }
+  setHands(h: Hands): void {
+    this.hands = h;
+    this.applyConfig();
+  }
+  setWaitMode(w: boolean): void {
+    this.waitMode = w;
+    if (!w) this.resumeFromWait();
+  }
+  setSpeed(s: number): void {
+    this.engine.setSpeed(s);
+    this.onState?.();
+  }
+  setLabels(b: boolean): void {
+    this.renderer.setConfig({ showLabels: b });
+  }
+  setColorblind(b: boolean): void {
+    this.renderer.setConfig({ theme: b ? colorblindTheme : defaultTheme });
+  }
+  setMetronome(b: boolean): void {
+    this.engine.setMetronome(b);
+    this.onState?.();
+  }
+  setCountIn(n: number): void {
+    this.engine.setCountIn(n);
+    this.onState?.();
+  }
+
+  /** Capture the current position as loop point A. */
+  markLoopStart(): void {
+    this.loopA = Math.max(0, this.engine.position);
+    this.applyLoop();
+  }
+  /** Capture the current position as loop point B. */
+  markLoopEnd(): void {
+    this.loopB = Math.max(0, this.engine.position);
+    this.applyLoop();
+  }
+  private applyLoop(): void {
+    if (this.loopA != null && this.loopB != null && this.loopB > this.loopA) {
+      this.engine.setLoop(this.loopA, this.loopB);
+    }
+    this.onState?.();
+  }
+  setLoopEnabled(b: boolean): void {
+    this.engine.setLoopEnabled(b);
+    this.onState?.();
+  }
+  clearLoop(): void {
+    this.loopA = null;
+    this.loopB = null;
+    this.engine.clearLoop();
+    this.onState?.();
+  }
+
+  private applyConfig(): void {
+    if (!this.song) return;
+    this.resultEmitted = false;
+    this.active =
+      this.hands === 'both' ? this.notes : this.notes.filter((n) => n.hand === this.hands);
+    this.judged = new Array(this.active.length).fill(false);
+    this.missPtr = 0;
+    this.waiting = false;
+    this.waitIndex = -1;
+    this.waitEnd = -1;
+    this.lastJudge = '';
+    this.score.reset();
+    this.engine.stop();
+    // In practice mode the engine advances the clock silently; the player
+    // produces the sound by hitting keys. In listen mode it auto-plays.
+    this.engine.load(this.mode === 'practice' ? [] : this.active, this.song.duration);
+    this.onState?.();
+  }
+
+  async play(): Promise<void> {
+    if (!this.song) return;
+    if (this.engine.position >= this.song.duration - 0.05) this.seek(0);
+    this.resultEmitted = false;
+    await this.engine.play();
+    this.onState?.();
+  }
+  pause(): void {
+    this.engine.pause();
+    this.onState?.();
+  }
+  async toggle(): Promise<void> {
+    if (this.engine.playing) this.pause();
+    else await this.play();
+  }
+  stop(): void {
+    this.engine.stop();
+    this.resultEmitted = false;
+    this.score.reset();
+    this.judged.fill(false);
+    this.missPtr = 0;
+    this.waiting = false;
+    this.waitIndex = -1;
+    this.waitEnd = -1;
+    this.lastJudge = '';
+    this.onState?.();
+  }
+  seek(t: number): void {
+    this.engine.seek(t);
+    this.resetJudgingFrom(t);
+    this.onState?.();
+  }
+
+  /** Mark notes before `t` as judged so they are not counted as missed. */
+  private resetJudgingFrom(t: number): void {
+    this.judged.fill(false);
+    this.missPtr = 0;
+    while (this.missPtr < this.active.length && this.active[this.missPtr].time < t - GOOD_WINDOW) {
+      this.judged[this.missPtr] = true;
+      this.missPtr++;
+    }
+    this.waiting = false;
+    this.waitIndex = -1;
+    this.waitEnd = -1;
+  }
+
+  /** Called once per animation frame. */
+  frame(): void {
+    if (!this.song) {
+      this.renderer.render({ position: 0, notes: [], pressed: this.pressed });
+      return;
+    }
+    const pos = this.engine.position;
+    if (this.mode === 'practice' && this.engine.playing) {
+      this.detectMisses(pos);
+      if (this.waitMode) this.maybeWait(pos);
+    }
+    this.renderer.render({
+      position: pos,
+      notes: this.active,
+      pressed: this.pressed,
+      loop: {
+        enabled: this.engine.loopEnabled,
+        start: this.engine.loopStart ?? 0,
+        end: this.engine.loopEnd ?? 0,
+      },
+    });
+  }
+
+  private detectMisses(pos: number): void {
+    while (this.missPtr < this.active.length && this.active[this.missPtr].time < pos - GOOD_WINDOW) {
+      const i = this.missPtr++;
+      if (!this.judged[i]) {
+        this.judged[i] = true;
+        this.score.registerMiss();
+        this.lastJudge = 'miss';
+      }
+    }
+  }
+
+  /** Exclusive end index of the chord containing note `i` (active is time-sorted). */
+  private chordEnd(i: number): number {
+    const t0 = this.active[i].time;
+    let j = i;
+    while (j < this.active.length && this.active[j].time - t0 <= CHORD_EPSILON) j++;
+    return j;
+  }
+
+  private maybeWait(pos: number): void {
+    if (this.waiting) return;
+    let i = this.missPtr;
+    while (i < this.active.length && this.judged[i]) i++;
+    if (i >= this.active.length) return;
+    if (pos >= this.active[i].time - 0.02) {
+      this.waiting = true;
+      this.waitIndex = i;
+      this.waitEnd = this.chordEnd(i);
+      this.engine.pause();
+      this.onState?.();
+    }
+  }
+
+  private resumeFromWait(): void {
+    if (!this.waiting) return;
+    this.waiting = false;
+    this.waitIndex = -1;
+    this.waitEnd = -1;
+    void this.engine.play();
+  }
+
+  private findHit(midi: number, pos: number): number {
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 0; i < this.active.length; i++) {
+      const n = this.active[i];
+      if (n.midi !== midi || this.judged[i]) continue;
+      const d = Math.abs(n.time - pos);
+      if (d <= GOOD_WINDOW && d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  private handleNoteOn(midi: number, velocity: number): void {
+    this.pressed.add(midi);
+    this.engine.noteOn(midi, velocity);
+    if (this.mode === 'practice' && this.song) {
+      const pos = this.engine.position;
+      const idx = this.findHit(midi, pos);
+      if (idx >= 0) {
+        const grade = judgeHit(this.active[idx].time, pos) ?? 'good';
+        this.judged[idx] = true;
+        this.score.registerHit(grade);
+        this.lastJudge = grade;
+        // Chord-aware wait: resume only once every note of the chord is hit.
+        if (this.waiting && idx >= this.waitIndex && idx < this.waitEnd) {
+          let all = true;
+          for (let k = this.waitIndex; k < this.waitEnd; k++) {
+            if (!this.judged[k]) {
+              all = false;
+              break;
+            }
+          }
+          if (all) this.resumeFromWait();
+        }
+      } else {
+        this.score.registerWrong();
+        this.lastJudge = 'wrong';
+      }
+    }
+    this.onState?.();
+  }
+
+  private handleNoteOff(midi: number): void {
+    this.pressed.delete(midi);
+    this.engine.noteOff(midi);
+    this.onState?.();
+  }
+
+  private finishIfPractice(): void {
+    if (this.mode !== 'practice' || !this.song || this.resultEmitted) return;
+    if (this.score.total === 0) return;
+    this.resultEmitted = true;
+    this.onResult?.(summarize(this.score), this.songId);
+  }
+
+  currentSongInfo(): {
+    id: string;
+    title: string;
+    stats: SongStats | null;
+    difficulty: Difficulty | null;
+  } {
+    return {
+      id: this.songId,
+      title: this.songTitle,
+      stats: this.song ? songStats(this.song) : null,
+      difficulty: this.song ? estimateDifficulty(this.song) : null,
+    };
+  }
+
+  getState(): AppState {
+    return {
+      songName: this.song?.name ?? '—',
+      songId: this.songId,
+      mode: this.mode,
+      hands: this.hands,
+      waitMode: this.waitMode,
+      playing: this.engine.playing,
+      position: this.engine.position,
+      duration: this.song?.duration ?? 0,
+      speed: this.engine.speed,
+      score: this.score,
+      usingSoundfont: this.engine.usingSoundfont,
+      midiSupported: this.webmidi.supported,
+      midiConnected: this.midiConnected,
+      lastJudge: this.lastJudge,
+      metronome: this.engine.metronome,
+      countIn: this.engine.countIn,
+      loopEnabled: this.engine.loopEnabled,
+      loopStart: this.engine.loopStart,
+      loopEnd: this.engine.loopEnd,
+    };
+  }
+
+  dispose(): void {
+    this.kb.detach();
+    this.pointer.detach();
+    this.webmidi.dispose();
+    this.engine.dispose();
+  }
+}
