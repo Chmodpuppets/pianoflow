@@ -20,6 +20,7 @@ export type PluginEvent =
   | { type: 'note-miss'; note: MidiNote }
   | { type: 'note-wrong'; midi: number }
   | { type: 'score-reset' }
+  | { type: 'loop'; start: number; end: number }
   | { type: 'frame'; position: number; playing: boolean; dt: number }
   | { type: 'result'; result: SessionResult; songId: string };
 
@@ -58,6 +59,13 @@ export interface PluginHost {
   pause(): void;
   seek(time: number): void;
   setSpeed(speed: number): void;
+  /** Whether an A-B loop region is currently enabled. */
+  readonly loopEnabled: boolean;
+  /** Loop region start in seconds, or null when no region is set. */
+  readonly loopStart: number | null;
+  /** Loop region end in seconds, or null when no region is set. */
+  readonly loopEnd: number | null;
+  setLoopEnabled(on: boolean): void;
   log(...args: unknown[]): void;
 }
 

@@ -6,6 +6,7 @@ import {
   ComboOverlayPlugin,
   PracticeHudPlugin,
   TempoTrainerPlugin,
+  LoopTrainerPlugin,
   createBuiltinPlugins,
   type Plugin,
   type PluginEvent,
@@ -23,11 +24,26 @@ function frame(dt: number, width = 800, height = 600): FrameInfo {
 }
 
 function makeHost() {
-  const calls = { play: 0, pause: 0, seek: [] as number[], speeds: [] as number[], logs: [] as unknown[][] };
-  const host: PluginHost & { playing: boolean } = {
+  const calls = {
+    play: 0,
+    pause: 0,
+    seek: [] as number[],
+    speeds: [] as number[],
+    loopEnabled: [] as boolean[],
+    logs: [] as unknown[][],
+  };
+  const host: PluginHost & {
+    playing: boolean;
+    loopEnabled: boolean;
+    loopStart: number | null;
+    loopEnd: number | null;
+  } = {
     song: null,
     position: 0,
     playing: true,
+    loopEnabled: false,
+    loopStart: null,
+    loopEnd: null,
     play() {
       calls.play++;
     },
@@ -40,6 +56,10 @@ function makeHost() {
     },
     setSpeed(s: number) {
       calls.speeds.push(s);
+    },
+    setLoopEnabled(on: boolean) {
+      host.loopEnabled = on;
+      calls.loopEnabled.push(on);
     },
     log(...args: unknown[]) {
       calls.logs.push(args);
@@ -499,22 +519,198 @@ describe('TempoTrainerPlugin', () => {
   });
 });
 
+describe('LoopTrainerPlugin', () => {
+  function hostWithRegion(start = 2, end = 6) {
+    const { host, calls } = makeHost();
+    host.song = { duration: 10 } as unknown as MidiSong;
+    host.loopStart = start;
+    host.loopEnd = end;
+    host.loopEnabled = true;
+    return { host, calls };
+  }
+  const load = (p: LoopTrainerPlugin, host: PluginHost) =>
+    p.onEvent({ type: 'song-loaded', song: host.song as MidiSong });
+  const hit = (time: number): PluginEvent => ({ type: 'note-hit', note: note(60, time), judgement: 'perfect', combo: 1 });
+  const miss = (time: number): PluginEvent => ({ type: 'note-miss', note: note(60, time) });
+  const lap = (start = 2, end = 6): PluginEvent => ({ type: 'loop', start, end });
+
+  it('is disabled by default', () => {
+    expect(new LoopTrainerPlugin().defaultEnabled).toBe(false);
+  });
+
+  it('counts laps and reports per-lap accuracy from in-region notes', () => {
+    const { host } = hostWithRegion(2, 6);
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent(hit(3));
+    p.onEvent(hit(4));
+    p.onEvent(hit(5));
+    p.onEvent(miss(5.5));
+    p.onEvent(lap());
+    expect(p.lapCount).toBe(1);
+    expect(p.lastLoopAccuracy).toBeCloseTo(0.75);
+    p.onEvent(hit(2));
+    p.onEvent(hit(3));
+    p.onEvent(hit(4));
+    p.onEvent(hit(5));
+    p.onEvent(lap());
+    expect(p.lapCount).toBe(2);
+    expect(p.lastLoopAccuracy).toBe(1);
+  });
+
+  it('ignores notes outside the loop region', () => {
+    const { host } = hostWithRegion(2, 6);
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent(hit(1)); // before region
+    p.onEvent(hit(7)); // after region
+    p.onEvent(hit(3)); // inside
+    p.onEvent(lap());
+    expect(p.lastLoopAccuracy).toBe(1); // only the in-region hit counted (1/1)
+  });
+
+  it('reports null accuracy when nothing was judged in a lap', () => {
+    const { host } = hostWithRegion();
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent(lap());
+    expect(p.lapCount).toBe(1);
+    expect(p.lastLoopAccuracy).toBeNull();
+  });
+
+  it('builds a clean-lap streak and resets it on a dirty lap', () => {
+    const { host } = hostWithRegion();
+    const p = new LoopTrainerPlugin({ accuracyThreshold: 0.9 });
+    p.setup(host);
+    load(p, host);
+    const cleanLap = () => {
+      p.onEvent(hit(3));
+      p.onEvent(hit(4));
+      p.onEvent(lap());
+    };
+    cleanLap();
+    expect(p.streak).toBe(1);
+    cleanLap();
+    expect(p.streak).toBe(2);
+    p.onEvent(hit(3));
+    p.onEvent(miss(4));
+    p.onEvent(lap()); // 0.5 -> dirty
+    expect(p.streak).toBe(0);
+  });
+
+  it('does not speed up by default', () => {
+    const { host, calls } = hostWithRegion();
+    const p = new LoopTrainerPlugin({ cleanLapsRequired: 1 });
+    p.setup(host);
+    load(p, host);
+    p.onEvent(hit(3));
+    p.onEvent(lap());
+    expect(calls.speeds).toHaveLength(0);
+  });
+
+  it('speeds up after the required clean laps when speedUp is on', () => {
+    const { host, calls } = hostWithRegion();
+    const p = new LoopTrainerPlugin({ speedUp: true, step: 0.1, targetSpeed: 1.0, cleanLapsRequired: 2 });
+    p.setup(host);
+    load(p, host);
+    p.onEvent({ type: 'transport', playing: true, position: 0, speed: 0.5 });
+    const cleanLap = () => {
+      p.onEvent(hit(3));
+      p.onEvent(hit(4));
+      p.onEvent(lap());
+    };
+    cleanLap();
+    expect(p.currentSpeed).toBe(0.5);
+    expect(p.streak).toBe(1);
+    cleanLap();
+    expect(p.currentSpeed).toBe(0.6);
+    expect(p.streak).toBe(0);
+    expect(calls.speeds).toContain(0.6);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts.some((t) => t.text.startsWith('Speed up!'))).toBe(true);
+  });
+
+  it('clamps the speed at the target', () => {
+    const { host } = hostWithRegion();
+    const p = new LoopTrainerPlugin({ speedUp: true, step: 0.5, targetSpeed: 1.0, cleanLapsRequired: 1 });
+    p.setup(host);
+    load(p, host);
+    p.onEvent({ type: 'transport', playing: true, position: 0, speed: 0.8 });
+    p.onEvent(hit(3));
+    p.onEvent(lap()); // 0.8 + 0.5 -> clamped to 1.0
+    expect(p.currentSpeed).toBe(1.0);
+  });
+
+  it('draws a loop badge when a region is set', () => {
+    const { host } = hostWithRegion();
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent(hit(3));
+    p.onEvent(lap());
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts.some((t) => t.text.startsWith('Loop 1'))).toBe(true);
+  });
+
+  it('draws nothing without a loop region', () => {
+    const { host } = makeHost();
+    host.song = { duration: 10 } as unknown as MidiSong;
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts).toHaveLength(0);
+  });
+
+  it('draws nothing before a song is loaded', () => {
+    const { host } = makeHost();
+    host.loopStart = 2;
+    host.loopEnd = 6;
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, frame(0.016));
+    expect(texts).toHaveLength(0);
+  });
+
+  it('clears the streak and per-lap counters on score-reset but keeps laps', () => {
+    const { host } = hostWithRegion();
+    const p = new LoopTrainerPlugin();
+    p.setup(host);
+    load(p, host);
+    p.onEvent(hit(3));
+    p.onEvent(lap());
+    expect(p.lapCount).toBe(1);
+    expect(p.streak).toBe(1);
+    p.onEvent({ type: 'score-reset' });
+    expect(p.streak).toBe(0);
+    expect(p.lapCount).toBe(1);
+  });
+});
+
 describe('createBuiltinPlugins', () => {
-  it('bundles the five built-ins with unique ids', () => {
+  it('bundles the six built-ins with unique ids', () => {
     const plugins = createBuiltinPlugins();
     const ids = plugins.map((p) => p.id);
-    expect(ids).toEqual(['session-stats', 'auto-pause', 'combo-overlay', 'practice-hud', 'tempo-trainer']);
-    expect(new Set(ids).size).toBe(5);
+    expect(ids).toEqual(['session-stats', 'auto-pause', 'combo-overlay', 'practice-hud', 'tempo-trainer', 'loop-trainer']);
+    expect(new Set(ids).size).toBe(6);
   });
 
   it('registers and runs end-to-end through the manager', () => {
     const { host } = makeHost();
     const m = new PluginManager(host);
     for (const p of createBuiltinPlugins()) m.register(p);
-    expect(m.list()).toHaveLength(5);
+    expect(m.list()).toHaveLength(6);
     expect(m.isEnabled('auto-pause')).toBe(false);
     expect(m.isEnabled('practice-hud')).toBe(false);
     expect(m.isEnabled('tempo-trainer')).toBe(false);
+    expect(m.isEnabled('loop-trainer')).toBe(false);
     const { surface } = makeSurface();
     m.emit({ type: 'note-hit', note: note(60), judgement: 'perfect', combo: 1 });
     m.draw(surface, frame(0.016));

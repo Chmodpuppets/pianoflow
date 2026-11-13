@@ -174,7 +174,14 @@ export class PianoFlowApp {
       this.onState?.();
       this.finishIfPractice();
     };
-    this.engine.onLoop = () => this.resetJudgingFrom(this.engine.loopStart ?? 0);
+    this.engine.onLoop = () => {
+      this.plugins.emit({
+        type: 'loop',
+        start: this.engine.loopStart ?? 0,
+        end: this.engine.loopEnd ?? 0,
+      });
+      this.resetJudgingFrom(this.engine.loopStart ?? 0);
+    };
 
     // Plugin system: a platform-agnostic host backed by this app, plus the
     // bundled plugins. Overlays draw through a cached DrawSurface adapter.
@@ -200,6 +207,18 @@ export class PianoFlowApp {
       },
       setSpeed(s: number) {
         self.setSpeed(s);
+      },
+      get loopEnabled() {
+        return self.engine.loopEnabled;
+      },
+      get loopStart() {
+        return self.engine.loopStart;
+      },
+      get loopEnd() {
+        return self.engine.loopEnd;
+      },
+      setLoopEnabled(on: boolean) {
+        self.setLoopEnabled(on);
       },
       log(...args: unknown[]) {
         console.log(...args);
