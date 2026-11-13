@@ -1,6 +1,6 @@
 {
   "name": "pianoflow",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Open-source falling-notes piano practice app — a libre Synthesia alternative.",
   "license": "GPL-3.0-or-later",
@@ -13,7 +13,8 @@
     "preview": "pnpm --filter @pianoflow/web preview",
     "test": "vitest run",
     "typecheck": "tsc -p apps/web/tsconfig.json --noEmit",
-    "songs": "node scripts/generate-songs.mjs"
+    "songs": "node scripts/generate-songs.mjs",
+    "soundfont": "node scripts/fetch-soundfont.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

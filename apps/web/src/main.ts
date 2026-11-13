@@ -5,6 +5,7 @@ import {
   assignHands,
   songStats,
   estimateDifficulty,
+  noteName,
   type SessionResult,
   type SongRecord,
   type Difficulty,
@@ -34,6 +35,12 @@ const resultRetry = $<HTMLButtonElement>('resultRetry');
 const resultClose = $<HTMLButtonElement>('resultClose');
 const soundStatus = $<HTMLSpanElement>('soundStatus');
 const midiStatus = $<HTMLSpanElement>('midiStatus');
+const midiBtn = $<HTMLButtonElement>('midiBtn');
+const midiPanel = $<HTMLDivElement>('midiPanel');
+const midiClose = $<HTMLButtonElement>('midiClose');
+const midiSupport = $<HTMLDivElement>('midiSupport');
+const midiDeviceList = $<HTMLDivElement>('midiDeviceList');
+const midiLastNote = $<HTMLSpanElement>('midiLastNote');
 const playBtn = $<HTMLButtonElement>('playBtn');
 const stopBtn = $<HTMLButtonElement>('stopBtn');
 const seek = $<HTMLInputElement>('seek');
@@ -62,15 +69,27 @@ function fmt(t: number): string {
 }
 
 let seeking = false;
+let lastMidiSig = '';
 function refresh(): void {
   const st = app.getState();
   playBtn.textContent = st.playing ? '⏸ Pause' : '▶ Play';
-  soundStatus.textContent = st.usingSoundfont ? '🎹 SoundFont' : '🔊 Synth';
+  soundStatus.textContent =
+    st.soundfontSource === 'local'
+      ? '🎹 Piano · offline'
+      : st.soundfontSource === 'cdn'
+        ? '🎹 SoundFont'
+        : '🔊 Synth';
   midiStatus.textContent = st.midiSupported
     ? st.midiConnected
-      ? 'MIDI: connected'
+      ? `MIDI: ${st.midiDevices.length} device${st.midiDevices.length === 1 ? '' : 's'}`
       : 'MIDI: ready'
     : 'MIDI: unsupported';
+  midiLastNote.textContent = st.lastMidiNote != null ? noteName(st.lastMidiNote) : '—';
+  const sig = st.midiSelected + '|' + st.midiDevices.map((d) => d.id + ':' + d.state).join(',');
+  if (!midiPanel.classList.contains('hidden') && sig !== lastMidiSig) {
+    lastMidiSig = sig;
+    buildMidiDevices();
+  }
   if (!seeking) {
     seek.value = String(st.duration ? Math.round((st.position / st.duration) * 1000) : 0);
   }
@@ -126,6 +145,7 @@ window.addEventListener('keydown', (e) => {
     void app.toggle();
   } else if (e.code === 'Escape') {
     closeLibrary();
+    closeMidi();
     resultOverlay.classList.add('hidden');
   }
 });
@@ -276,6 +296,52 @@ function closeLibrary(): void {
 }
 libraryBtn.addEventListener('click', openLibrary);
 libraryClose.addEventListener('click', closeLibrary);
+
+function buildMidiDevices(): void {
+  const st = app.getState();
+  midiSupport.textContent = st.midiSupported
+    ? 'Web MIDI is available. Pick a device to listen to, or use all devices.'
+    : 'Web MIDI is not supported in this browser. Use the computer keyboard or touch the keys instead.';
+  midiDeviceList.innerHTML = '';
+  if (!st.midiSupported) return;
+
+  const mkItem = (id: string | null, name: string, sub: string): HTMLButtonElement => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'midi-item' + (st.midiSelected === id ? ' active' : '');
+    const main = document.createElement('div');
+    main.className = 'midi-name';
+    main.textContent = name;
+    const s = document.createElement('div');
+    s.className = 'midi-sub';
+    s.textContent = sub;
+    item.append(main, s);
+    item.addEventListener('click', () => app.selectMidiDevice(id));
+    return item;
+  };
+
+  midiDeviceList.appendChild(mkItem(null, 'All devices', 'Listen to every connected input'));
+  for (const d of st.midiDevices) {
+    midiDeviceList.appendChild(mkItem(d.id, d.name, `${d.manufacturer || 'Unknown'} · ${d.state}`));
+  }
+  if (!st.midiDevices.length) {
+    const empty = document.createElement('div');
+    empty.className = 'lib-empty';
+    empty.textContent = 'No MIDI devices detected. Plug in a USB MIDI keyboard and it will appear here.';
+    midiDeviceList.appendChild(empty);
+  }
+}
+
+function openMidi(): void {
+  lastMidiSig = '';
+  buildMidiDevices();
+  midiPanel.classList.remove('hidden');
+}
+function closeMidi(): void {
+  midiPanel.classList.add('hidden');
+}
+midiBtn.addEventListener('click', openMidi);
+midiClose.addEventListener('click', closeMidi);
 
 function showResult(result: SessionResult, rec: SongRecord, isNewBest: boolean): void {
   resultGrade.textContent = result.grade;

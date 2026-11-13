@@ -19,6 +19,7 @@ import {
   ComputerKeyboardInput,
   PointerInput,
   type NoteHandlers,
+  type MidiDeviceInfo,
 } from '@pianoflow/input';
 
 export type Mode = 'listen' | 'practice';
@@ -36,8 +37,12 @@ export interface AppState {
   speed: number;
   score: ScoreKeeper;
   usingSoundfont: boolean;
+  soundfontSource: 'local' | 'cdn' | 'synth';
   midiSupported: boolean;
   midiConnected: boolean;
+  midiDevices: MidiDeviceInfo[];
+  midiSelected: string | null;
+  lastMidiNote: number | null;
   lastJudge: string;
   metronome: boolean;
   countIn: number;
@@ -90,18 +95,31 @@ export class PianoFlowApp {
   private kb: ComputerKeyboardInput;
   private pointer: PointerInput;
   private midiConnected = false;
+  private midiDevices: MidiDeviceInfo[] = [];
+  private lastMidiNote: number | null = null;
 
   onState?: () => void;
   onResult?: (result: SessionResult, songId: string) => void;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.engine = new AudioEngine();
+    // Prefer the bundled local piano samples so the app works fully offline.
+    const soundfontUrl = new URL('soundfont/acoustic_grand_piano-mp3.js', document.baseURI).href;
+    this.engine = new AudioEngine({ soundfontUrl });
     this.renderer = new Renderer(canvas);
     const handlers: NoteHandlers = {
       onNoteOn: (m, v) => this.handleNoteOn(m, v),
       onNoteOff: (m) => this.handleNoteOff(m),
     };
     this.webmidi = new WebMidiInput(handlers);
+    this.webmidi.onDevicesChange = (devices) => {
+      this.midiDevices = devices;
+      this.midiConnected = devices.length > 0;
+      this.onState?.();
+    };
+    this.webmidi.onActivity = (midi) => {
+      this.lastMidiNote = midi;
+      this.onState?.();
+    };
     this.kb = new ComputerKeyboardInput(handlers);
     this.pointer = new PointerInput(canvas, handlers, (x, y) => this.renderer.hitTest(x, y));
     this.engine.onEnded = () => {
@@ -115,7 +133,9 @@ export class PianoFlowApp {
     this.kb.attach();
     this.pointer.attach();
     if (this.webmidi.supported) {
-      this.midiConnected = await this.webmidi.init();
+      await this.webmidi.init();
+      this.midiDevices = this.webmidi.devices();
+      this.midiConnected = this.midiDevices.length > 0;
     }
     await this.engine.ready;
     this.onState?.();
@@ -170,6 +190,12 @@ export class PianoFlowApp {
   }
   setCountIn(n: number): void {
     this.engine.setCountIn(n);
+    this.onState?.();
+  }
+
+  /** Listen to a single MIDI input device by id, or `null` for all devices. */
+  selectMidiDevice(id: string | null): void {
+    this.webmidi.select(id);
     this.onState?.();
   }
 
@@ -414,8 +440,12 @@ export class PianoFlowApp {
       speed: this.engine.speed,
       score: this.score,
       usingSoundfont: this.engine.usingSoundfont,
+      soundfontSource: this.engine.soundfontSource,
       midiSupported: this.webmidi.supported,
       midiConnected: this.midiConnected,
+      midiDevices: this.midiDevices,
+      midiSelected: this.webmidi.selected,
+      lastMidiNote: this.lastMidiNote,
       lastJudge: this.lastJudge,
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,

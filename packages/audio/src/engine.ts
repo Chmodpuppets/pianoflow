@@ -6,6 +6,12 @@ export interface AudioEngineOptions {
   lookahead?: number;
   tickMs?: number;
   instrument?: string;
+  /**
+   * Optional URL of a locally bundled midi-js-soundfonts file (e.g.
+   * `soundfont/acoustic_grand_piano-mp3.js`). When provided it is tried first
+   * so the app works fully offline; the CDN instrument is the fallback.
+   */
+  soundfontUrl?: string;
 }
 
 /**
@@ -29,6 +35,8 @@ export class AudioEngine {
   private lookahead: number;
   private tickMs: number;
   private instrument: string;
+  private soundfontUrl: string | null;
+  private _soundfontSource: 'local' | 'cdn' | 'synth' = 'synth';
   private live = new Map<number, () => void>();
   readonly ready: Promise<void>;
   onEnded?: () => void;
@@ -54,6 +62,7 @@ export class AudioEngine {
     this.lookahead = opts.lookahead ?? 0.2;
     this.tickMs = opts.tickMs ?? 25;
     this.instrument = opts.instrument ?? 'acoustic_grand_piano';
+    this.soundfontUrl = opts.soundfontUrl ?? null;
     this.metroGain = this.ctx.createGain();
     this.metroGain.gain.value = 0.6;
     this.metroGain.connect(this.ctx.destination);
@@ -61,13 +70,24 @@ export class AudioEngine {
   }
 
   private async init(): Promise<void> {
-    try {
-      this.sf = new Soundfont(this.ctx, { instrument: this.instrument });
-      await this.sf.ready;
-    } catch (e) {
-      console.warn('[pianoflow] SoundFont unavailable, using built-in synth.', e);
-      this.sf = null;
+    // Try the bundled local samples first (offline), then the CDN instrument,
+    // and finally fall back to the built-in synth if neither can load.
+    const attempts: { options: { instrumentUrl?: string; instrument?: string }; source: 'local' | 'cdn' }[] = [];
+    if (this.soundfontUrl) attempts.push({ options: { instrumentUrl: this.soundfontUrl }, source: 'local' });
+    attempts.push({ options: { instrument: this.instrument }, source: 'cdn' });
+    for (const { options, source } of attempts) {
+      try {
+        const sf = new Soundfont(this.ctx, options);
+        await sf.ready;
+        this.sf = sf;
+        this._soundfontSource = source;
+        return;
+      } catch (e) {
+        console.warn(`[pianoflow] SoundFont (${source}) unavailable, trying next source.`, e);
+      }
     }
+    this.sf = null;
+    this._soundfontSource = 'synth';
   }
 
   get playing(): boolean {
@@ -82,6 +102,10 @@ export class AudioEngine {
   }
   get usingSoundfont(): boolean {
     return this.sf !== null;
+  }
+  /** Where the piano voice came from: bundled local samples, CDN, or synth. */
+  get soundfontSource(): 'local' | 'cdn' | 'synth' {
+    return this._soundfontSource;
   }
   get metronome(): boolean {
     return this.metroEnabled;

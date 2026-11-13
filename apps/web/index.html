@@ -15,6 +15,7 @@
         <button id="loadBtn" title="Open a local .mid file">Open…</button>
         <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" hidden />
         <button id="libraryBtn" title="Song library">📚 Songs</button>
+        <button id="midiBtn" title="MIDI devices">🎛 MIDI</button>
         <div class="spacer"></div>
         <span id="soundStatus" class="badge">loading…</span>
         <span id="midiStatus" class="badge">MIDI: —</span>
@@ -86,6 +87,16 @@
         <button id="libraryClose" title="Close">✕</button>
       </div>
       <div id="libraryList"></div>
+    </div>
+
+    <div id="midiPanel" class="drawer hidden" aria-label="MIDI devices">
+      <div class="drawer-head">
+        <span>🎛 MIDI devices</span>
+        <button id="midiClose" title="Close">✕</button>
+      </div>
+      <div id="midiSupport" class="midi-support"></div>
+      <div id="midiDeviceList"></div>
+      <div class="midi-monitor">Last note: <span id="midiLastNote">—</span></div>
     </div>
 
     <div id="resultOverlay" class="overlay hidden">

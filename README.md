@@ -12,8 +12,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 ## ✨ Features
 
 - **Falling-notes renderer** — Canvas2D, 88-key keyboard, color-coded hands, HiDPI aware.
-- **Real piano sound** — SoundFont samples via [`smplr`](https://github.com/danigb/smplr)
-  (FluidR3_GM), with a built-in additive synth fallback when samples can't load.
+- **Real piano sound, fully offline** — FluidR3_GM SoundFont samples via [`smplr`](https://github.com/danigb/smplr),
+  bundled locally (no CDN needed); falls back to the CDN, then a built-in additive synth.
 - **Standard MIDI file parsing** — zero-dependency SMF parser (format 0/1, tempo map,
   time signatures, running status).
 - **Transport** — play / pause / stop / seek, speed 0.25×–2×.
@@ -30,6 +30,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Hand filtering** — Both / Right / Left (in Listen mode this mutes the other hand).
 - **Three input methods** — USB MIDI keyboard (Web MIDI), computer keyboard, and
   mouse / multi-touch on the virtual keys.
+- **MIDI device map** — list connected USB MIDI inputs, choose one (or all), and watch a
+  live note monitor; devices are detected automatically on hot-plug.
 - **Accessibility** — optional note labels and a colorblind-friendly palette.
 - **Bundled public-domain songs** — *Twinkle Twinkle Little Star* and *Ode to Joy*.
 - **Song library** — browse bundled tracks with composer, duration, note count and a
@@ -58,6 +60,7 @@ pnpm build          # production build of the web app (apps/web/dist)
 pnpm preview        # preview the production build
 pnpm test           # run the core unit tests (vitest)
 pnpm typecheck      # TypeScript type-check
+pnpm soundfont      # re-download the bundled offline piano samples (optional)
 ```
 
 ## 🎮 Controls
@@ -72,6 +75,7 @@ pnpm typecheck      # TypeScript type-check
 | A-B loop | **A** / **B** set the region at the current position, **Loop** toggles, **✕** clears |
 | Metronome / Count-in | footer checkbox / selector |
 | Song library | **📚 Songs** button; click a song to load it |
+| MIDI devices | **🎛 MIDI** button; pick a device (or All) and watch the note monitor |
 | Results | shown automatically at the end of a Practice run; **Retry** / **Close** |
 
 ## 🧱 Architecture
@@ -89,6 +93,7 @@ apps/
   web/       Vite app wiring everything together (DOM + controls)
 scripts/
   generate-songs.mjs   zero-dependency MIDI writer for the bundled PD songs
+  fetch-soundfont.mjs  downloads the bundled offline piano SoundFont
 ```
 
 The packages export TypeScript source directly and are consumed by Vite via aliases,
@@ -102,15 +107,15 @@ so there is no separate per-package build step during development.
 | Firefox | ✅ | ⚠️ gated / partial |
 | Safari (macOS / iOS) | ✅ | ❌ (use computer keyboard or touch) |
 
-SoundFont samples are fetched from a CDN on first load; if offline, PianoFlow
-automatically falls back to the built-in synth.
+Piano samples are **bundled locally**, so sound works fully offline. If the local file
+is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 
 ## 🗺️ Roadmap
 
 - **M0 (done)** — vertical slice: parse → render → sound → transport → basic scoring.
 - **M1 (done)** — A-B loop regions, metronome + count-in, chord-aware wait mode, listen-mode hand mute.
 - **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
-- **M3** — desktop shell (Tauri), offline SoundFont bundling, MIDI device mapping UI.
+- **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
 - **M4** — black-MIDI rendering optimizations (time-bucket index, WebGL), plugins.
 
 ## 📄 License & attribution
@@ -146,8 +151,9 @@ pnpm songs     # 生成内置公版 MIDI 曲目
 pnpm dev       # 启动开发服务器（http://localhost:5173）
 ```
 
-**核心功能**：Canvas2D 下落音符 + 88 键键盘；smplr SoundFont 真实钢琴音色（离线时自动
-回退到内置合成器）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
+**核心功能**：Canvas2D 下落音符 + 88 键键盘；FluidR3_GM SoundFont 真实钢琴音色（采样已
+本地内置、完全离线可用，缺失时回退 CDN 再回退内置合成器）；MIDI 设备映射（列出/选择输入设备、
+实时音符监视、热插拔检测）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
 两种模式；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；音符标签与色盲友好配色；曲库（难度星级、
