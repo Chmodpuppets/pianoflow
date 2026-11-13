@@ -474,6 +474,7 @@ export class PianoFlowApp {
       position: pos,
       notes: this.active,
       pressed: this.pressed,
+      dt,
       loop: {
         enabled: this.engine.loopEnabled,
         start: this.engine.loopStart ?? 0,
@@ -562,6 +563,7 @@ export class PianoFlowApp {
         this.score.registerHit(grade);
         this.lastJudge = grade;
         this.renderer.triggerPulse();
+        this.renderer.notifyHit(this.active[idx].midi, this.active[idx].hand);
         this.plugins.emit({
           type: 'note-hit',
           note: this.active[idx],

@@ -31,6 +31,13 @@ export interface RenderState {
   notes: MidiNote[];
   pressed: Set<number>;
   loop?: { enabled: boolean; start: number; end: number };
+  /** seconds since last frame, for particle integration (default 1/60) */
+  dt?: number;
+}
+
+interface Spark {
+  x: number; y: number; vx: number; vy: number;
+  life: number; maxLife: number; size: number; color: string;
 }
 
 export const defaultRenderConfig: RenderConfig = {
@@ -74,6 +81,9 @@ export class Renderer {
   private noteGradLeft: CanvasGradient | null = null;
   // Strike-line pulse (0..1), triggered on a successful hit and decayed per frame.
   private hitPulse = 0;
+  // Hit spark particles (capped so repeated hits never leak / unbounded growth).
+  private sparks: Spark[] = [];
+  private static readonly SPARK_CAP = 240;
 
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
@@ -115,6 +125,34 @@ export class Renderer {
   /** Current strike-line pulse level (0..1); exposed for tests/overlays. */
   get pulseLevel(): number {
     return this.hitPulse;
+  }
+
+  /** Spawn a burst of hand-colored sparks at the strike line on a successful hit. */
+  notifyHit(midi: number, hand?: 'left' | 'right'): void {
+    const key = this.layout.byMidi.get(midi);
+    if (!key) return;
+    const color = hand === 'left' ? this.config.theme.leftNote : this.config.theme.rightNote;
+    const cx = key.x + key.width / 2;
+    const cy = this.keyboardTop;
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+      if (this.sparks.length >= Renderer.SPARK_CAP) this.sparks.shift();
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.6; // upward fan
+      const speed = 60 + Math.random() * 120;
+      const maxLife = 0.35 + Math.random() * 0.3;
+      this.sparks.push({
+        x: cx, y: cy,
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+        life: maxLife, maxLife,
+        size: 1.5 + Math.random() * 2,
+        color,
+      });
+    }
+  }
+  /** Live spark count (for tests / diagnostics). */
+  get particleCount(): number {
+    return this.sparks.length;
   }
 
   private buildGradients(): void {
@@ -253,7 +291,60 @@ export class Renderer {
 
     if (state.loop?.enabled) this.drawLoop(state.loop, pos, pps, theme);
 
+    this.drawAnticipation(state.notes, pos, state.pressed, theme);
     this.drawKeyboard(state.pressed);
+    this.drawSparks(state.dt ?? 1 / 60);
+  }
+
+  /** Soft hand-colored glow on keys whose notes are about to arrive, so the
+   *  player can anticipate finger placement before the note reaches the line. */
+  private drawAnticipation(notes: MidiNote[], pos: number, pressed: Set<number>, theme: Theme): void {
+    const { ctx } = this;
+    const seen = new Map<number, string>();
+    for (const n of notes) {
+      const delta = n.time - pos;
+      if (delta < -0.05 || delta > 0.5) continue;
+      if (pressed.has(n.midi)) continue;
+      if (!seen.has(n.midi)) {
+        seen.set(n.midi, n.hand === 'left' ? theme.leftNote : theme.rightNote);
+      }
+    }
+    for (const [midi, color] of seen) {
+      const k = this.layout.byMidi.get(midi);
+      if (!k) continue;
+      const gx = k.x + k.width / 2;
+      const radius = Math.max(14, k.width * 1.5);
+      const g = ctx.createRadialGradient(gx, this.keyboardTop, 0, gx, this.keyboardTop, radius);
+      g.addColorStop(0, withAlpha(color, 0.28));
+      g.addColorStop(1, withAlpha(color, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - radius, this.keyboardTop - radius, radius * 2, radius);
+    }
+  }
+
+  /** Integrate + draw hit sparks; expired particles are removed each frame. */
+  private drawSparks(dt: number): void {
+    const { ctx } = this;
+    if (this.sparks.length === 0) return;
+    ctx.save();
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const p = this.sparks[i];
+      p.life -= dt;
+      if (p.life <= 0) { this.sparks.splice(i, 1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 140 * dt; // gravity
+      const a = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = a;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'rgba(0,0,0,0)';
   }
 
   /** Layered stage backdrop: vertical gradient + ambient strike-line wash + vignette. */

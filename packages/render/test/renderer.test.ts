@@ -312,3 +312,39 @@ describe('Renderer stage polish (background, hit-line pulse, key glow)', () => {
     expect(radial).toBe(base + 2); // one glow per pressed key
   });
 });
+
+describe('Renderer playfield feedback (anticipation glow + hit sparks)', () => {
+  it('glows keys whose notes are about to arrive, and skips already-pressed keys', () => {
+    const ctx = mockCtx();
+    let radial = 0;
+    const orig = ctx.createRadialGradient.bind(ctx);
+    ctx.createRadialGradient = (...args: Parameters<CanvasRenderingContext2D['createRadialGradient']>) => {
+      radial++;
+      return orig(...args);
+    };
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    const base = radial;
+    const approaching = [note(0.3, 0.5, 60, 'right')];
+    r.render({ position: 0, notes: [], pressed: new Set<number>() });
+    expect(radial).toBe(base); // nothing approaching
+    r.render({ position: 0, notes: approaching, pressed: new Set<number>() });
+    expect(radial).toBe(base + 1); // one anticipation glow
+    r.render({ position: 0, notes: approaching, pressed: new Set<number>([60]) });
+    expect(radial).toBe(base + 2); // anticipation skipped; pressed key glows via keyboard path (+1)
+  });
+
+  it('spawns capped hit sparks that expire over time', () => {
+    const r = new Renderer(mockCanvas(mockCtx()));
+    r.resize(1040, 600);
+    expect(r.particleCount).toBe(0);
+    r.notifyHit(60, 'right');
+    expect(r.particleCount).toBeGreaterThan(0);
+    // Repeated hits never exceed the cap.
+    for (let i = 0; i < 60; i++) r.notifyHit(60 + (i % 12), i % 2 ? 'left' : 'right');
+    expect(r.particleCount).toBeLessThanOrEqual(240);
+    // A large dt expires every spark.
+    r.render({ position: 0, notes: [], pressed: new Set<number>(), dt: 1 });
+    expect(r.particleCount).toBe(0);
+  });
+});

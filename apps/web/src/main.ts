@@ -660,7 +660,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.12.0';
+aboutVersion.textContent = 'v0.13.0';
 refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);
