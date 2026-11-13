@@ -91,6 +91,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   countIn: 0,
   muted: false,
   volume: 0.9,
+  transpose: 0,
+  splitMidi: 60,
+  latencyMs: 0,
   plugins: {},
 };
 

@@ -147,6 +147,11 @@
           <span id="speedVal" class="speed-val">100%</span>
           <button id="speedUp" class="icon-btn" title="Faster">+</button>
         </div>
+        <div class="speed-stepper" title="Transpose (semitones)">
+          <button id="transDown" class="icon-btn" title="Lower pitch">−</button>
+          <span id="transVal" class="speed-val">♪ 0</span>
+          <button id="transUp" class="icon-btn" title="Raise pitch">+</button>
+        </div>
         <div class="player-right">
           <button id="metroBtn" class="icon-btn" title="Metronome" aria-pressed="false">𝅗</button>
           <button id="muteBtn" class="icon-btn" title="Mute / unmute" aria-pressed="false">🔊</button>
@@ -202,6 +207,12 @@
           <label class="chk"><input id="noteLabels" type="checkbox" /> Note names</label>
           <label class="chk"><input id="colorblind" type="checkbox" /> Colorblind palette</label>
           <label class="vol-row">Volume <input id="volume" type="range" min="0" max="100" value="90" /></label>
+        </div>
+        <div class="loopgroup">
+          <label class="vol-row">Latency <input id="latency" type="range" min="-250" max="250" value="0" /> <span id="latencyVal" class="time">0 ms</span></label>
+          <div class="row-actions"><button id="latencyReset" class="btn btn-ghost">Reset latency</button></div>
+          <label class="vol-row">Hand split <input id="split" type="range" min="21" max="108" value="60" /> <span id="splitVal" class="time">C4</span></label>
+          <p class="muted-line">Latency compensates keyboard/audio delay. Hand split sets the left/right boundary for single-track songs.</p>
         </div>
         <div class="loopgroup">
           <label class="chk"><input id="loopEnabled" type="checkbox" /> Loop region</label>

@@ -8,5 +8,6 @@ export * from './meter';
 export * from './progress';
 export * from './history';
 export * from './noteindex';
+export * from './adjust';
 export * from './plugin';
 export * from './plugins';

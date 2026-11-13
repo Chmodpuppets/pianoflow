@@ -1,6 +1,11 @@
 import {
   parseMidi,
   assignHands,
+  transposeNotes,
+  clampSemitones,
+  clampSplit,
+  clampLatency,
+  compensateLatency,
   ScoreKeeper,
   judgeHit,
   summarize,
@@ -41,6 +46,9 @@ export interface AppSettings {
   countIn: number;
   muted: boolean;
   volume: number;
+  transpose: number;
+  splitMidi: number;
+  latencyMs: number;
   plugins: Record<string, boolean>;
 }
 
@@ -66,6 +74,9 @@ export interface AppState {
   metronome: boolean;
   countIn: number;
   muted: boolean;
+  transpose: number;
+  splitMidi: number;
+  latencyMs: number;
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
@@ -115,6 +126,7 @@ export class PianoFlowApp {
   private lastFrameTs = 0;
 
   private song: MidiSong | null = null;
+  private rawNotes: MidiNote[] = [];
   private notes: MidiNote[] = [];
   private active: MidiNote[] = [];
   private judged: boolean[] = [];
@@ -129,6 +141,9 @@ export class PianoFlowApp {
   private colorblind = false;
   private muted = false;
   private volume = 0.9;
+  private transpose = 0;
+  private splitMidi = 60;
+  private latencyMs = 0;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -249,9 +264,9 @@ export class PianoFlowApp {
 
   async loadBuffer(buf: ArrayBuffer, name: string, id?: string): Promise<void> {
     const song = parseMidi(buf);
-    assignHands(song.notes);
     this.song = song;
-    this.notes = song.notes;
+    this.rawNotes = song.notes;
+    this.rebuildNotes();
     this.songTitle = name;
     this.songId = id ?? slugify(name);
     this.engine.setMeter({
@@ -315,6 +330,31 @@ export class PianoFlowApp {
     this.onState?.();
   }
 
+  /** Shift the whole song by N semitones (±12). Rebuilds notes + hands. */
+  setTranspose(n: number): void {
+    this.transpose = clampSemitones(n);
+    this.rebuildNotes();
+    this.applyConfig();
+  }
+  /** Set the pitch boundary used to split a single track into hands. */
+  setSplit(midi: number): void {
+    this.splitMidi = clampSplit(midi);
+    this.rebuildNotes();
+    this.applyConfig();
+  }
+  /** Input/audio latency compensation in ms (positive = device reports late). */
+  setLatency(ms: number): void {
+    this.latencyMs = clampLatency(ms);
+    this.onState?.();
+  }
+
+  /** Re-derive playable notes from the raw parse applying transpose + hand split. */
+  private rebuildNotes(): void {
+    const shifted = transposeNotes(this.rawNotes, this.transpose);
+    assignHands(shifted, { splitMidi: this.splitMidi });
+    this.notes = shifted;
+  }
+
   /** Snapshot of user preferences, for persistence. */
   getSettings(): AppSettings {
     return {
@@ -329,6 +369,9 @@ export class PianoFlowApp {
       countIn: this.engine.countIn,
       muted: this.muted,
       volume: this.volume,
+      transpose: this.transpose,
+      splitMidi: this.splitMidi,
+      latencyMs: this.latencyMs,
       plugins: this.plugins.states(),
     };
   }
@@ -346,6 +389,9 @@ export class PianoFlowApp {
     if (typeof s.countIn === 'number' && isFinite(s.countIn)) this.setCountIn(s.countIn);
     if (typeof s.muted === 'boolean') this.setMuted(s.muted);
     if (typeof s.volume === 'number' && isFinite(s.volume)) this.setVolume(s.volume);
+    if (typeof s.transpose === 'number' && isFinite(s.transpose)) this.setTranspose(s.transpose);
+    if (typeof s.splitMidi === 'number' && isFinite(s.splitMidi)) this.setSplit(s.splitMidi);
+    if (typeof s.latencyMs === 'number' && isFinite(s.latencyMs)) this.setLatency(s.latencyMs);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -565,7 +611,7 @@ export class PianoFlowApp {
     this.pressed.add(midi);
     this.engine.noteOn(midi, velocity);
     if (this.mode === 'practice' && this.song) {
-      const pos = this.engine.position;
+      const pos = compensateLatency(this.engine.position, this.latencyMs);
       const idx = this.findHit(midi, pos);
       if (idx >= 0) {
         const grade = judgeHit(this.active[idx].time, pos) ?? 'good';
@@ -652,6 +698,9 @@ export class PianoFlowApp {
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,
       muted: this.muted,
+      transpose: this.transpose,
+      splitMidi: this.splitMidi,
+      latencyMs: this.latencyMs,
       loopEnabled: this.engine.loopEnabled,
       loopStart: this.engine.loopStart,
       loopEnd: this.engine.loopEnd,

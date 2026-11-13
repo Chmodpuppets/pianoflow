@@ -125,6 +125,9 @@ const nextBtn = $<HTMLButtonElement>('nextBtn');
 const speedDown = $<HTMLButtonElement>('speedDown');
 const speedUp = $<HTMLButtonElement>('speedUp');
 const speedVal = $<HTMLElement>('speedVal');
+const transDown = $<HTMLButtonElement>('transDown');
+const transUp = $<HTMLButtonElement>('transUp');
+const transVal = $<HTMLElement>('transVal');
 const metroBtn = $<HTMLButtonElement>('metroBtn');
 const muteBtn = $<HTMLButtonElement>('muteBtn');
 const gearBtn = $<HTMLButtonElement>('gearBtn');
@@ -135,6 +138,11 @@ const scoreEl = $<HTMLElement>('score');
 const judgeEl = $<HTMLElement>('judge');
 const stage = $<HTMLElement>('stage');
 const volumeSlider = $<HTMLInputElement>('volume');
+const latencySlider = $<HTMLInputElement>('latency');
+const latencyVal = $<HTMLElement>('latencyVal');
+const latencyReset = $<HTMLButtonElement>('latencyReset');
+const splitSlider = $<HTMLInputElement>('split');
+const splitVal = $<HTMLElement>('splitVal');
 const pauseOverlay = $<HTMLElement>('pauseOverlay');
 const pauseResume = $<HTMLButtonElement>('pauseResume');
 const pauseRestart = $<HTMLButtonElement>('pauseRestart');
@@ -582,6 +590,8 @@ function syncControls(): void {
   const volPct = Math.round(s.volume * 100);
   sVolume.value = String(volPct);
   volumeSlider.value = String(volPct);
+  latencySlider.value = String(s.latencyMs);
+  splitSlider.value = String(s.splitMidi);
   loopChk.checked = st.loopEnabled;
   speedVal.textContent = Math.round(st.speed * 100) + '%';
   metroBtn.setAttribute('aria-pressed', String(s.metronome));
@@ -601,6 +611,9 @@ function refresh(): void {
   if (!seeking) seek.value = String(st.duration > 0 ? Math.round((st.position / st.duration) * 1000) : 0);
   timeEl.textContent = `${fmt(st.position)} / ${fmt(st.duration)}`;
   speedVal.textContent = Math.round(st.speed * 100) + '%';
+  transVal.textContent = '♪ ' + (st.transpose > 0 ? '+' : '') + st.transpose;
+  latencyVal.textContent = `${st.latencyMs} ms`;
+  splitVal.textContent = noteName(st.splitMidi);
   const sc = st.score;
   scoreEl.textContent = `Hits ${sc.hits}/${sc.total} · Combo ${sc.combo} · Acc ${Math.round(sc.accuracy * 100)}%`;
   judgeEl.textContent = st.lastJudge ? st.lastJudge.toUpperCase() : '';
@@ -648,6 +661,17 @@ function nudgeSpeed(dir: number): void {
 }
 speedDown.addEventListener('click', () => nudgeSpeed(-1));
 speedUp.addEventListener('click', () => nudgeSpeed(1));
+function nudgeTranspose(dir: number): void {
+  const cur = app.getState().transpose;
+  app.setTranspose(cur + dir);
+  persist();
+  syncControls();
+}
+transDown.addEventListener('click', () => nudgeTranspose(-1));
+transUp.addEventListener('click', () => nudgeTranspose(1));
+latencySlider.addEventListener('input', () => { app.setLatency(Number(latencySlider.value)); persist(); });
+latencyReset.addEventListener('click', () => { app.setLatency(0); persist(); syncControls(); });
+splitSlider.addEventListener('input', () => { app.setSplit(Number(splitSlider.value)); persist(); });
 metroBtn.addEventListener('click', () => { app.setMetronome(!app.getSettings().metronome); persist(); syncControls(); });
 muteBtn.addEventListener('click', () => { app.setMuted(!app.getSettings().muted); persist(); syncControls(); });
 fsBtn.addEventListener('click', () => {
@@ -714,7 +738,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.15.0';
+aboutVersion.textContent = 'v0.16.0';
 refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);
