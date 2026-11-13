@@ -7,11 +7,11 @@ export class PianoSynth {
   private master: GainNode;
   private active: { osc: OscillatorNode[]; gain: GainNode }[] = [];
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: AudioContext, destination?: AudioNode) {
     this.ctx = ctx;
     this.master = ctx.createGain();
     this.master.gain.value = 0.5;
-    this.master.connect(ctx.destination);
+    this.master.connect(destination ?? ctx.destination);
   }
 
   private freq(midi: number): number {

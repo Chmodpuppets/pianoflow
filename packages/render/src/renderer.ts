@@ -3,6 +3,17 @@ import { NoteIndex, noteName } from '@pianoflow/core';
 import { buildKeyboard, keyAt, type KeyboardLayout } from './keyboard';
 import { defaultTheme, type Theme } from './theme';
 
+/** Convert a #rrggbb color to an rgba() string with the given alpha. */
+function withAlpha(hex: string, alpha: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export interface RenderConfig {
   startMidi: number;
   endMidi: number;
@@ -52,6 +63,16 @@ export class Renderer {
   // Reused [x,y,w,h,midi] tuples for note-name labels (only when enabled).
   private labelBuf: number[] = [];
 
+  // Cached stage gradients, rebuilt on resize / config change (theme-aware).
+  private bgGrad: CanvasGradient | null = null;
+  private stageGrad: CanvasGradient | null = null;
+  private vignetteGrad: CanvasGradient | null = null;
+  private whiteGrad: CanvasGradient | null = null;
+  private blackGrad: CanvasGradient | null = null;
+  private hitGlowGrad: CanvasGradient | null = null;
+  // Strike-line pulse (0..1), triggered on a successful hit and decayed per frame.
+  private hitPulse = 0;
+
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
@@ -82,6 +103,63 @@ export class Renderer {
     this.layout = buildKeyboard(this.config.startMidi, this.config.endMidi, this.cssW || 1);
     this.keyboardHeight = Math.round((this.cssH || 1) * this.config.keyboardHeightRatio);
     this.keyboardTop = (this.cssH || 0) - this.keyboardHeight;
+    this.buildGradients();
+  }
+
+  /** Flash the strike line (called by the app when the player hits a note). */
+  triggerPulse(): void {
+    this.hitPulse = 1;
+  }
+  /** Current strike-line pulse level (0..1); exposed for tests/overlays. */
+  get pulseLevel(): number {
+    return this.hitPulse;
+  }
+
+  private buildGradients(): void {
+    const { ctx, cssW, cssH, keyboardTop, keyboardHeight } = this;
+    const t = this.config.theme;
+    if (cssW <= 0 || cssH <= 0) {
+      this.bgGrad = this.stageGrad = this.vignetteGrad = null;
+      this.whiteGrad = this.blackGrad = this.hitGlowGrad = null;
+      return;
+    }
+    const bg = ctx.createLinearGradient(0, 0, 0, cssH);
+    bg.addColorStop(0, t.bgTop);
+    bg.addColorStop(1, t.bgBottom);
+    this.bgGrad = bg;
+
+    const stage = ctx.createRadialGradient(
+      cssW / 2, keyboardTop, 0,
+      cssW / 2, keyboardTop, Math.max(cssW, cssH) * 0.7,
+    );
+    stage.addColorStop(0, withAlpha(t.stageGlow, 0.16));
+    stage.addColorStop(1, withAlpha(t.stageGlow, 0));
+    this.stageGrad = stage;
+
+    const vig = ctx.createRadialGradient(
+      cssW / 2, cssH * 0.45, Math.min(cssW, cssH) * 0.25,
+      cssW / 2, cssH * 0.5, Math.max(cssW, cssH) * 0.78,
+    );
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.38)');
+    this.vignetteGrad = vig;
+
+    const wg = ctx.createLinearGradient(0, keyboardTop, 0, keyboardTop + keyboardHeight);
+    wg.addColorStop(0, t.whiteKey);
+    wg.addColorStop(1, t.whiteKeyBottom);
+    this.whiteGrad = wg;
+
+    const bh = keyboardHeight * 0.62;
+    const bk = ctx.createLinearGradient(0, keyboardTop, 0, keyboardTop + bh);
+    bk.addColorStop(0, t.blackKeyTop);
+    bk.addColorStop(1, t.blackKey);
+    this.blackGrad = bk;
+
+    const hg = ctx.createLinearGradient(0, keyboardTop - 12, 0, keyboardTop + 12);
+    hg.addColorStop(0, withAlpha(t.hitLine, 0));
+    hg.addColorStop(0.5, withAlpha(t.hitLine, 0.5));
+    hg.addColorStop(1, withAlpha(t.hitLine, 0));
+    this.hitGlowGrad = hg;
   }
 
   hitTest(x: number, y: number): number | null {
@@ -108,8 +186,7 @@ export class Renderer {
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = theme.background;
-    ctx.fillRect(0, 0, cssW, cssH);
+    this.drawBackground(theme);
 
     const pps = this.keyboardTop / Math.max(0.2, config.secondsVisible);
     const pos = state.position;
@@ -149,14 +226,44 @@ export class Renderer {
     this.fillBatch(this.leftBuf, theme.leftNote);
     if (config.showNoteLabels) this.drawNoteLabels(theme);
 
-    ctx.fillStyle = theme.hitLine;
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(0, this.keyboardTop - 2, cssW, 2);
-    ctx.globalAlpha = 1;
+    this.drawHitLine(theme);
+    this.hitPulse *= 0.86;
+    if (this.hitPulse < 0.02) this.hitPulse = 0;
 
     if (state.loop?.enabled) this.drawLoop(state.loop, pos, pps, theme);
 
     this.drawKeyboard(state.pressed);
+  }
+
+  /** Layered stage backdrop: vertical gradient + ambient strike-line wash + vignette. */
+  private drawBackground(theme: Theme): void {
+    const { ctx, cssW, cssH } = this;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = this.bgGrad ?? theme.background;
+    ctx.fillRect(0, 0, cssW, cssH);
+    if (this.stageGrad) {
+      ctx.fillStyle = this.stageGrad;
+      ctx.fillRect(0, 0, cssW, cssH);
+    }
+    if (this.vignetteGrad) {
+      ctx.fillStyle = this.vignetteGrad;
+      ctx.fillRect(0, 0, cssW, cssH);
+    }
+  }
+
+  /** Luminous strike line with a soft bloom that pulses when a note is hit. */
+  private drawHitLine(theme: Theme): void {
+    const { ctx, cssW } = this;
+    const y = this.keyboardTop;
+    const pulse = this.hitPulse;
+    const glowH = 10 + pulse * 16;
+    ctx.fillStyle = this.hitGlowGrad ?? theme.hitLine;
+    ctx.globalAlpha = 0.3 + pulse * 0.45;
+    ctx.fillRect(0, y - glowH, cssW, glowH * 2);
+    ctx.fillStyle = theme.hitLine;
+    ctx.globalAlpha = 0.55 + pulse * 0.45;
+    ctx.fillRect(0, y - 1.5, cssW, 3);
+    ctx.globalAlpha = 1;
   }
 
   /** Draw note names centered on each visible falling-note block. */
@@ -232,9 +339,22 @@ export class Renderer {
     const theme = config.theme;
     const top = this.keyboardTop;
     const kh = this.keyboardHeight;
+
+    // Soft light rising from each pressed key into the playfield.
+    for (const k of this.layout.keys) {
+      if (!pressed.has(k.midi)) continue;
+      const gx = k.x + k.width / 2;
+      const radius = Math.max(18, k.width * 1.8);
+      const g = ctx.createRadialGradient(gx, top, 0, gx, top, radius);
+      g.addColorStop(0, withAlpha(theme.keyPressed, 0.5));
+      g.addColorStop(1, withAlpha(theme.keyPressed, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - radius, top - radius, radius * 2, radius);
+    }
+
     for (const k of this.layout.keys) {
       if (k.isBlack) continue;
-      ctx.fillStyle = pressed.has(k.midi) ? theme.keyPressed : theme.whiteKey;
+      ctx.fillStyle = pressed.has(k.midi) ? theme.keyPressed : (this.whiteGrad ?? theme.whiteKey);
       ctx.fillRect(k.x, top, k.width - 1, kh);
       ctx.strokeStyle = 'rgba(0,0,0,0.25)';
       ctx.strokeRect(k.x + 0.5, top + 0.5, k.width - 1, kh - 1);
@@ -248,9 +368,13 @@ export class Renderer {
     const bh = kh * 0.62;
     for (const k of this.layout.keys) {
       if (!k.isBlack) continue;
-      ctx.fillStyle = pressed.has(k.midi) ? theme.keyPressed : theme.blackKey;
+      ctx.fillStyle = pressed.has(k.midi) ? theme.keyPressed : (this.blackGrad ?? theme.blackKey);
       ctx.fillRect(k.x, top, k.width, bh);
+      // Glossy highlight along the top edge of each black key.
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(k.x, top, k.width, Math.max(2, bh * 0.14));
     }
+    ctx.textAlign = 'left';
   }
 
   private getIndex(notes: MidiNote[]): NoteIndex {

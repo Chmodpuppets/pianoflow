@@ -39,6 +39,7 @@ export interface AppSettings {
   colorblind: boolean;
   metronome: boolean;
   countIn: number;
+  muted: boolean;
   plugins: Record<string, boolean>;
 }
 
@@ -63,6 +64,7 @@ export interface AppState {
   lastJudge: string;
   metronome: boolean;
   countIn: number;
+  muted: boolean;
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
@@ -124,6 +126,7 @@ export class PianoFlowApp {
   private labels = false;
   private noteLabels = false;
   private colorblind = false;
+  private muted = false;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -278,6 +281,12 @@ export class PianoFlowApp {
     this.engine.setCountIn(n);
     this.onState?.();
   }
+  /** Master mute for all audio (piano + metronome). Sound is on by default. */
+  setMuted(b: boolean): void {
+    this.muted = b;
+    this.engine.setMuted(b);
+    this.onState?.();
+  }
 
   /** Snapshot of user preferences, for persistence. */
   getSettings(): AppSettings {
@@ -291,6 +300,7 @@ export class PianoFlowApp {
       colorblind: this.colorblind,
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,
+      muted: this.muted,
       plugins: this.plugins.states(),
     };
   }
@@ -306,6 +316,7 @@ export class PianoFlowApp {
     if (typeof s.colorblind === 'boolean') this.setColorblind(s.colorblind);
     if (typeof s.metronome === 'boolean') this.setMetronome(s.metronome);
     if (typeof s.countIn === 'number' && isFinite(s.countIn)) this.setCountIn(s.countIn);
+    if (typeof s.muted === 'boolean') this.setMuted(s.muted);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -531,6 +542,7 @@ export class PianoFlowApp {
         this.judged[idx] = true;
         this.score.registerHit(grade);
         this.lastJudge = grade;
+        this.renderer.triggerPulse();
         this.plugins.emit({
           type: 'note-hit',
           note: this.active[idx],
@@ -608,6 +620,7 @@ export class PianoFlowApp {
       lastJudge: this.lastJudge,
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,
+      muted: this.muted,
       loopEnabled: this.engine.loopEnabled,
       loopStart: this.engine.loopStart,
       loopEnd: this.engine.loopEnd,

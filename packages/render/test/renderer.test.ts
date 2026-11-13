@@ -11,12 +11,15 @@ import {
 // Minimal 2D-context mock so the renderer can run headless (node env).
 function mockCtx(): CanvasRenderingContext2D {
   const noop = () => {};
+  const gradient = () => ({ addColorStop: noop });
   return {
     fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 1, font: '', textAlign: '',
+    textBaseline: 'alphabetic',
     fillRect: noop, strokeRect: noop, clearRect: noop,
     beginPath: noop, moveTo: noop, arcTo: noop, closePath: noop, lineTo: noop,
     fill: noop, stroke: noop, setLineDash: noop, fillText: noop, setTransform: noop,
     measureText: () => ({ width: 0 }),
+    createLinearGradient: gradient, createRadialGradient: gradient,
     save: noop, restore: noop,
   } as unknown as CanvasRenderingContext2D;
 }
@@ -242,5 +245,70 @@ describe('Renderer note-name labels', () => {
     r.setConfig({ showNoteLabels: true });
     r.render({ position: 0, notes: [note(0.5, 0.01, 60, 'right')], pressed: new Set<number>() });
     expect(texts).toHaveLength(0);
+  });
+});
+
+describe('Renderer stage polish (background, hit-line pulse, key glow)', () => {
+  const idle = { position: 0, notes: [] as MidiNote[], pressed: new Set<number>() };
+
+  it('paints a gradient backdrop at full alpha (not a flat fill)', () => {
+    const ctx = mockCtx();
+    const fills: { style: unknown; alpha: number }[] = [];
+    ctx.fillRect = () => fills.push({ style: ctx.fillStyle, alpha: ctx.globalAlpha });
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    r.render(idle);
+    // The very first fill is the cached background gradient object, at alpha 1.
+    expect(typeof fills[0].style).toBe('object');
+    expect(fills[0].alpha).toBe(1);
+    expect(fills.length).toBeGreaterThanOrEqual(3); // gradient + ambient wash + vignette
+  });
+
+  it('triggerPulse flashes the strike line then decays back to zero', () => {
+    const r = new Renderer(mockCanvas(mockCtx()));
+    r.resize(1040, 600);
+    expect(r.pulseLevel).toBe(0);
+    r.triggerPulse();
+    expect(r.pulseLevel).toBe(1);
+    r.render(idle);
+    expect(r.pulseLevel).toBeGreaterThan(0);
+    expect(r.pulseLevel).toBeLessThan(1); // decayed by one frame
+    for (let i = 0; i < 40; i++) r.render(idle);
+    expect(r.pulseLevel).toBe(0); // fully settled
+  });
+
+  it('brightens the strike-line core while pulsing', () => {
+    const ctx = mockCtx();
+    const hitAlphas: number[] = [];
+    ctx.fillRect = (_x: number, _y: number, _w: number, h: number) => {
+      if (ctx.fillStyle === '#ffffff' && h === 3) hitAlphas.push(ctx.globalAlpha);
+    };
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    r.render(idle);
+    const rest = hitAlphas[hitAlphas.length - 1];
+    r.triggerPulse();
+    r.render(idle);
+    const pulsed = hitAlphas[hitAlphas.length - 1];
+    expect(rest).toBeCloseTo(0.55, 5);
+    expect(pulsed).toBeCloseTo(1.0, 5);
+    expect(pulsed).toBeGreaterThan(rest);
+  });
+
+  it('emits one radial glow gradient per pressed key (and none when idle)', () => {
+    const ctx = mockCtx();
+    let radial = 0;
+    const orig = ctx.createRadialGradient.bind(ctx);
+    ctx.createRadialGradient = (...args: Parameters<CanvasRenderingContext2D['createRadialGradient']>) => {
+      radial++;
+      return orig(...args);
+    };
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600); // builds the ambient + vignette radial gradients
+    const base = radial;
+    r.render(idle);
+    expect(radial).toBe(base); // no pressed keys -> no glow
+    r.render({ position: 0, notes: [], pressed: new Set<number>([60, 64]) });
+    expect(radial).toBe(base + 2); // one glow per pressed key
   });
 });

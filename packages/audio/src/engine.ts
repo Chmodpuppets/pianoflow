@@ -22,6 +22,9 @@ export interface AudioEngineOptions {
  */
 export class AudioEngine {
   readonly ctx: AudioContext;
+  /** Master output gain — the single mute point for synth + soundfont + metronome. */
+  private masterGain: GainNode;
+  private _muted = false;
   private sf: Soundfont | null = null;
   private synth: PianoSynth;
   private notes: MidiNote[] = [];
@@ -58,23 +61,26 @@ export class AudioEngine {
 
   constructor(opts: AudioEngineOptions = {}) {
     this.ctx = new AudioContext();
-    this.synth = new PianoSynth(this.ctx);
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 1;
+    this.masterGain.connect(this.ctx.destination);
+    this.synth = new PianoSynth(this.ctx, this.masterGain);
     this.lookahead = opts.lookahead ?? 0.2;
     this.tickMs = opts.tickMs ?? 25;
     this.instrument = opts.instrument ?? 'acoustic_grand_piano';
     this.soundfontUrl = opts.soundfontUrl ?? null;
     this.metroGain = this.ctx.createGain();
     this.metroGain.gain.value = 0.6;
-    this.metroGain.connect(this.ctx.destination);
+    this.metroGain.connect(this.masterGain);
     this.ready = this.init();
   }
 
   private async init(): Promise<void> {
     // Try the bundled local samples first (offline), then the CDN instrument,
     // and finally fall back to the built-in synth if neither can load.
-    const attempts: { options: { instrumentUrl?: string; instrument?: string }; source: 'local' | 'cdn' }[] = [];
-    if (this.soundfontUrl) attempts.push({ options: { instrumentUrl: this.soundfontUrl }, source: 'local' });
-    attempts.push({ options: { instrument: this.instrument }, source: 'cdn' });
+    const attempts: { options: { instrumentUrl?: string; instrument?: string; destination?: AudioNode }; source: 'local' | 'cdn' }[] = [];
+    if (this.soundfontUrl) attempts.push({ options: { instrumentUrl: this.soundfontUrl, destination: this.masterGain }, source: 'local' });
+    attempts.push({ options: { instrument: this.instrument, destination: this.masterGain }, source: 'cdn' });
     for (const { options, source } of attempts) {
       try {
         const sf = new Soundfont(this.ctx, options);
@@ -112,6 +118,14 @@ export class AudioEngine {
   }
   get countIn(): number {
     return this.countInBeats;
+  }
+  /** Mute/unmute all audio (synth, soundfont, metronome) via the master gain. */
+  setMuted(muted: boolean): void {
+    this._muted = muted;
+    this.masterGain.gain.value = muted ? 0 : 1;
+  }
+  get muted(): boolean {
+    return this._muted;
   }
 
   load(notes: MidiNote[], duration: number): void {

@@ -14,6 +14,11 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Falling-notes renderer** — Canvas2D, 88-key keyboard, color-coded hands, HiDPI aware.
 - **Built for dense scores** — a time-bucket note index + viewport culling draws only the
   notes on screen (batched per hand), so very dense "black MIDI" files stay smooth.
+- **Stage presentation** — a layered gradient backdrop with an ambient strike-line glow,
+  a luminous hit line that pulses when you hit a note, and gradient keys with a soft glow
+  on pressed keys, wrapped in a cohesive dark "concert stage" UI with glassy panels.
+- **Master mute** — one always-visible 🔊 button in the top bar silences everything
+  (piano + metronome) in a single click; sound is on by default and the choice is saved.
 - **Real piano sound, fully offline** — FluidR3_GM SoundFont samples via [`smplr`](https://github.com/danigb/smplr),
   bundled locally (no CDN needed); falls back to the CDN, then a built-in additive synth.
 - **Standard MIDI file parsing** — zero-dependency SMF parser (format 0/1, tempo map,
@@ -47,8 +52,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   an improvement trend) and your recent sessions.
 - **Results screen** — at the end of a Practice run: grade, accuracy, perfect / good /
   miss / wrong breakdown, max combo, and a "new best" indicator, with one-click retry.
-- **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome and
-  count-in are remembered across reloads.
+- **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome,
+  count-in and mute are remembered across reloads.
 - **Plugin system** — extend PianoFlow with overlays and practice aids through a small,
   error-isolated API (lifecycle events + a draw surface). Five plugins ship built in
   (combo overlay, session stats, auto-pause on mistakes, practice HUD, tempo trainer);
@@ -87,6 +92,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Wait / Key labels / Note names / Colorblind | footer checkboxes |
 | A-B loop | **A** / **B** set the region at the current position, **Loop** toggles, **✕** clears |
 | Metronome / Count-in | footer checkbox / selector |
+| Mute / unmute | the 🔊 button in the top bar (silences piano + metronome; saved) |
 | Song library | **📚 Songs** button; click a song to load it |
 | MIDI devices | **🎛 MIDI** button; pick a device (or All) and watch the note monitor |
 | Plugins | **🧩 Plugins** button; enable / disable bundled plugins (saved) |
@@ -155,6 +161,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M7 (done)** — readability & feedback: note-name labels on falling notes and a Practice HUD plugin (live accuracy + song progress).
 - **M8 (done)** — Tempo trainer plugin: gradual speed-up after consecutive clean passes (host `setSpeed` API).
 - **M9 (done)** — practice session history: per-song progress trends and recent sessions, persisted locally.
+- **M10 (done)** — stage polish: layered gradient backdrop, pulsing hit line, glowing keys, a cohesive UI palette, and a master mute control.
 
 ## 📄 License & attribution
 
@@ -196,7 +203,8 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
-判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
+判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
+舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器五个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。

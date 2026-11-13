@@ -42,6 +42,7 @@ const resultRetry = $<HTMLButtonElement>('resultRetry');
 const resultClose = $<HTMLButtonElement>('resultClose');
 const soundStatus = $<HTMLSpanElement>('soundStatus');
 const midiStatus = $<HTMLSpanElement>('midiStatus');
+const muteBtn = $<HTMLButtonElement>('muteBtn');
 const midiBtn = $<HTMLButtonElement>('midiBtn');
 const midiPanel = $<HTMLDivElement>('midiPanel');
 const midiClose = $<HTMLButtonElement>('midiClose');
@@ -97,6 +98,11 @@ function refresh(): void {
       : st.soundfontSource === 'cdn'
         ? '🎹 SoundFont'
         : '🔊 Synth';
+  muteBtn.textContent = st.muted ? '🔇' : '🔊';
+  muteBtn.setAttribute('aria-pressed', String(st.muted));
+  muteBtn.setAttribute('aria-label', st.muted ? 'Unmute' : 'Mute');
+  muteBtn.title = st.muted ? 'Unmute all sound' : 'Mute all sound';
+  muteBtn.classList.toggle('muted', st.muted);
   midiStatus.textContent = st.midiSupported
     ? st.midiConnected
       ? `MIDI: ${st.midiDevices.length} device${st.midiDevices.length === 1 ? '' : 's'}`
@@ -139,6 +145,10 @@ window.addEventListener('resize', doResize);
 
 playBtn.addEventListener('click', () => void app.toggle());
 stopBtn.addEventListener('click', () => app.stop());
+muteBtn.addEventListener('click', () => {
+  app.setMuted(!app.getState().muted);
+  persist();
+});
 seek.addEventListener('input', () => {
   seeking = true;
   const st = app.getState();
@@ -590,6 +600,8 @@ noteLabelsChk.checked = saved.noteLabels;
 cbChk.checked = saved.colorblind;
 metroChk.checked = saved.metronome;
 countInSel.value = String(saved.countIn);
+muteBtn.textContent = saved.muted ? '🔇' : '🔊';
+muteBtn.classList.toggle('muted', saved.muted);
 
 doResize();
 void app.init().then(refresh);
