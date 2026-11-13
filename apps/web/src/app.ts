@@ -20,6 +20,9 @@ import {
   createBuiltinPlugins,
   type PluginHost,
   type DrawSurface,
+  PerformanceRecorder,
+  writeMidi,
+  type RecordedNote,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -80,6 +83,8 @@ export interface AppState {
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
+  recording: boolean;
+  recordedNotes: number;
 }
 
 const GOOD_WINDOW = 0.15;
@@ -155,6 +160,12 @@ export class PianoFlowApp {
   private songId = '';
   private songTitle = '';
   private resultEmitted = false;
+
+  private recorder = new PerformanceRecorder(() =>
+    (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000,
+  );
+  private recording = false;
+  private lastRecording: RecordedNote[] = [];
 
   private webmidi: WebMidiInput;
   private kb: ComputerKeyboardInput;
@@ -609,6 +620,7 @@ export class PianoFlowApp {
 
   private handleNoteOn(midi: number, velocity: number): void {
     this.pressed.add(midi);
+    if (this.recording) this.recorder.noteOn(midi, velocity);
     this.engine.noteOn(midi, velocity);
     if (this.mode === 'practice' && this.song) {
       const pos = compensateLatency(this.engine.position, this.latencyMs);
@@ -648,6 +660,7 @@ export class PianoFlowApp {
 
   private handleNoteOff(midi: number): void {
     this.pressed.delete(midi);
+    if (this.recording) this.recorder.noteOff(midi);
     this.engine.noteOff(midi);
     this.onState?.();
   }
@@ -673,6 +686,36 @@ export class PianoFlowApp {
       stats: this.song ? songStats(this.song) : null,
       difficulty: this.song ? estimateDifficulty(this.song) : null,
     };
+  }
+
+  // ---------- performance recording ----------
+  startRecording(): void {
+    this.recorder.start();
+    this.recording = true;
+    this.onState?.();
+  }
+
+  stopRecording(): RecordedNote[] {
+    this.lastRecording = this.recorder.stop();
+    this.recording = false;
+    this.onState?.();
+    return this.lastRecording;
+  }
+
+  toggleRecording(): void {
+    if (this.recording) this.stopRecording();
+    else this.startRecording();
+  }
+
+  get hasRecording(): boolean {
+    return this.recording || this.lastRecording.length > 0;
+  }
+
+  /** Stop (if needed) and serialize the captured performance to a MIDI file. */
+  buildRecordingMidi(): Uint8Array | null {
+    if (this.recording) this.stopRecording();
+    if (!this.lastRecording.length) return null;
+    return writeMidi(this.lastRecording, { trackName: this.songTitle || 'PianoFlow performance' });
   }
 
   getState(): AppState {
@@ -704,6 +747,8 @@ export class PianoFlowApp {
       loopEnabled: this.engine.loopEnabled,
       loopStart: this.engine.loopStart,
       loopEnd: this.engine.loopEnd,
+      recording: this.recording,
+      recordedNotes: this.recording ? this.recorder.noteCount : this.lastRecording.length,
     };
   }
 

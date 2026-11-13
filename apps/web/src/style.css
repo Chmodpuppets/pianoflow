@@ -92,6 +92,9 @@ input, select { font-family: inherit; }
 .icon-btn.big:hover { background: var(--panel-3); }
 .icon-btn[aria-pressed="true"] { color: var(--gold); background: rgba(255,209,102,.12); }
 .icon-btn.muted { color: var(--gold); }
+.icon-btn.recording { color: var(--red); background: rgba(255,107,107,.14); border-color: rgba(255,107,107,.4); animation: rec-pulse 1.2s ease-in-out infinite; }
+@keyframes rec-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,107,107,.35); } 50% { box-shadow: 0 0 0 6px rgba(255,107,107,0); } }
+.icon-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 
 select, input[type="text"], input[type="search"] {
   background: var(--panel-2); color: var(--text);

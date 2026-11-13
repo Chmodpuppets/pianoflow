@@ -122,6 +122,8 @@ const playerTitle = $<HTMLElement>('playerTitle');
 const playerComposer = $<HTMLElement>('playerComposer');
 const playBtn = $<HTMLButtonElement>('playBtn');
 const nextBtn = $<HTMLButtonElement>('nextBtn');
+const recBtn = $<HTMLButtonElement>('recBtn');
+const exportBtn = $<HTMLButtonElement>('exportBtn');
 const speedDown = $<HTMLButtonElement>('speedDown');
 const speedUp = $<HTMLButtonElement>('speedUp');
 const speedVal = $<HTMLElement>('speedVal');
@@ -180,6 +182,7 @@ const resultTitle = $<HTMLElement>('resultTitle');
 const resultBest = $<HTMLElement>('resultBest');
 const resultStats = $<HTMLElement>('resultStats');
 const resultRetry = $<HTMLButtonElement>('resultRetry');
+const resultExport = $<HTMLButtonElement>('resultExport');
 const resultClose = $<HTMLButtonElement>('resultClose');
 
 // ---------- helpers ----------
@@ -546,6 +549,24 @@ app.onResult = (result, songId) => {
 resultRetry.addEventListener('click', () => { resultOverlay.classList.add('hidden'); app.seek(0); void app.play(); });
 resultClose.addEventListener('click', () => resultOverlay.classList.add('hidden'));
 
+// ---------- recording / export ----------
+function downloadMidi(): void {
+  const bytes = app.buildRecordingMidi();
+  if (!bytes || !bytes.length) return;
+  const blob = new Blob([bytes as BlobPart], { type: 'audio/midi' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (app.currentSongInfo().title || 'performance').replace(/[^\w\- ]+/g, '') + '.mid';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+recBtn.addEventListener('click', () => { app.toggleRecording(); });
+exportBtn.addEventListener('click', downloadMidi);
+resultExport.addEventListener('click', downloadMidi);
+
 // ---------- drawers ----------
 function closeAllDrawers(): void {
   playerSettings.classList.add('hidden');
@@ -608,6 +629,11 @@ let seeking = false;
 function refresh(): void {
   const st = app.getState();
   playBtn.textContent = st.playing ? '⏸' : '▶';
+  recBtn.textContent = st.recording ? '⏹' : '⏺';
+  recBtn.classList.toggle('recording', st.recording);
+  recBtn.setAttribute('aria-pressed', String(st.recording));
+  recBtn.title = st.recording ? `Stop recording (${st.recordedNotes} notes)` : 'Record your performance';
+  exportBtn.disabled = !app.hasRecording;
   if (!seeking) seek.value = String(st.duration > 0 ? Math.round((st.position / st.duration) * 1000) : 0);
   timeEl.textContent = `${fmt(st.position)} / ${fmt(st.duration)}`;
   speedVal.textContent = Math.round(st.speed * 100) + '%';
@@ -738,7 +764,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.16.0';
+aboutVersion.textContent = 'v0.17.0';
 refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);
