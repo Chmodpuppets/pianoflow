@@ -764,7 +764,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.17.0';
+aboutVersion.textContent = 'v0.18.0';
 refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);
@@ -777,6 +777,13 @@ void loadSongs();
 // Live-refresh the library when the songs folder changes (dev only).
 if (import.meta.hot) {
   import.meta.hot.on('pianoflow:songs-changed', () => { void loadSongs(); });
+}
+
+// Installable, offline-capable PWA (production builds only).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* offline install is best-effort */ });
+  });
 }
 
 function loop(): void {
