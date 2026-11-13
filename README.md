@@ -32,6 +32,12 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   mouse / multi-touch on the virtual keys.
 - **Accessibility** — optional note labels and a colorblind-friendly palette.
 - **Bundled public-domain songs** — *Twinkle Twinkle Little Star* and *Ode to Joy*.
+- **Song library** — browse bundled tracks with composer, duration, note count and a
+  ★ difficulty estimate; your best grade / accuracy is shown per song.
+- **Progress persistence** — best accuracy / grade / combo and play count are saved
+  locally (localStorage), per song, and survive reloads.
+- **Results screen** — at the end of a Practice run: grade, accuracy, perfect / good /
+  miss / wrong breakdown, max combo, and a "new best" indicator, with one-click retry.
 
 ## 🚀 Quick start
 
@@ -65,6 +71,8 @@ pnpm typecheck      # TypeScript type-check
 | Wait / Labels / Colorblind | footer checkboxes |
 | A-B loop | **A** / **B** set the region at the current position, **Loop** toggles, **✕** clears |
 | Metronome / Count-in | footer checkbox / selector |
+| Song library | **📚 Songs** button; click a song to load it |
+| Results | shown automatically at the end of a Practice run; **Retry** / **Close** |
 
 ## 🧱 Architecture
 
@@ -73,7 +81,7 @@ later power a desktop (Tauri) or mobile shell.
 
 ```
 packages/
-  core/      MIDI parsing, tempo map, hand assignment, scoring, transport (no DOM)
+  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty (no DOM)
   audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler
   render/    Canvas2D falling-notes renderer, keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
@@ -101,7 +109,7 @@ automatically falls back to the built-in synth.
 
 - **M0 (done)** — vertical slice: parse → render → sound → transport → basic scoring.
 - **M1 (done)** — A-B loop regions, metronome + count-in, chord-aware wait mode, listen-mode hand mute.
-- **M2** — song library & metadata, progress persistence, statistics history.
+- **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
 - **M3** — desktop shell (Tauri), offline SoundFont bundling, MIDI device mapping UI.
 - **M4** — black-MIDI rendering optimizations (time-bucket index, WebGL), plugins.
 
@@ -116,8 +124,9 @@ See [ATTRIBUTION.md](ATTRIBUTION.md) for details.
 ## 🤝 Contributing
 
 Issues and pull requests are welcome. Please run `pnpm test` and `pnpm typecheck`
-before submitting. By contributing you agree your contributions are licensed under
-GPL-3.0-or-later.
+before submitting. CI (GitHub Actions) runs tests, typecheck and the production build
+on every push and pull request. By contributing you agree your contributions are
+licensed under GPL-3.0-or-later.
 
 ---
 
@@ -141,8 +150,9 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 回退到内置合成器）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
 两种模式；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
-静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；音符标签与色盲友好配色；内置《小星星》
-《欢乐颂》两首公版曲目。
+静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；音符标签与色盲友好配色；曲库（难度星级、
+时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
+判定明细、新纪录提示）；内置《小星星》《欢乐颂》两首公版曲目。
 
 **架构**：pnpm monorepo，平台无关的 TypeScript 核心（`core`/`audio`/`render`/`input`），
 便于后续扩展到 Tauri 桌面端与移动端。
