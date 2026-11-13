@@ -4,6 +4,7 @@ import {
   SessionStatsPlugin,
   AutoPausePlugin,
   ComboOverlayPlugin,
+  PracticeHudPlugin,
   createBuiltinPlugins,
   type Plugin,
   type PluginEvent,
@@ -11,7 +12,7 @@ import {
   type DrawSurface,
   type FrameInfo,
 } from '../src/index';
-import type { MidiNote } from '../src/index';
+import type { MidiNote, MidiSong } from '../src/index';
 
 function note(midi: number, time = 0): MidiNote {
   return { midi, ticks: 0, durationTicks: 0, time, duration: 0.2, velocity: 0.8, channel: 0, track: 0 };
@@ -315,20 +316,90 @@ describe('ComboOverlayPlugin', () => {
   });
 });
 
+describe('PracticeHudPlugin', () => {
+  function hostWithSong(duration: number) {
+    const { host, calls } = makeHost();
+    host.song = { duration } as unknown as MidiSong;
+    return { host, calls };
+  }
+  const at = (position: number): FrameInfo => ({ position, playing: true, dt: 0.016, width: 800, height: 600 });
+
+  it('is disabled by default', () => {
+    expect(new PracticeHudPlugin().defaultEnabled).toBe(false);
+  });
+
+  it('computes accuracy from hits vs judged', () => {
+    const { host } = hostWithSong(10);
+    const p = new PracticeHudPlugin();
+    p.setup(host);
+    expect(p.accuracy).toBe(0);
+    p.onEvent({ type: 'note-hit', note: note(60), judgement: 'perfect', combo: 1 });
+    p.onEvent({ type: 'note-hit', note: note(62), judgement: 'good', combo: 2 });
+    p.onEvent({ type: 'note-hit', note: note(64), judgement: 'perfect', combo: 3 });
+    p.onEvent({ type: 'note-miss', note: note(65) });
+    expect(p.accuracy).toBeCloseTo(0.75);
+  });
+
+  it('draws nothing without a song', () => {
+    const { host } = makeHost(); // song: null
+    const p = new PracticeHudPlugin();
+    p.setup(host);
+    const { surface, ops, texts } = makeSurface();
+    p.onDraw(surface, at(5));
+    expect(ops).toHaveLength(0);
+    expect(texts).toHaveLength(0);
+  });
+
+  it('draws a progress bar proportional to position', () => {
+    const { host } = hostWithSong(10);
+    const p = new PracticeHudPlugin();
+    p.setup(host);
+    const { surface, ops } = makeSurface();
+    p.onDraw(surface, at(5)); // halfway
+    expect(ops).toContain('fillRect:0,0,800,3'); // track
+    expect(ops).toContain('fillRect:0,0,400,3'); // 50% fill
+  });
+
+  it('clamps progress to [0,1] and shows accuracy once judged', () => {
+    const { host } = hostWithSong(10);
+    const p = new PracticeHudPlugin();
+    p.setup(host);
+    p.onEvent({ type: 'note-hit', note: note(60), judgement: 'perfect', combo: 1 });
+    p.onEvent({ type: 'note-wrong', midi: 99 });
+    const { surface, ops, texts } = makeSurface();
+    p.onDraw(surface, at(99)); // beyond duration -> clamped to full width
+    expect(ops).toContain('fillRect:0,0,800,3');
+    expect(texts.some((t) => t.text === 'Accuracy 50%')).toBe(true);
+  });
+
+  it('clears accuracy on score-reset', () => {
+    const { host } = hostWithSong(10);
+    const p = new PracticeHudPlugin();
+    p.setup(host);
+    p.onEvent({ type: 'note-hit', note: note(60), judgement: 'perfect', combo: 1 });
+    p.onEvent({ type: 'score-reset' });
+    expect(p.accuracy).toBe(0);
+    const { surface, texts } = makeSurface();
+    p.onDraw(surface, at(1));
+    expect(texts).toHaveLength(0); // no accuracy readout when nothing judged
+  });
+});
+
 describe('createBuiltinPlugins', () => {
-  it('bundles the three built-ins with unique ids', () => {
+  it('bundles the four built-ins with unique ids', () => {
     const plugins = createBuiltinPlugins();
     const ids = plugins.map((p) => p.id);
-    expect(ids).toEqual(['session-stats', 'auto-pause', 'combo-overlay']);
-    expect(new Set(ids).size).toBe(3);
+    expect(ids).toEqual(['session-stats', 'auto-pause', 'combo-overlay', 'practice-hud']);
+    expect(new Set(ids).size).toBe(4);
   });
 
   it('registers and runs end-to-end through the manager', () => {
     const { host } = makeHost();
     const m = new PluginManager(host);
     for (const p of createBuiltinPlugins()) m.register(p);
-    expect(m.list()).toHaveLength(3);
+    expect(m.list()).toHaveLength(4);
     expect(m.isEnabled('auto-pause')).toBe(false);
+    expect(m.isEnabled('practice-hud')).toBe(false);
     const { surface } = makeSurface();
     m.emit({ type: 'note-hit', note: note(60), judgement: 'perfect', combo: 1 });
     m.draw(surface, frame(0.016));

@@ -147,7 +147,7 @@ for (const p of createBuiltinPlugins()) this.plugins.register(p);
 this.plugins.register(new SpeedBadgePlugin());
 ```
 
-`createBuiltinPlugins()` returns fresh instances of the three bundled plugins. To ship a
+`createBuiltinPlugins()` returns fresh instances of the four bundled plugins. To ship a
 new built-in, add it to that factory in
 [`packages/core/src/plugins/index.ts`](packages/core/src/plugins/index.ts).
 
@@ -175,6 +175,7 @@ are saved with the user's settings and restored on startup.
 | `combo-overlay` | `ComboOverlayPlugin` | on | live combo counter (color tiers at 20 / 50) + a 0.5 s fading judgement flash; invisible in Listen mode |
 | `session-stats` | `SessionStatsPlugin` | on | tallies hits / perfect / good / miss / wrong / max combo; resets on `score-reset`; logs a summary on `result` |
 | `auto-pause` | `AutoPausePlugin` | off | pauses after N consecutive misses / wrong notes (constructor `{ threshold }`, default 3) so the player can recover |
+| `practice-hud` | `PracticeHudPlugin` | off | live accuracy percentage + a song-progress bar at the top of the playfield; accuracy appears once notes are judged |
 
 ## Testing a plugin (headless)
 

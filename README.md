@@ -34,7 +34,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   mouse / multi-touch on the virtual keys.
 - **MIDI device map** — list connected USB MIDI inputs, choose one (or all), and watch a
   live note monitor; devices are detected automatically on hot-plug.
-- **Accessibility** — optional note labels and a colorblind-friendly palette.
+- **Accessibility & readability** — optional note-name labels on the falling notes
+  (C4, D4, …), key labels, and a colorblind-friendly palette.
 - **Bundled public-domain songs** — seven classics: *Twinkle Twinkle*, *Ode to Joy*,
   *London Bridge*, *Happy Birthday*, *Minuet in G*, *Greensleeves*, and *Für Elise*.
 - **Song library** — browse bundled tracks with composer, duration, note count and a
@@ -46,9 +47,9 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome and
   count-in are remembered across reloads.
 - **Plugin system** — extend PianoFlow with overlays and practice aids through a small,
-  error-isolated API (lifecycle events + a draw surface). Three plugins ship built in
-  (combo overlay, session stats, auto-pause on mistakes); toggle them in the **🧩 Plugins**
-  panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
+  error-isolated API (lifecycle events + a draw surface). Four plugins ship built in
+  (combo overlay, session stats, auto-pause on mistakes, practice HUD); toggle them in the
+  **🧩 Plugins** panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
 
 ## 🚀 Quick start
 
@@ -80,7 +81,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Play notes | USB MIDI keyboard, computer keys `A W S E D F T G Y H U J K O L P ;`, or click/touch the keys |
 | Seek | drag the timeline slider |
 | Speed / Hands / Mode | footer selectors |
-| Wait / Labels / Colorblind | footer checkboxes |
+| Wait / Key labels / Note names / Colorblind | footer checkboxes |
 | A-B loop | **A** / **B** set the region at the current position, **Loop** toggles, **✕** clears |
 | Metronome / Count-in | footer checkbox / selector |
 | Song library | **📚 Songs** button; click a song to load it |
@@ -114,13 +115,14 @@ so there is no separate per-package build step during development.
 A plugin reacts to lifecycle events (song loaded, transport, note hit / miss / wrong,
 score reset, per-frame, result) and can draw overlays through a `DrawSurface`. Each
 plugin runs in isolation — one that throws is logged and skipped, never breaking the app
-or the other plugins. Three ship built in:
+or the other plugins. Four ship built in:
 
 | Plugin | What it does | Default |
 | --- | --- | --- |
 | **Combo overlay** | live combo counter + fading judgement flash on the playfield | on |
 | **Session stats** | tallies hits / perfect / good / miss / wrong / max combo, logs a summary | on |
 | **Auto-pause on mistakes** | pauses after N consecutive misses / wrong notes so you can recover | off |
+| **Practice HUD** | live accuracy percentage + a song-progress bar at the top of the playfield | off |
 
 Toggle them in the **🧩 Plugins** panel; choices are saved with your settings. See
 **[PLUGINS.md](PLUGINS.md)** for the full API and a worked example.
@@ -144,7 +146,8 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
 - **M4 (done)** — expanded public-domain song library (7 tracks) and settings persistence.
 - **M5 (partial)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws (done); WebGL renderer pending.
-- **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with three bundled plugins and a toggle panel.
+- **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with bundled plugins and a toggle panel.
+- **M7 (done)** — readability & feedback: note-name labels on falling notes and a Practice HUD plugin (live accuracy + song progress).
 
 ## 📄 License & attribution
 
@@ -184,10 +187,10 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 实时音符监视、热插拔检测）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
 两种模式；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
-静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；音符标签与色盲友好配色；曲库（难度星级、
+静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
-插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停三个插件，
+插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD 四个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。
 

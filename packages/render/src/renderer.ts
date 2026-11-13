@@ -10,6 +10,8 @@ export interface RenderConfig {
   secondsVisible: number;
   keyboardHeightRatio: number;
   showLabels: boolean;
+  /** draw note names (C4, D4, …) on the falling note blocks */
+  showNoteLabels: boolean;
   theme: Theme;
 }
 
@@ -26,6 +28,7 @@ export const defaultRenderConfig: RenderConfig = {
   secondsVisible: 3,
   keyboardHeightRatio: 0.18,
   showLabels: false,
+  showNoteLabels: false,
   theme: defaultTheme,
 };
 
@@ -46,6 +49,8 @@ export class Renderer {
   // Reused flat rect buffers ([x,y,w,h,r] per note) to avoid per-frame GC churn.
   private rightBuf: number[] = [];
   private leftBuf: number[] = [];
+  // Reused [x,y,w,h,midi] tuples for note-name labels (only when enabled).
+  private labelBuf: number[] = [];
 
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
@@ -120,6 +125,7 @@ export class Renderer {
 
     this.rightBuf.length = 0;
     this.leftBuf.length = 0;
+    this.labelBuf.length = 0;
     for (const n of visible) {
       const bottom = this.keyboardTop - (n.time - pos) * pps;
       const top = bottom - n.duration * pps;
@@ -133,10 +139,15 @@ export class Renderer {
       if (h <= 0 || w <= 0) continue;
       const buf = n.hand === 'left' ? this.leftBuf : this.rightBuf;
       buf.push(x, y, w, h, Math.min(4, w / 2));
+      // Only label blocks big enough to hold legible text.
+      if (config.showNoteLabels && h >= 12 && w >= 12) {
+        this.labelBuf.push(x, y, w, h, n.midi);
+      }
     }
     // One fill per hand instead of one per note.
     this.fillBatch(this.rightBuf, theme.rightNote);
     this.fillBatch(this.leftBuf, theme.leftNote);
+    if (config.showNoteLabels) this.drawNoteLabels(theme);
 
     ctx.fillStyle = theme.hitLine;
     ctx.globalAlpha = 0.25;
@@ -146,6 +157,33 @@ export class Renderer {
     if (state.loop?.enabled) this.drawLoop(state.loop, pos, pps, theme);
 
     this.drawKeyboard(state.pressed);
+  }
+
+  /** Draw note names centered on each visible falling-note block. */
+  private drawNoteLabels(theme: Theme): void {
+    const buf = this.labelBuf;
+    if (buf.length === 0) return;
+    const ctx = this.ctx;
+    ctx.fillStyle = theme.noteLabel;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < buf.length; i += 5) {
+      const x = buf[i];
+      const y = buf[i + 1];
+      const w = buf[i + 2];
+      const h = buf[i + 3];
+      const midi = buf[i + 4];
+      const cy = y + h / 2;
+      if (cy < 0 || cy > this.keyboardTop) continue;
+      const size = Math.max(8, Math.min(11, w * 0.45, h * 0.6));
+      ctx.font = `bold ${size}px sans-serif`;
+      const name = noteName(midi);
+      // Never let a label overflow its (possibly narrow black-key) block.
+      if (ctx.measureText(name).width > w - 2) continue;
+      ctx.fillText(name, x + w / 2, cy);
+    }
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
   }
 
   private drawLoop(

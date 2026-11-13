@@ -35,6 +35,7 @@ export interface AppSettings {
   waitMode: boolean;
   speed: number;
   labels: boolean;
+  noteLabels: boolean;
   colorblind: boolean;
   metronome: boolean;
   countIn: number;
@@ -121,6 +122,7 @@ export class PianoFlowApp {
   private hands: Hands = 'both';
   private waitMode = false;
   private labels = false;
+  private noteLabels = false;
   private colorblind = false;
   private waiting = false;
   private waitIndex = -1;
@@ -257,6 +259,10 @@ export class PianoFlowApp {
     this.labels = b;
     this.renderer.setConfig({ showLabels: b });
   }
+  setNoteLabels(b: boolean): void {
+    this.noteLabels = b;
+    this.renderer.setConfig({ showNoteLabels: b });
+  }
   setColorblind(b: boolean): void {
     this.colorblind = b;
     this.renderer.setConfig({ theme: b ? colorblindTheme : defaultTheme });
@@ -278,6 +284,7 @@ export class PianoFlowApp {
       waitMode: this.waitMode,
       speed: this.engine.speed,
       labels: this.labels,
+      noteLabels: this.noteLabels,
       colorblind: this.colorblind,
       metronome: this.engine.metronome,
       countIn: this.engine.countIn,
@@ -292,6 +299,7 @@ export class PianoFlowApp {
     if (typeof s.waitMode === 'boolean') this.setWaitMode(s.waitMode);
     if (typeof s.speed === 'number' && isFinite(s.speed)) this.setSpeed(s.speed);
     if (typeof s.labels === 'boolean') this.setLabels(s.labels);
+    if (typeof s.noteLabels === 'boolean') this.setNoteLabels(s.noteLabels);
     if (typeof s.colorblind === 'boolean') this.setColorblind(s.colorblind);
     if (typeof s.metronome === 'boolean') this.setMetronome(s.metronome);
     if (typeof s.countIn === 'number' && isFinite(s.countIn)) this.setCountIn(s.countIn);

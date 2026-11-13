@@ -16,6 +16,7 @@ function mockCtx(): CanvasRenderingContext2D {
     fillRect: noop, strokeRect: noop, clearRect: noop,
     beginPath: noop, moveTo: noop, arcTo: noop, closePath: noop, lineTo: noop,
     fill: noop, stroke: noop, setLineDash: noop, fillText: noop, setTransform: noop,
+    measureText: () => ({ width: 0 }),
     save: noop, restore: noop,
   } as unknown as CanvasRenderingContext2D;
 }
@@ -203,5 +204,43 @@ describe('Plugin overlay runtime integration', () => {
     expect(texts.some((t) => t.text === 'MISS')).toBe(true);
     expect(ctx.globalAlpha).toBe(1);
     expect(stack.length).toBe(0);
+  });
+});
+
+describe('Renderer note-name labels', () => {
+  function labelCtx() {
+    const texts: { text: string; x: number; y: number }[] = [];
+    const ctx = mockCtx();
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText = (t: string, x: number, y: number) => texts.push({ text: t, x, y });
+    return { ctx, texts };
+  }
+
+  it('draws note names on visible falling notes when enabled', () => {
+    const { ctx, texts } = labelCtx();
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    r.setConfig({ showNoteLabels: true });
+    r.render({ position: 0, notes: [note(0.5, 0.5, 60, 'right')], pressed: new Set<number>() });
+    expect(texts.some((t) => t.text === 'C4')).toBe(true);
+    // State is cleaned up so later drawing (keyboard, plugins) is unaffected.
+    expect(ctx.textBaseline).toBe('alphabetic');
+  });
+
+  it('draws no note labels when disabled', () => {
+    const { ctx, texts } = labelCtx();
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    r.render({ position: 0, notes: [note(0.5, 0.5, 60, 'right')], pressed: new Set<number>() });
+    expect(texts).toHaveLength(0);
+  });
+
+  it('skips labels for blocks too small to hold legible text', () => {
+    const { ctx, texts } = labelCtx();
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    r.setConfig({ showNoteLabels: true });
+    r.render({ position: 0, notes: [note(0.5, 0.01, 60, 'right')], pressed: new Set<number>() });
+    expect(texts).toHaveLength(0);
   });
 });

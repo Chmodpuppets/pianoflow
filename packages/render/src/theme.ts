@@ -8,6 +8,8 @@ export interface Theme {
   hitLine: string;
   text: string;
   loopMarker: string;
+  /** color of the note-name labels drawn on falling notes */
+  noteLabel: string;
 }
 
 export const defaultTheme: Theme = {
@@ -20,6 +22,7 @@ export const defaultTheme: Theme = {
   hitLine: '#ffffff',
   text: '#e6e6e6',
   loopMarker: '#ffd166',
+  noteLabel: '#ffffff',
 };
 
 export const colorblindTheme: Theme = {

@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   waitMode: false,
   speed: 1,
   labels: false,
+  noteLabels: false,
   colorblind: false,
   metronome: false,
   countIn: 0,
