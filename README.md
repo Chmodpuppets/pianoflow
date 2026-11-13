@@ -42,6 +42,9 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   ★ difficulty estimate; your best grade / accuracy is shown per song.
 - **Progress persistence** — best accuracy / grade / combo and play count are saved
   locally (localStorage), per song, and survive reloads.
+- **Practice history & trends** — every completed Practice run is logged locally; the
+  **📈 History** panel shows overall stats, per-song progress (first → latest accuracy with
+  an improvement trend) and your recent sessions.
 - **Results screen** — at the end of a Practice run: grade, accuracy, perfect / good /
   miss / wrong breakdown, max combo, and a "new best" indicator, with one-click retry.
 - **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome and
@@ -87,6 +90,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Song library | **📚 Songs** button; click a song to load it |
 | MIDI devices | **🎛 MIDI** button; pick a device (or All) and watch the note monitor |
 | Plugins | **🧩 Plugins** button; enable / disable bundled plugins (saved) |
+| Practice history | **📈 History** button; overall stats, per-song progress trends and recent sessions |
 | Results | shown automatically at the end of a Practice run; **Retry** / **Close** |
 
 ## 🧱 Architecture
@@ -96,7 +100,7 @@ later power a desktop (Tauri) or mobile shell.
 
 ```
 packages/
-  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty, viewport index, plugin manager (no DOM)
+  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty, session history, viewport index, plugin manager (no DOM)
   audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler
   render/    Canvas2D falling-notes renderer (viewport culling + batched draws), keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
@@ -150,6 +154,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with bundled plugins and a toggle panel.
 - **M7 (done)** — readability & feedback: note-name labels on falling notes and a Practice HUD plugin (live accuracy + song progress).
 - **M8 (done)** — Tempo trainer plugin: gradual speed-up after consecutive clean passes (host `setSpeed` API).
+- **M9 (done)** — practice session history: per-song progress trends and recent sessions, persisted locally.
 
 ## 📄 License & attribution
 
@@ -191,7 +196,7 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
-判定明细、新纪录提示）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
+判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器五个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。

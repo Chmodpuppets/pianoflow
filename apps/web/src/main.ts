@@ -1,11 +1,16 @@
 import { PianoFlowApp, type Hands, type Mode } from './app';
-import { ProgressStore, SettingsStore } from './storage';
+import { ProgressStore, SettingsStore, HistoryStore } from './storage';
 import {
   parseMidi,
   assignHands,
   songStats,
   estimateDifficulty,
   noteName,
+  makeSession,
+  recentSessions,
+  songTrend,
+  summarizeHistory,
+  practicedSongIds,
   type SessionResult,
   type SongRecord,
   type Difficulty,
@@ -19,6 +24,7 @@ const stage = $<HTMLElement>('stage');
 const app = new PianoFlowApp(canvas);
 const progress = new ProgressStore();
 const settings = new SettingsStore();
+const history = new HistoryStore();
 
 const songSelect = $<HTMLSelectElement>('songSelect');
 const loadBtn = $<HTMLButtonElement>('loadBtn');
@@ -46,6 +52,12 @@ const pluginsBtn = $<HTMLButtonElement>('pluginsBtn');
 const pluginsPanel = $<HTMLDivElement>('pluginsPanel');
 const pluginsClose = $<HTMLButtonElement>('pluginsClose');
 const pluginsList = $<HTMLDivElement>('pluginsList');
+const historyBtn = $<HTMLButtonElement>('historyBtn');
+const historyPanel = $<HTMLDivElement>('historyPanel');
+const historyClose = $<HTMLButtonElement>('historyClose');
+const historySummary = $<HTMLDivElement>('historySummary');
+const historyList = $<HTMLDivElement>('historyList');
+const historyClear = $<HTMLButtonElement>('historyClear');
 const playBtn = $<HTMLButtonElement>('playBtn');
 const stopBtn = $<HTMLButtonElement>('stopBtn');
 const seek = $<HTMLInputElement>('seek');
@@ -158,6 +170,7 @@ window.addEventListener('keydown', (e) => {
     closeLibrary();
     closeMidi();
     closePlugins();
+    closeHistory();
     resultOverlay.classList.add('hidden');
   }
 });
@@ -400,6 +413,124 @@ function closePlugins(): void {
 pluginsBtn.addEventListener('click', openPlugins);
 pluginsClose.addEventListener('click', closePlugins);
 
+function fmtWhen(at: number): string {
+  const diff = Date.now() - at;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+  return new Date(at).toLocaleDateString();
+}
+
+function trendBadge(improvement: number): { text: string; cls: string } {
+  const pts = Math.round(improvement * 100);
+  if (pts > 0) return { text: `▲ +${pts}%`, cls: 'trend-up' };
+  if (pts < 0) return { text: `▼ ${pts}%`, cls: 'trend-down' };
+  return { text: '— 0%', cls: 'trend-flat' };
+}
+
+function buildHistory(): void {
+  const log = history.getAll();
+  const sum = summarizeHistory(log);
+
+  historySummary.innerHTML = '';
+  const stats: [string, string][] = [
+    ['Sessions', String(sum.totalSessions)],
+    ['Songs', String(sum.songsPracticed)],
+    ['Avg acc', Math.round(sum.averageAccuracy * 100) + '%'],
+    ['Best', Math.round(sum.bestAccuracy * 100) + '%'],
+  ];
+  for (const [label, value] of stats) {
+    const stat = document.createElement('div');
+    stat.className = 'stat';
+    const b = document.createElement('b');
+    b.textContent = value;
+    stat.append(b, label);
+    historySummary.appendChild(stat);
+  }
+
+  historyList.innerHTML = '';
+  if (log.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'hist-empty';
+    empty.textContent = 'No practice sessions yet. Finish a song in Practice mode and it will appear here.';
+    historyList.appendChild(empty);
+    return;
+  }
+
+  const trendHead = document.createElement('div');
+  trendHead.className = 'hist-section';
+  trendHead.textContent = 'Progress by song';
+  historyList.appendChild(trendHead);
+  for (const songId of practicedSongIds(log)) {
+    const t = songTrend(log, songId);
+    if (!t) continue;
+    const title = log.find((e) => e.songId === songId)?.songTitle || songId;
+    const card = document.createElement('div');
+    card.className = 'hist-song';
+    const head = document.createElement('div');
+    head.className = 'hist-song-head';
+    const name = document.createElement('span');
+    name.className = 'hist-song-title';
+    name.textContent = title;
+    const badge = document.createElement('span');
+    const tb = trendBadge(t.improvement);
+    badge.className = tb.cls;
+    badge.textContent = tb.text;
+    head.append(name, badge);
+    const sub = document.createElement('div');
+    sub.className = 'hist-song-sub';
+    sub.textContent = `${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${Math.round(t.firstAccuracy * 100)}% → ${Math.round(t.latestAccuracy * 100)}% · best ${Math.round(t.bestAccuracy * 100)}%`;
+    card.append(head, sub);
+    historyList.appendChild(card);
+  }
+
+  const recentHead = document.createElement('div');
+  recentHead.className = 'hist-section';
+  recentHead.textContent = 'Recent sessions';
+  historyList.appendChild(recentHead);
+  for (const e of recentSessions(log, 15)) {
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    const main = document.createElement('div');
+    main.className = 'hist-row-main';
+    const title = document.createElement('div');
+    title.className = 'hist-row-title';
+    title.textContent = e.songTitle;
+    const when = document.createElement('div');
+    when.className = 'hist-row-when';
+    when.textContent = fmtWhen(e.at);
+    main.append(title, when);
+    const score = document.createElement('div');
+    score.className = 'hist-row-score';
+    const grade = document.createElement('span');
+    grade.className = 'hist-grade grade-' + e.grade;
+    grade.textContent = e.grade;
+    const acc = document.createElement('span');
+    acc.className = 'hist-acc';
+    acc.textContent = Math.round(e.accuracy * 100) + '%';
+    score.append(grade, acc);
+    row.append(main, score);
+    historyList.appendChild(row);
+  }
+}
+
+function openHistory(): void {
+  buildHistory();
+  historyPanel.classList.remove('hidden');
+}
+function closeHistory(): void {
+  historyPanel.classList.add('hidden');
+}
+historyBtn.addEventListener('click', openHistory);
+historyClose.addEventListener('click', closeHistory);
+historyClear.addEventListener('click', () => {
+  if (window.confirm('Delete all recorded practice sessions?')) {
+    history.clear();
+    buildHistory();
+  }
+});
+
 function showResult(result: SessionResult, rec: SongRecord, isNewBest: boolean): void {
   resultGrade.textContent = result.grade;
   resultGrade.className = 'result-grade grade-' + result.grade;
@@ -434,8 +565,10 @@ app.onResult = (result, id) => {
   const prev = progress.get(id);
   const rec = progress.recordResult(id, result);
   const isNewBest = !prev || result.accuracy >= prev.bestAccuracy;
+  history.record(makeSession(id, app.currentSongInfo().title || 'Song', result, Date.now()));
   showResult(result, rec, isNewBest);
   buildLibrary();
+  if (!historyPanel.classList.contains('hidden')) buildHistory();
 };
 
 resultRetry.addEventListener('click', () => {

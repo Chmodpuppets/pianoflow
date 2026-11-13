@@ -17,6 +17,7 @@
         <button id="libraryBtn" title="Song library">📚 Songs</button>
         <button id="midiBtn" title="MIDI devices">🎛 MIDI</button>
         <button id="pluginsBtn" title="Plugins">🧩 Plugins</button>
+        <button id="historyBtn" title="Practice history & progress">📈 History</button>
         <div class="spacer"></div>
         <span id="soundStatus" class="badge">loading…</span>
         <span id="midiStatus" class="badge">MIDI: —</span>
@@ -108,6 +109,18 @@
       </div>
       <div class="plugins-hint">Extend PianoFlow with overlays and practice aids. Toggles are saved.</div>
       <div id="pluginsList"></div>
+    </div>
+
+    <div id="historyPanel" class="drawer hidden" aria-label="Practice history">
+      <div class="drawer-head">
+        <span>📈 Practice history</span>
+        <button id="historyClose" title="Close">✕</button>
+      </div>
+      <div id="historySummary" class="history-summary"></div>
+      <div id="historyList"></div>
+      <div class="history-foot">
+        <button id="historyClear" title="Delete all recorded sessions">Clear history</button>
+      </div>
     </div>
 
     <div id="resultOverlay" class="overlay hidden">

@@ -1,4 +1,11 @@
-import { mergeRecord, type SessionResult, type SongRecord } from '@pianoflow/core';
+import {
+  mergeRecord,
+  appendSession,
+  isSessionEntry,
+  type SessionResult,
+  type SongRecord,
+  type SessionEntry,
+} from '@pianoflow/core';
 import type { AppSettings } from './app';
 
 const KEY = 'pianoflow.progress.v1';
@@ -122,5 +129,60 @@ export class SettingsStore {
     } catch {
       /* quota exceeded or private mode — keep the in-memory cache */
     }
+  }
+}
+
+const HISTORY_KEY = 'pianoflow.history.v1';
+
+/**
+ * localStorage-backed practice session log (chronological, capped). Corrupt or
+ * malformed entries are dropped on read; degrades to in-memory when storage is
+ * unavailable. All writes are guarded.
+ */
+export class HistoryStore {
+  private cache: SessionEntry[];
+
+  constructor(
+    private storage: Storage | null = safeStorage(),
+    private maxEntries = 500,
+  ) {
+    this.cache = this.read();
+  }
+
+  private read(): SessionEntry[] {
+    if (!this.storage) return [];
+    try {
+      const raw = this.storage.getItem(HISTORY_KEY);
+      if (!raw) return [];
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(isSessionEntry).slice(-this.maxEntries);
+    } catch {
+      return [];
+    }
+  }
+
+  private write(): void {
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(HISTORY_KEY, JSON.stringify(this.cache));
+    } catch {
+      /* quota exceeded or private mode — keep the in-memory cache */
+    }
+  }
+
+  getAll(): SessionEntry[] {
+    return this.cache;
+  }
+
+  /** Append a finished session and persist. */
+  record(entry: SessionEntry): void {
+    this.cache = appendSession(this.cache, entry, this.maxEntries);
+    this.write();
+  }
+
+  clear(): void {
+    this.cache = [];
+    this.write();
   }
 }
