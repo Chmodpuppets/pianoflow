@@ -11,5 +11,6 @@ export * from './progress';
 export * from './history';
 export * from './noteindex';
 export * from './adjust';
+export * from './instruments';
 export * from './plugin';
 export * from './plugins';

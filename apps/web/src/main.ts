@@ -12,6 +12,7 @@ import {
   songTrend,
   summarizeHistory,
   practicedSongIds,
+  INSTRUMENTS,
 } from '@pianoflow/core';
 import type { SessionResult, SongStats, Difficulty } from '@pianoflow/core';
 
@@ -110,6 +111,8 @@ const sNoteLabels = $<HTMLInputElement>('sNoteLabels');
 const sColorblind = $<HTMLInputElement>('sColorblind');
 const sMute = $<HTMLInputElement>('sMute');
 const sVolume = $<HTMLInputElement>('sVolume');
+const sInstrument = $<HTMLSelectElement>('sInstrument');
+const instrumentSel = $<HTMLSelectElement>('instrument');
 const openMidiBtn = $<HTMLButtonElement>('openMidiBtn');
 const openPluginsBtn = $<HTMLButtonElement>('openPluginsBtn');
 const settingsSound = $<HTMLElement>('settingsSound');
@@ -611,6 +614,8 @@ function syncControls(): void {
   const volPct = Math.round(s.volume * 100);
   sVolume.value = String(volPct);
   volumeSlider.value = String(volPct);
+  sInstrument.value = s.instrument;
+  instrumentSel.value = s.instrument;
   latencySlider.value = String(s.latencyMs);
   splitSlider.value = String(s.splitMidi);
   loopChk.checked = st.loopEnabled;
@@ -671,6 +676,8 @@ pauseRestart.addEventListener('click', () => { hidePause(); app.seek(0); void ap
 pauseBack.addEventListener('click', () => { hidePause(); app.pause(); showScreen('library'); });
 sVolume.addEventListener('input', () => { app.setVolume(Number(sVolume.value) / 100); persist(); });
 volumeSlider.addEventListener('input', () => { app.setVolume(Number(volumeSlider.value) / 100); persist(); });
+sInstrument.addEventListener('change', () => { app.setInstrument(sInstrument.value); persist(); syncControls(); });
+instrumentSel.addEventListener('change', () => { app.setInstrument(instrumentSel.value); persist(); syncControls(); });
 backBtn.addEventListener('click', () => { app.pause(); showScreen('library'); });
 nextBtn.addEventListener('click', () => {
   if (!bundledSongs.length) return;
@@ -764,7 +771,16 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.18.0';
+aboutVersion.textContent = 'v0.19.0';
+for (const sel of [sInstrument, instrumentSel]) {
+  sel.innerHTML = '';
+  for (const inst of INSTRUMENTS) {
+    const opt = document.createElement('option');
+    opt.value = inst.id;
+    opt.textContent = inst.label;
+    sel.appendChild(opt);
+  }
+}
 refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);

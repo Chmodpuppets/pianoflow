@@ -23,6 +23,9 @@ import {
   PerformanceRecorder,
   writeMidi,
   type RecordedNote,
+  isInstrument,
+  DEFAULT_INSTRUMENT,
+  instrumentFile,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -52,6 +55,7 @@ export interface AppSettings {
   transpose: number;
   splitMidi: number;
   latencyMs: number;
+  instrument: string;
   plugins: Record<string, boolean>;
 }
 
@@ -80,6 +84,7 @@ export interface AppState {
   transpose: number;
   splitMidi: number;
   latencyMs: number;
+  instrument: string;
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
@@ -149,6 +154,7 @@ export class PianoFlowApp {
   private transpose = 0;
   private splitMidi = 60;
   private latencyMs = 0;
+  private instrument = DEFAULT_INSTRUMENT;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -178,9 +184,11 @@ export class PianoFlowApp {
   onResult?: (result: SessionResult, songId: string) => void;
 
   constructor(canvas: HTMLCanvasElement) {
-    // Prefer the bundled local piano samples so the app works fully offline.
+    // Prefer the bundled local samples so the app works fully offline; the
+    // resolver lets the engine switch between several bundled timbres offline.
     const soundfontUrl = new URL('soundfont/acoustic_grand_piano-mp3.js', document.baseURI).href;
-    this.engine = new AudioEngine({ soundfontUrl });
+    const soundfontUrlFor = (id: string) => new URL(`soundfont/${instrumentFile(id)}`, document.baseURI).href;
+    this.engine = new AudioEngine({ soundfontUrl, soundfontUrlFor });
     this.renderer = new Renderer(canvas);
     const handlers: NoteHandlers = {
       onNoteOn: (m, v) => this.handleNoteOn(m, v),
@@ -359,6 +367,14 @@ export class PianoFlowApp {
     this.onState?.();
   }
 
+  /** Switch the playback timbre (bundled SoundFont, offline-first). */
+  setInstrument(id: string): void {
+    if (!isInstrument(id)) return;
+    this.instrument = id;
+    void this.engine.setInstrument(id).then(() => this.onState?.());
+    this.onState?.();
+  }
+
   /** Re-derive playable notes from the raw parse applying transpose + hand split. */
   private rebuildNotes(): void {
     const shifted = transposeNotes(this.rawNotes, this.transpose);
@@ -383,6 +399,7 @@ export class PianoFlowApp {
       transpose: this.transpose,
       splitMidi: this.splitMidi,
       latencyMs: this.latencyMs,
+      instrument: this.instrument,
       plugins: this.plugins.states(),
     };
   }
@@ -403,6 +420,7 @@ export class PianoFlowApp {
     if (typeof s.transpose === 'number' && isFinite(s.transpose)) this.setTranspose(s.transpose);
     if (typeof s.splitMidi === 'number' && isFinite(s.splitMidi)) this.setSplit(s.splitMidi);
     if (typeof s.latencyMs === 'number' && isFinite(s.latencyMs)) this.setLatency(s.latencyMs);
+    if (typeof s.instrument === 'string' && isInstrument(s.instrument)) this.setInstrument(s.instrument);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -744,6 +762,7 @@ export class PianoFlowApp {
       transpose: this.transpose,
       splitMidi: this.splitMidi,
       latencyMs: this.latencyMs,
+      instrument: this.instrument,
       loopEnabled: this.engine.loopEnabled,
       loopStart: this.engine.loopStart,
       loopEnd: this.engine.loopEnd,

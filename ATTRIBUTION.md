@@ -3,10 +3,11 @@
 ## 音色 SoundFonts
 - 默认钢琴音色来自 **FluidR3_GM**（作者 Frank Wen），通过 [smplr](https://github.com/danigb/smplr) /
   [midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts) 加载，遵循其原始许可。
-- **离线内置采样**：`apps/web/public/soundfont/acoustic_grand_piano-mp3.js` 为 FluidR3_GM 三角钢琴
-  mp3 采样（88 键，A0–C8），源自官方 [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts)
-  （经 jsDelivr 镜像下载，可用脚本 `scripts/fetch-soundfont.mjs` 重新获取）。应用优先加载本地采样以
-  完全离线运行，失败时回退到 CDN，再回退到内置合成器。FluidR3_GM 遵循其原始许可（见该仓库）。
+- **离线内置采样**：`apps/web/public/soundfont/` 内置四种 FluidR3_GM 音色 mp3 采样（88 键，A0–C8）：
+  `acoustic_grand_piano`（三角钢琴，默认）、`electric_piano_1`（电钢琴）、`music_box`（八音盒）、
+  `vibraphone`（颤音琴），均源自官方 [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts)
+  （经 jsDelivr / gleitz.github.io 下载，可用脚本 `scripts/fetch-soundfont.mjs` 重新获取）。应用优先加载
+  本地采样以完全离线运行，失败时回退到 CDN，再回退到内置合成器。FluidR3_GM 遵循其原始许可（见该仓库）。
 - 离线回退音色为 PianoFlow 内置的 Web Audio 合成钢琴（本项目代码，GPL-3.0）。
 
 ## 曲目 Songs

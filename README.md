@@ -37,6 +37,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   caches the shell, songs and SoundFont so you can practice fully offline after first load.
 - **Real piano sound, fully offline** — FluidR3_GM SoundFont samples via [`smplr`](https://github.com/danigb/smplr),
   bundled locally (no CDN needed); falls back to the CDN, then a built-in additive synth.
+- **Sound palette** — switch timbre in the player (⚙️) or Settings: Grand Piano, Electric Piano,
+  Music Box, Vibraphone. All four are bundled for offline play; switching reloads samples live.
 - **Standard MIDI file parsing** — zero-dependency SMF parser (format 0/1, tempo map,
   time signatures, running status).
 - **Transport** — play / pause / stop / seek, speed 0.25×–2×.
@@ -197,6 +199,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M16 (done)** — calibration & key control: input-latency compensation (±250 ms), live transpose (±12 semitones), and a manual hand-split slider; all persisted and unit-tested.
 - **M17 (done)** — performance recording & export: capture live input to a timed take and download it as a standard MIDI file (zero-dep writer, round-trip tested against the parser).
 - **M18 (done)** — installable PWA: web manifest + generated icons + offline service worker (shell/songs/SoundFont cached; navigation falls back to the shell), registered in production builds and runtime-tested headlessly.
+- **M19 (done)** — sound palette: four bundled FluidR3_GM timbres (grand piano / electric piano / music box / vibraphone) with a live instrument picker in the player and Settings; engine hot-swaps samples offline-first, choice persisted.
 
 ## 📄 License & attribution
 
@@ -240,7 +243,7 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
-舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；
+舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；音色面板（三角钢琴/电钢琴/八音盒/颤音琴四种内置 FluidR3_GM 音色，播放器与设置中实时切换、离线优先、选择持久化）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
 内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）；自动曲库索引（把任意 .mid/.midi 放入 public/songs/ 即自动出现在歌单，开发环境实时刷新、构建时烘焙索引，未知文件归入 Imported 并按音高自动拆手）。

@@ -2,6 +2,7 @@ import {
   mergeRecord,
   appendSession,
   isSessionEntry,
+  DEFAULT_INSTRUMENT,
   type SessionResult,
   type SongRecord,
   type SessionEntry,
@@ -94,6 +95,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   transpose: 0,
   splitMidi: 60,
   latencyMs: 0,
+  instrument: DEFAULT_INSTRUMENT,
   plugins: {},
 };
 

@@ -115,6 +115,15 @@
             </div>
           </div>
           <div class="panel">
+            <h3>Sound</h3>
+            <div class="form-grid">
+              <label class="vol-row">Instrument
+                <select id="sInstrument"></select>
+              </label>
+            </div>
+            <p class="muted-line">Bundled FluidR3_GM timbres play fully offline; switching reloads samples.</p>
+          </div>
+          <div class="panel">
             <h3>Devices & extensions</h3>
             <div class="row-actions">
               <button id="openMidiBtn" class="btn btn-ghost">🎛 MIDI devices</button>
@@ -210,6 +219,9 @@
           </label>
           <label>Count-in
             <select id="countIn"><option value="0">Off</option><option value="1">1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select>
+          </label>
+          <label>Instrument
+            <select id="instrument"></select>
           </label>
           <label class="chk"><input id="waitMode" type="checkbox" /> Wait for correct note</label>
           <label class="chk"><input id="labels" type="checkbox" /> Key labels</label>

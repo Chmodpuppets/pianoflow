@@ -13,6 +13,11 @@ export interface AudioEngineOptions {
    * so the app works fully offline; the CDN instrument is the fallback.
    */
   soundfontUrl?: string;
+  /**
+   * Optional resolver returning a bundled local URL for any instrument id,
+   * enabling offline switching between several bundled timbres.
+   */
+  soundfontUrlFor?: (instrument: string) => string | null;
 }
 
 /**
@@ -41,6 +46,7 @@ export class AudioEngine {
   private tickMs: number;
   private instrument: string;
   private soundfontUrl: string | null;
+  private soundfontUrlFor: ((id: string) => string | null) | null;
   private _soundfontSource: 'local' | 'cdn' | 'synth' = 'synth';
   private live = new Map<number, () => void>();
   readonly ready: Promise<void>;
@@ -71,17 +77,25 @@ export class AudioEngine {
     this.tickMs = opts.tickMs ?? 25;
     this.instrument = opts.instrument ?? 'acoustic_grand_piano';
     this.soundfontUrl = opts.soundfontUrl ?? null;
+    this.soundfontUrlFor = opts.soundfontUrlFor ?? null;
     this.metroGain = this.ctx.createGain();
     this.metroGain.gain.value = 0.6;
     this.metroGain.connect(this.masterGain);
-    this.ready = this.init();
+    this.ready = this.loadInstrument();
   }
 
-  private async init(): Promise<void> {
+  private localUrlFor(id: string): string | null {
+    if (this.soundfontUrlFor) return this.soundfontUrlFor(id);
+    if (id === 'acoustic_grand_piano') return this.soundfontUrl;
+    return null;
+  }
+
+  private async loadInstrument(): Promise<void> {
     // Try the bundled local samples first (offline), then the CDN instrument,
     // and finally fall back to the built-in synth if neither can load.
     const attempts: { options: { instrumentUrl?: string; instrument?: string; destination?: AudioNode }; source: 'local' | 'cdn' }[] = [];
-    if (this.soundfontUrl) attempts.push({ options: { instrumentUrl: this.soundfontUrl, destination: this.masterGain }, source: 'local' });
+    const local = this.localUrlFor(this.instrument);
+    if (local) attempts.push({ options: { instrumentUrl: local, destination: this.masterGain }, source: 'local' });
     attempts.push({ options: { instrument: this.instrument, destination: this.masterGain }, source: 'cdn' });
     for (const { options, source } of attempts) {
       try {
@@ -96,6 +110,21 @@ export class AudioEngine {
     }
     this.sf = null;
     this._soundfontSource = 'synth';
+  }
+
+  /** Switch timbre at runtime; reloads samples (local first, then CDN). */
+  async setInstrument(id: string): Promise<void> {
+    if (id === this.instrument) return;
+    this.instrument = id;
+    this.stopScheduled();
+    this.live.clear();
+    this.sf = null;
+    this._soundfontSource = 'synth';
+    await this.loadInstrument();
+  }
+
+  get instrumentId(): string {
+    return this.instrument;
   }
 
   get playing(): boolean {
