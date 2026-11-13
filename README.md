@@ -54,10 +54,12 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   *London Bridge*, *Happy Birthday*, *Minuet in G*, *Greensleeves*, and *Für Elise*.
 - **Song library** — browse bundled tracks with composer, duration, note count and a
   ★ difficulty estimate; your best grade / accuracy is shown per song.
-- **Bring your own MIDI** — open any local `.mid` from the Songs view (📂 Open .mid) to
-  practice it immediately, or drop files into `apps/web/public/songs/` and list them in
-  `songs/user.json` to add them permanently (survives `pnpm songs` regeneration).
-  Single-track (format 0) files are auto-split into hands by pitch.
+- **Bring your own MIDI** — drop any `.mid` / `.midi` into `apps/web/public/songs/` and it
+  appears in the library automatically: the folder is auto-indexed (dev live-refreshes on
+  change; the index is baked into the production build). Curated metadata lives in
+  `songs.json` / `songs/user.json`; unknown files get a prettified name under "Imported".
+  You can also open a local `.mid` ad-hoc via 📂 Open .mid. Single-track (format 0) files
+  are auto-split into hands by pitch.
 - **Progress persistence** — best accuracy / grade / combo and play count are saved
   locally (localStorage), per song, and survive reloads.
 - **Practice history & trends** — every completed Practice run is logged locally; the
@@ -184,6 +186,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M12 (done)** — three-screen UI redesign: animated welcome + local profiles, searchable/filterable song library with favorites, and a focused full-screen player with Practice / Progress / Settings views.
 - **M13 (done)** — playfield feedback: hand-colored anticipation glow on upcoming keys and hit-spark particles at the strike line.
 - **M14 (done)** — player comfort: persisted volume control, pause overlay (resume/restart/back), and a hand-color legend.
+- **M15 (done)** — automatic song-folder indexing: drop a `.mid` into `public/songs/` and it appears in the library (dev live-refresh + baked build index), with metadata overrides and pitch-based hand split for format-0 files.
 
 ## 📄 License & attribution
 
@@ -230,7 +233,7 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
-内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。
+内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）；自动曲库索引（把任意 .mid/.midi 放入 public/songs/ 即自动出现在歌单，开发环境实时刷新、构建时烘焙索引，未知文件归入 Imported 并按音高自动拆手）。
 
 **架构**：pnpm monorepo，平台无关的 TypeScript 核心（`core`/`audio`/`render`/`input`），
 便于后续扩展到 Tauri 桌面端与移动端。
