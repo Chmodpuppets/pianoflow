@@ -6,3 +6,4 @@ export * from './scoring';
 export * from './transport';
 export * from './meter';
 export * from './progress';
+export * from './noteindex';

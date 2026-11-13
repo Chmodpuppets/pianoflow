@@ -1,5 +1,5 @@
 import type { MidiNote } from '@pianoflow/core';
-import { noteName } from '@pianoflow/core';
+import { NoteIndex, noteName } from '@pianoflow/core';
 import { buildKeyboard, keyAt, type KeyboardLayout } from './keyboard';
 import { defaultTheme, type Theme } from './theme';
 
@@ -39,6 +39,13 @@ export class Renderer {
   config: RenderConfig;
   keyboardHeight = 0;
   keyboardTop = 0;
+
+  // Viewport-culling index, rebuilt only when the note array reference changes.
+  private indexedNotes: MidiNote[] | null = null;
+  private noteIndex: NoteIndex | null = null;
+  // Reused flat rect buffers ([x,y,w,h,r] per note) to avoid per-frame GC churn.
+  private rightBuf: number[] = [];
+  private leftBuf: number[] = [];
 
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
@@ -86,7 +93,18 @@ export class Renderer {
     const pps = this.keyboardTop / Math.max(0.2, config.secondsVisible);
     const pos = state.position;
 
-    for (const n of state.notes) {
+    // Only iterate notes that can overlap the visible time window, not the
+    // whole song. The window is padded by 1s; the exact pixel cull below still
+    // applies, so output is identical to a full scan but far cheaper for dense
+    // "black MIDI" files.
+    const index = this.getIndex(state.notes);
+    const t0 = pos - this.keyboardHeight / pps - 1;
+    const t1 = pos + config.secondsVisible + 1;
+    const visible = index.query(t0, t1);
+
+    this.rightBuf.length = 0;
+    this.leftBuf.length = 0;
+    for (const n of visible) {
       const bottom = this.keyboardTop - (n.time - pos) * pps;
       const top = bottom - n.duration * pps;
       if (top > cssH || bottom < 0) continue;
@@ -97,10 +115,12 @@ export class Renderer {
       const y = Math.max(top, -10);
       const h = Math.min(bottom, this.keyboardTop) - y;
       if (h <= 0 || w <= 0) continue;
-      ctx.fillStyle = n.hand === 'left' ? theme.leftNote : theme.rightNote;
-      this.roundRect(x, y, w, h, Math.min(4, w / 2));
-      ctx.fill();
+      const buf = n.hand === 'left' ? this.leftBuf : this.rightBuf;
+      buf.push(x, y, w, h, Math.min(4, w / 2));
     }
+    // One fill per hand instead of one per note.
+    this.fillBatch(this.rightBuf, theme.rightNote);
+    this.fillBatch(this.leftBuf, theme.leftNote);
 
     ctx.fillStyle = theme.hitLine;
     ctx.globalAlpha = 0.25;
@@ -179,9 +199,27 @@ export class Renderer {
     }
   }
 
-  private roundRect(x: number, y: number, w: number, h: number, r: number): void {
+  private getIndex(notes: MidiNote[]): NoteIndex {
+    if (notes !== this.indexedNotes || !this.noteIndex) {
+      this.indexedNotes = notes;
+      this.noteIndex = new NoteIndex(notes);
+    }
+    return this.noteIndex;
+  }
+
+  private fillBatch(buf: number[], color: string): void {
+    if (buf.length === 0) return;
     const ctx = this.ctx;
+    ctx.fillStyle = color;
     ctx.beginPath();
+    for (let i = 0; i < buf.length; i += 5) {
+      this.roundRectPath(buf[i], buf[i + 1], buf[i + 2], buf[i + 3], buf[i + 4]);
+    }
+    ctx.fill();
+  }
+
+  private roundRectPath(x: number, y: number, w: number, h: number, r: number): void {
+    const ctx = this.ctx;
     ctx.moveTo(x + r, y);
     ctx.arcTo(x + w, y, x + w, y + h, r);
     ctx.arcTo(x + w, y + h, x, y + h, r);

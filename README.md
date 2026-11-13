@@ -12,6 +12,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 ## ✨ Features
 
 - **Falling-notes renderer** — Canvas2D, 88-key keyboard, color-coded hands, HiDPI aware.
+- **Built for dense scores** — a time-bucket note index + viewport culling draws only the
+  notes on screen (batched per hand), so very dense "black MIDI" files stay smooth.
 - **Real piano sound, fully offline** — FluidR3_GM SoundFont samples via [`smplr`](https://github.com/danigb/smplr),
   bundled locally (no CDN needed); falls back to the CDN, then a built-in additive synth.
 - **Standard MIDI file parsing** — zero-dependency SMF parser (format 0/1, tempo map,
@@ -88,9 +90,9 @@ later power a desktop (Tauri) or mobile shell.
 
 ```
 packages/
-  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty (no DOM)
+  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty, viewport index (no DOM)
   audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler
-  render/    Canvas2D falling-notes renderer, keyboard geometry, themes
+  render/    Canvas2D falling-notes renderer (viewport culling + batched draws), keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
 apps/
   web/       Vite app wiring everything together (DOM + controls)
@@ -120,7 +122,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
 - **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
 - **M4 (done)** — expanded public-domain song library (7 tracks) and settings persistence.
-- **M5** — black-MIDI rendering optimizations (time-bucket index, WebGL), plugins.
+- **M5 (partial)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws (done); WebGL renderer and plugins pending.
 
 ## 📄 License & attribution
 
@@ -155,7 +157,7 @@ pnpm songs     # 生成内置公版 MIDI 曲目
 pnpm dev       # 启动开发服务器（http://localhost:5173）
 ```
 
-**核心功能**：Canvas2D 下落音符 + 88 键键盘；FluidR3_GM SoundFont 真实钢琴音色（采样已
+**核心功能**：Canvas2D 下落音符 + 88 键键盘（时间桶索引 + 视口裁剪 + 批量绘制，密集黑 MIDI 更流畅）；FluidR3_GM SoundFont 真实钢琴音色（采样已
 本地内置、完全离线可用，缺失时回退 CDN 再回退内置合成器）；MIDI 设备映射（列出/选择输入设备、
 实时音符监视、热插拔检测）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
 两种模式；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
