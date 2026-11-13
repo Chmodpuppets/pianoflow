@@ -33,13 +33,16 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **MIDI device map** — list connected USB MIDI inputs, choose one (or all), and watch a
   live note monitor; devices are detected automatically on hot-plug.
 - **Accessibility** — optional note labels and a colorblind-friendly palette.
-- **Bundled public-domain songs** — *Twinkle Twinkle Little Star* and *Ode to Joy*.
+- **Bundled public-domain songs** — seven classics: *Twinkle Twinkle*, *Ode to Joy*,
+  *London Bridge*, *Happy Birthday*, *Minuet in G*, *Greensleeves*, and *Für Elise*.
 - **Song library** — browse bundled tracks with composer, duration, note count and a
   ★ difficulty estimate; your best grade / accuracy is shown per song.
 - **Progress persistence** — best accuracy / grade / combo and play count are saved
   locally (localStorage), per song, and survive reloads.
 - **Results screen** — at the end of a Practice run: grade, accuracy, perfect / good /
   miss / wrong breakdown, max combo, and a "new best" indicator, with one-click retry.
+- **Settings persistence** — mode, speed, hands, wait, labels, colorblind, metronome and
+  count-in are remembered across reloads.
 
 ## 🚀 Quick start
 
@@ -116,12 +119,13 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M1 (done)** — A-B loop regions, metronome + count-in, chord-aware wait mode, listen-mode hand mute.
 - **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
 - **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
-- **M4** — black-MIDI rendering optimizations (time-bucket index, WebGL), plugins.
+- **M4 (done)** — expanded public-domain song library (7 tracks) and settings persistence.
+- **M5** — black-MIDI rendering optimizations (time-bucket index, WebGL), plugins.
 
 ## 📄 License & attribution
 
 - Code: **GPL-3.0-or-later** — see [LICENSE](LICENSE).
-- Bundled songs are **public domain** (traditional / Beethoven).
+- Bundled songs are **public domain** (traditional / Beethoven / Petzold), as simplified practice arrangements.
 - Piano samples: **FluidR3_GM** via `smplr` / `midi-js-soundfonts` (MIT / respective licenses).
 
 See [ATTRIBUTION.md](ATTRIBUTION.md) for details.
@@ -158,7 +162,8 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；音符标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
-判定明细、新纪录提示）；内置《小星星》《欢乐颂》两首公版曲目。
+判定明细、新纪录提示）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍刷新后保留）；
+内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）。
 
 **架构**：pnpm monorepo，平台无关的 TypeScript 核心（`core`/`audio`/`render`/`input`），
 便于后续扩展到 Tauri 桌面端与移动端。

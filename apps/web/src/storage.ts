@@ -1,4 +1,5 @@
 import { mergeRecord, type SessionResult, type SongRecord } from '@pianoflow/core';
+import type { AppSettings } from './app';
 
 const KEY = 'pianoflow.progress.v1';
 
@@ -66,5 +67,58 @@ export class ProgressStore {
   clear(): void {
     this.cache = {};
     this.write();
+  }
+}
+
+const SETTINGS_KEY = 'pianoflow.settings.v1';
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  mode: 'listen',
+  hands: 'both',
+  waitMode: false,
+  speed: 1,
+  labels: false,
+  colorblind: false,
+  metronome: false,
+  countIn: 0,
+};
+
+/**
+ * localStorage-backed user preferences. Merges over defaults so an older or
+ * partial payload never crashes the app; degrades to in-memory when storage
+ * is unavailable.
+ */
+export class SettingsStore {
+  private cache: AppSettings;
+
+  constructor(private storage: Storage | null = safeStorage()) {
+    this.cache = this.read();
+  }
+
+  private read(): AppSettings {
+    if (!this.storage) return { ...DEFAULT_SETTINGS };
+    try {
+      const raw = this.storage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed: unknown = JSON.parse(raw);
+      const obj = parsed && typeof parsed === 'object' ? (parsed as Partial<AppSettings>) : {};
+      return { ...DEFAULT_SETTINGS, ...obj };
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  get(): AppSettings {
+    return { ...this.cache };
+  }
+
+  save(s: AppSettings): void {
+    this.cache = { ...s };
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(SETTINGS_KEY, JSON.stringify(this.cache));
+    } catch {
+      /* quota exceeded or private mode — keep the in-memory cache */
+    }
   }
 }

@@ -10,9 +10,15 @@
 - 离线回退音色为 PianoFlow 内置的 Web Audio 合成钢琴（本项目代码，GPL-3.0）。
 
 ## 曲目 Songs
-- 内置曲目均为**公有领域（Public Domain）**旋律，由本项目脚本 `scripts/generate-songs.mjs` 生成：
+- 内置曲目均为**公有领域（Public Domain）**旋律的简化练习编曲，由本项目脚本
+  `scripts/generate-songs.mjs` 生成：
   - 《小星星》Twinkle Twinkle Little Star（传统旋律，PD）
   - 《欢乐颂》Ode to Joy — Ludwig van Beethoven（PD）
+  - 《伦敦桥》London Bridge（传统旋律，PD）
+  - 《生日快乐》Happy Birthday（传统旋律，PD）
+  - 《G 大调小步舞曲》Minuet in G — Christian Petzold（PD）
+  - 《绿袖子》Greensleeves（传统旋律，PD）
+  - 《致爱丽丝》Für Elise — Ludwig van Beethoven（PD）
 - 用户自行导入的 MIDI 文件，其版权由用户自行负责。
 
 ## 第三方库

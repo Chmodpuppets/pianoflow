@@ -10,5 +10,35 @@
     "title": "Ode to Joy",
     "composer": "L. van Beethoven (Public Domain)",
     "file": "ode-to-joy.mid"
+  },
+  {
+    "id": "london-bridge",
+    "title": "London Bridge",
+    "composer": "Traditional (Public Domain)",
+    "file": "london-bridge.mid"
+  },
+  {
+    "id": "happy-birthday",
+    "title": "Happy Birthday",
+    "composer": "Traditional (Public Domain)",
+    "file": "happy-birthday.mid"
+  },
+  {
+    "id": "minuet-in-g",
+    "title": "Minuet in G",
+    "composer": "C. Petzold (Public Domain)",
+    "file": "minuet-in-g.mid"
+  },
+  {
+    "id": "greensleeves",
+    "title": "Greensleeves",
+    "composer": "Traditional (Public Domain)",
+    "file": "greensleeves.mid"
+  },
+  {
+    "id": "fur-elise",
+    "title": "Für Elise",
+    "composer": "L. van Beethoven (Public Domain)",
+    "file": "fur-elise.mid"
   }
 ]

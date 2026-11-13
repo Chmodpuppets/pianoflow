@@ -25,6 +25,17 @@ import {
 export type Mode = 'listen' | 'practice';
 export type Hands = 'both' | 'right' | 'left';
 
+export interface AppSettings {
+  mode: Mode;
+  hands: Hands;
+  waitMode: boolean;
+  speed: number;
+  labels: boolean;
+  colorblind: boolean;
+  metronome: boolean;
+  countIn: number;
+}
+
 export interface AppState {
   songName: string;
   songId: string;
@@ -79,6 +90,8 @@ export class PianoFlowApp {
   private mode: Mode = 'listen';
   private hands: Hands = 'both';
   private waitMode = false;
+  private labels = false;
+  private colorblind = false;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -179,9 +192,11 @@ export class PianoFlowApp {
     this.onState?.();
   }
   setLabels(b: boolean): void {
+    this.labels = b;
     this.renderer.setConfig({ showLabels: b });
   }
   setColorblind(b: boolean): void {
+    this.colorblind = b;
     this.renderer.setConfig({ theme: b ? colorblindTheme : defaultTheme });
   }
   setMetronome(b: boolean): void {
@@ -191,6 +206,32 @@ export class PianoFlowApp {
   setCountIn(n: number): void {
     this.engine.setCountIn(n);
     this.onState?.();
+  }
+
+  /** Snapshot of user preferences, for persistence. */
+  getSettings(): AppSettings {
+    return {
+      mode: this.mode,
+      hands: this.hands,
+      waitMode: this.waitMode,
+      speed: this.engine.speed,
+      labels: this.labels,
+      colorblind: this.colorblind,
+      metronome: this.engine.metronome,
+      countIn: this.engine.countIn,
+    };
+  }
+
+  /** Apply persisted preferences, validating each field defensively. */
+  applySettings(s: Partial<AppSettings>): void {
+    if (s.mode === 'listen' || s.mode === 'practice') this.setMode(s.mode);
+    if (s.hands === 'both' || s.hands === 'right' || s.hands === 'left') this.setHands(s.hands);
+    if (typeof s.waitMode === 'boolean') this.setWaitMode(s.waitMode);
+    if (typeof s.speed === 'number' && isFinite(s.speed)) this.setSpeed(s.speed);
+    if (typeof s.labels === 'boolean') this.setLabels(s.labels);
+    if (typeof s.colorblind === 'boolean') this.setColorblind(s.colorblind);
+    if (typeof s.metronome === 'boolean') this.setMetronome(s.metronome);
+    if (typeof s.countIn === 'number' && isFinite(s.countIn)) this.setCountIn(s.countIn);
   }
 
   /** Listen to a single MIDI input device by id, or `null` for all devices. */

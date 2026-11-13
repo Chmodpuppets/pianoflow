@@ -1,5 +1,5 @@
 import { PianoFlowApp, type Hands, type Mode } from './app';
-import { ProgressStore } from './storage';
+import { ProgressStore, SettingsStore } from './storage';
 import {
   parseMidi,
   assignHands,
@@ -18,6 +18,7 @@ const canvas = $<HTMLCanvasElement>('canvas');
 const stage = $<HTMLElement>('stage');
 const app = new PianoFlowApp(canvas);
 const progress = new ProgressStore();
+const settings = new SettingsStore();
 
 const songSelect = $<HTMLSelectElement>('songSelect');
 const loadBtn = $<HTMLButtonElement>('loadBtn');
@@ -109,6 +110,10 @@ function refresh(): void {
 }
 app.onState = refresh;
 
+function persist(): void {
+  settings.save(app.getSettings());
+}
+
 function doResize(): void {
   const r = stage.getBoundingClientRect();
   app.resize(Math.max(1, r.width), Math.max(1, r.height));
@@ -125,14 +130,14 @@ seek.addEventListener('input', () => {
 seek.addEventListener('change', () => {
   seeking = false;
 });
-speedSel.addEventListener('change', () => app.setSpeed(Number(speedSel.value)));
-handsSel.addEventListener('change', () => app.setHands(handsSel.value as Hands));
-modeSel.addEventListener('change', () => app.setMode(modeSel.value as Mode));
-waitChk.addEventListener('change', () => app.setWaitMode(waitChk.checked));
-labelsChk.addEventListener('change', () => app.setLabels(labelsChk.checked));
-cbChk.addEventListener('change', () => app.setColorblind(cbChk.checked));
-metroChk.addEventListener('change', () => app.setMetronome(metroChk.checked));
-countInSel.addEventListener('change', () => app.setCountIn(Number(countInSel.value)));
+speedSel.addEventListener('change', () => { app.setSpeed(Number(speedSel.value)); persist(); });
+handsSel.addEventListener('change', () => { app.setHands(handsSel.value as Hands); persist(); });
+modeSel.addEventListener('change', () => { app.setMode(modeSel.value as Mode); persist(); });
+waitChk.addEventListener('change', () => { app.setWaitMode(waitChk.checked); persist(); });
+labelsChk.addEventListener('change', () => { app.setLabels(labelsChk.checked); persist(); });
+cbChk.addEventListener('change', () => { app.setColorblind(cbChk.checked); persist(); });
+metroChk.addEventListener('change', () => { app.setMetronome(metroChk.checked); persist(); });
+countInSel.addEventListener('change', () => { app.setCountIn(Number(countInSel.value)); persist(); });
 loopChk.addEventListener('change', () => app.setLoopEnabled(loopChk.checked));
 loopABtn.addEventListener('click', () => app.markLoopStart());
 loopBBtn.addEventListener('click', () => app.markLoopEnd());
@@ -387,6 +392,18 @@ resultRetry.addEventListener('click', () => {
   void app.play();
 });
 resultClose.addEventListener('click', () => resultOverlay.classList.add('hidden'));
+
+// Restore persisted preferences and sync the controls to match.
+const saved = settings.get();
+app.applySettings(saved);
+modeSel.value = saved.mode;
+handsSel.value = saved.hands;
+speedSel.value = String(saved.speed);
+waitChk.checked = saved.waitMode;
+labelsChk.checked = saved.labels;
+cbChk.checked = saved.colorblind;
+metroChk.checked = saved.metronome;
+countInSel.value = String(saved.countIn);
 
 doResize();
 void app.init().then(refresh);
