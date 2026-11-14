@@ -19,16 +19,17 @@
     <section id="screen-welcome" class="screen">
       <canvas id="welcomeCanvas" aria-hidden="true"></canvas>
       <div class="welcome-scrim"></div>
+      <button id="langWelcome" class="lang-fab" type="button" aria-label="Switch language">🌐</button>
       <div class="welcome-card">
         <div class="logo-bars" aria-hidden="true"><span></span><span></span><span></span></div>
         <h1 class="welcome-title">PianoFlow</h1>
-        <p class="welcome-tag">Learn and play piano with falling notes</p>
+        <p class="welcome-tag" data-i18n="welcome.tag">Learn and play piano with falling notes</p>
         <div class="welcome-actions">
-          <button id="loginBtn" class="btn btn-primary btn-block">👤 Log In</button>
-          <button id="createBtn" class="btn btn-ghost btn-block">Create Account</button>
-          <button id="guestBtn" class="linklike">Continue as Guest</button>
+          <button id="loginBtn" class="btn btn-primary btn-block" data-i18n="welcome.login">👤 Log In</button>
+          <button id="createBtn" class="btn btn-ghost btn-block" data-i18n="welcome.create">Create Account</button>
+          <button id="guestBtn" class="linklike" data-i18n="welcome.guest">Continue as Guest</button>
         </div>
-        <p class="welcome-foot">Open source · GPL-3.0 · no account required</p>
+        <p class="welcome-foot" data-i18n="welcome.foot">Open source · GPL-3.0 · no account required</p>
       </div>
     </section>
 
@@ -37,14 +38,15 @@
       <aside class="sidebar">
         <div class="brand"><span class="logo-bars sm" aria-hidden="true"><span></span><span></span><span></span></span> PianoFlow</div>
         <nav class="side-nav">
-          <button id="navSongs" class="side-item active" data-view="songs">🎵 Songs</button>
-          <button id="navPractice" class="side-item" data-view="practice">🎯 Practice</button>
-          <button id="navProgress" class="side-item" data-view="progress">📈 Progress</button>
-          <button id="navSettings" class="side-item" data-view="settings">⚙️ Settings</button>
+          <button id="navSongs" class="side-item active" data-view="songs" data-i18n="nav.songs">🎵 Songs</button>
+          <button id="navPractice" class="side-item" data-view="practice" data-i18n="nav.practice">🎯 Practice</button>
+          <button id="navProgress" class="side-item" data-view="progress" data-i18n="nav.progress">📈 Progress</button>
+          <button id="navSettings" class="side-item" data-view="settings" data-i18n="nav.settings">⚙️ Settings</button>
         </nav>
         <div class="sidebar-foot">
           <div class="profile-chip"><span id="profileAvatar" class="avatar">G</span><span id="profileName" class="profile-name">Guest</span></div>
-          <button id="switchProfileBtn" class="linklike small">Switch profile</button>
+          <button id="switchProfileBtn" class="linklike small" data-i18n="profile.switch">Switch profile</button>
+          <button id="langSide" class="lang-side" type="button" aria-label="Switch language">🌐</button>
         </div>
       </aside>
 
@@ -52,108 +54,116 @@
         <!-- Songs view -->
         <div id="view-songs" class="view">
           <div class="view-head">
-            <h2>Songs</h2>
+            <h2 data-i18n="songs.title">Songs</h2>
             <div class="head-actions">
-              <button id="loadBtn" class="btn btn-ghost"> Open .mid</button>
+              <button id="loadBtn" class="btn btn-ghost" data-i18n="songs.open">📂 Open .mid</button>
               <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" hidden />
             </div>
           </div>
           <div class="search-row">
-            <input id="songSearch" type="search" placeholder="Search songs, artists, or composers…" autocomplete="off" />
+            <input id="songSearch" type="search" data-i18n-placeholder="songs.search" placeholder="Search songs, artists, or composers…" autocomplete="off" />
           </div>
           <div id="genreChips" class="chips" role="tablist"></div>
           <div id="songList" class="song-list"></div>
-          <p class="lib-hint">Tip: drop any <code>.mid</code> / <code>.midi</code> file into <code>apps/web/public/songs/</code> — it appears here automatically and stays in your library.</p>
+          <p class="lib-hint"><span data-i18n="songs.hint.pre">Tip: drop any </span><code>.mid</code><span data-i18n="songs.hint.mid"> / </span><code>.midi</code><span data-i18n="songs.hint.post"> file into </span><code>apps/web/public/songs/</code><span data-i18n="songs.hint.end"> — it appears here automatically and stays in your library.</span></p>
         </div>
 
         <!-- Practice view -->
         <div id="view-practice" class="view hidden">
-          <div class="view-head"><h2>Practice</h2></div>
-          <p class="view-sub">Set up a focused session, then jump into the playfield.</p>
+          <div class="view-head"><h2 data-i18n="practice.title">Practice</h2></div>
+          <p class="view-sub" data-i18n="practice.sub">Set up a focused session, then jump into the playfield.</p>
           <div class="panel">
-            <h3>Session</h3>
+            <h3 data-i18n="practice.session">Session</h3>
             <div class="form-grid">
-              <label>Hands
-                <select id="pHands"><option value="both">Both</option><option value="right">Right</option><option value="left">Left</option></select>
+              <label><span data-i18n="label.hands">Hands</span>
+                <select id="pHands"><option value="both" data-i18n="hands.both">Both</option><option value="right" data-i18n="hands.right">Right</option><option value="left" data-i18n="hands.left">Left</option></select>
               </label>
-              <label>Speed
+              <label><span data-i18n="label.speed">Speed</span>
                 <select id="pSpeed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
               </label>
-              <label>Count-in
-                <select id="pCountIn"><option value="0">Off</option><option value="1">1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select>
+              <label><span data-i18n="label.countin">Count-in</span>
+                <select id="pCountIn"><option value="0" data-i18n="countin.off">Off</option><option value="1" data-i18n="countin.1">1 beat</option><option value="2" data-i18n="countin.2">2 beats</option><option value="4" data-i18n="countin.4">4 beats</option></select>
               </label>
-              <label class="chk"><input id="pWait" type="checkbox" /> Wait for correct note</label>
-              <label class="chk"><input id="pMetro" type="checkbox" /> Metronome</label>
-              <label class="chk"><input id="pHandAssist" type="checkbox" checked /> App plays the other hand</label>
+              <label class="chk"><input id="pWait" type="checkbox" /> <span data-i18n="practice.wait">Wait for correct note</span></label>
+              <label class="chk"><input id="pMetro" type="checkbox" /> <span data-i18n="practice.metro">Metronome</span></label>
+              <label class="chk"><input id="pHandAssist" type="checkbox" checked /> <span data-i18n="practice.assist">App plays the other hand</span></label>
             </div>
           </div>
           <div class="panel">
-            <h3>Practice aids (plugins)</h3>
+            <h3 data-i18n="practice.aids">Practice aids (plugins)</h3>
             <div id="practicePlugins" class="plugin-list"></div>
           </div>
-          <button id="startPracticeBtn" class="btn btn-primary">▶ Start practicing</button>
+          <button id="startPracticeBtn" class="btn btn-primary" data-i18n="practice.start">▶ Start practicing</button>
         </div>
 
         <!-- Progress view -->
         <div id="view-progress" class="view hidden">
-          <div class="view-head"><h2>Progress</h2></div>
+          <div class="view-head"><h2 data-i18n="progress.title">Progress</h2></div>
           <div id="progressSummary" class="history-summary"></div>
           <div class="panel">
-            <h3>Consistency</h3>
+            <h3 data-i18n="progress.consistency">Consistency</h3>
             <div id="streakStats" class="streak-stats"></div>
-            <div id="activityBars" class="activity-bars" aria-label="Sessions per day, last 7 days"></div>
+            <div id="activityBars" class="activity-bars" data-i18n-aria="progress.activityAria" aria-label="Sessions per day, last 7 days"></div>
           </div>
           <div class="panel">
-            <h3>Achievements</h3>
+            <h3 data-i18n="progress.achievements">Achievements</h3>
             <div id="achievementGrid" class="achievement-grid"></div>
           </div>
           <div id="progressList" class="progress-list"></div>
-          <div class="history-foot"><button id="progressClear" class="btn btn-ghost danger">Clear history</button></div>
+          <div class="history-foot"><button id="progressClear" class="btn btn-ghost danger" data-i18n="progress.clear">Clear history</button></div>
         </div>
 
         <!-- Settings view -->
         <div id="view-settings" class="view hidden">
-          <div class="view-head"><h2>Settings</h2></div>
+          <div class="view-head"><h2 data-i18n="settings.title">Settings</h2></div>
           <div class="panel">
-            <h3>Display</h3>
+            <h3 data-i18n="settings.language">Language</h3>
             <div class="form-grid">
-              <label class="chk"><input id="sLabels" type="checkbox" /> Key labels (C4…)</label>
-              <label class="chk"><input id="sNoteLabels" type="checkbox" /> Note names on falling notes</label>
-              <label class="chk"><input id="sColorblind" type="checkbox" /> Colorblind-friendly palette</label>
-              <label class="chk"><input id="sFitKeys" type="checkbox" /> Fit keyboard to song range</label>
-              <label class="chk"><input id="sGpu" type="checkbox" checked /> GPU-accelerated notes (WebGL)</label>
-              <label class="chk"><input id="sBeatGrid" type="checkbox" checked /> Measure &amp; beat grid</label>
-              <label class="chk"><input id="sMute" type="checkbox" /> Mute all sound</label>
-              <label class="vol-row">Volume <input id="sVolume" type="range" min="0" max="100" value="90" /></label>
+              <label class="vol-row"><span data-i18n="settings.language">Language</span>
+                <select id="langSelect"></select>
+              </label>
             </div>
           </div>
           <div class="panel">
-            <h3>Sound</h3>
+            <h3 data-i18n="settings.display">Display</h3>
             <div class="form-grid">
-              <label class="vol-row">Instrument
+              <label class="chk"><input id="sLabels" type="checkbox" /> <span data-i18n="settings.labels">Key labels (C4…)</span></label>
+              <label class="chk"><input id="sNoteLabels" type="checkbox" /> <span data-i18n="settings.noteLabels">Note names on falling notes</span></label>
+              <label class="chk"><input id="sColorblind" type="checkbox" /> <span data-i18n="settings.colorblind">Colorblind-friendly palette</span></label>
+              <label class="chk"><input id="sFitKeys" type="checkbox" /> <span data-i18n="settings.fitKeys">Fit keyboard to song range</span></label>
+              <label class="chk"><input id="sGpu" type="checkbox" checked /> <span data-i18n="settings.gpu">GPU-accelerated notes (WebGL)</span></label>
+              <label class="chk"><input id="sBeatGrid" type="checkbox" checked /> <span data-i18n="settings.beatGrid">Measure &amp; beat grid</span></label>
+              <label class="chk"><input id="sMute" type="checkbox" /> <span data-i18n="settings.mute">Mute all sound</span></label>
+              <label class="vol-row"><span data-i18n="label.volume">Volume</span> <input id="sVolume" type="range" min="0" max="100" value="90" /></label>
+            </div>
+          </div>
+          <div class="panel">
+            <h3 data-i18n="settings.sound">Sound</h3>
+            <div class="form-grid">
+              <label class="vol-row"><span data-i18n="label.instrument">Instrument</span>
                 <select id="sInstrument"></select>
               </label>
             </div>
-            <p class="muted-line">Bundled FluidR3_GM timbres play fully offline; switching reloads samples.</p>
+            <p class="muted-line" data-i18n="settings.soundHint">Bundled FluidR3_GM timbres play fully offline; switching reloads samples.</p>
           </div>
           <div class="panel">
-            <h3>Devices & extensions</h3>
+            <h3 data-i18n="settings.devices">Devices &amp; extensions</h3>
             <div class="row-actions">
-              <button id="openMidiBtn" class="btn btn-ghost">🎛 MIDI devices</button>
-              <button id="openPluginsBtn" class="btn btn-ghost">🧩 Plugins</button>
+              <button id="openMidiBtn" class="btn btn-ghost" data-i18n="settings.midi">🎛 MIDI devices</button>
+              <button id="openPluginsBtn" class="btn btn-ghost" data-i18n="settings.plugins">🧩 Plugins</button>
             </div>
             <p id="settingsSound" class="muted-line"></p>
           </div>
           <div class="panel">
-            <h3>Data</h3>
+            <h3 data-i18n="settings.data">Data</h3>
             <div class="row-actions">
-              <button id="clearProgressBtn" class="btn btn-ghost danger">Clear best scores</button>
-              <button id="clearHistoryBtn" class="btn btn-ghost danger">Clear session history</button>
+              <button id="clearProgressBtn" class="btn btn-ghost danger" data-i18n="settings.clearScores">Clear best scores</button>
+              <button id="clearHistoryBtn" class="btn btn-ghost danger" data-i18n="settings.clearHistory">Clear session history</button>
             </div>
           </div>
           <div class="panel">
-            <h3>About</h3>
-            <p class="muted-line">PianoFlow <span id="aboutVersion"></span> · open-source falling-notes piano practice. GPL-3.0. SoundFont: FluidR3_GM (offline). Songs: public-domain arrangements.</p>
+            <h3 data-i18n="settings.about">About</h3>
+            <p class="muted-line"><span data-i18n="settings.about.pre">PianoFlow </span><span id="aboutVersion"></span><span data-i18n="settings.about.post"> · open-source falling-notes piano practice. GPL-3.0. SoundFont: FluidR3_GM (offline). Songs: public-domain arrangements.</span></p>
           </div>
         </div>
       </main>
@@ -162,42 +172,42 @@
     <!-- ============ SCREEN 3 · PLAYER ============ -->
     <section id="screen-player" class="screen hidden">
       <header class="player-top">
-        <button id="backBtn" class="btn btn-ghost back">‹ Songs</button>
+        <button id="backBtn" class="btn btn-ghost back" data-i18n="player.back">‹ Songs</button>
         <div class="player-title">
           <div id="playerTitle" class="pt-name">—</div>
           <div id="playerComposer" class="pt-sub"></div>
         </div>
-        <div class="mode-seg" role="group" aria-label="Play mode">
-          <button id="modeListen" class="seg-btn" aria-pressed="true" title="Watch &amp; listen">🎧 Listen</button>
-          <button id="modePlay" class="seg-btn" aria-pressed="false" title="Play along &amp; get scored">🎹 Play</button>
+        <div class="mode-seg" role="group" data-i18n-aria="player.modeAria" aria-label="Play mode">
+          <button id="modeListen" class="seg-btn" aria-pressed="true" data-i18n="player.listen" data-i18n-title="player.listenTitle" title="Watch &amp; listen">🎧 Listen</button>
+          <button id="modePlay" class="seg-btn" aria-pressed="false" data-i18n="player.play" data-i18n-title="player.playTitle" title="Play along &amp; get scored">🎹 Play</button>
         </div>
         <div class="player-transport">
-          <button id="playBtn" class="icon-btn big" title="Play / pause (Space)">▶</button>
-          <button id="nextBtn" class="icon-btn" title="Next song">⏭</button>
-          <button id="recBtn" class="icon-btn" title="Record your performance" aria-pressed="false">⏺</button>
+          <button id="playBtn" class="icon-btn big" data-i18n-title="player.playPause" title="Play / pause (Space)">▶</button>
+          <button id="nextBtn" class="icon-btn" data-i18n-title="player.next" title="Next song">⏭</button>
+          <button id="recBtn" class="icon-btn" data-i18n-title="player.rec" title="Record your performance" aria-pressed="false">⏺</button>
         </div>
-        <div class="speed-stepper" title="Playback speed">
-          <button id="speedDown" class="icon-btn" title="Slower">−</button>
+        <div class="speed-stepper" data-i18n-title="player.speedTitle" title="Playback speed">
+          <button id="speedDown" class="icon-btn" data-i18n-title="player.slower" title="Slower">−</button>
           <span id="speedVal" class="speed-val">100%</span>
-          <button id="speedUp" class="icon-btn" title="Faster">+</button>
+          <button id="speedUp" class="icon-btn" data-i18n-title="player.faster" title="Faster">+</button>
         </div>
-        <div class="speed-stepper" title="Transpose (semitones)">
-          <button id="transDown" class="icon-btn" title="Lower pitch">−</button>
+        <div class="speed-stepper" data-i18n-title="player.transTitle" title="Transpose (semitones)">
+          <button id="transDown" class="icon-btn" data-i18n-title="player.lower" title="Lower pitch">−</button>
           <span id="transVal" class="speed-val">♪ 0</span>
-          <button id="transUp" class="icon-btn" title="Raise pitch">+</button>
+          <button id="transUp" class="icon-btn" data-i18n-title="player.raise" title="Raise pitch">+</button>
         </div>
         <div class="player-right">
-          <span id="gpuBadge" class="badge gpu-badge hidden" title="Falling notes are GPU-accelerated (WebGL)">GPU</span>
-          <button id="metroBtn" class="icon-btn" title="Metronome" aria-pressed="false">𝅗</button>
-          <button id="muteBtn" class="icon-btn" title="Mute / unmute" aria-pressed="false">🔊</button>
-          <button id="exportBtn" class="icon-btn" title="Export recording as .mid" disabled>⤓</button>
-          <button id="sheetBtn" class="icon-btn" title="Sheet music" aria-pressed="false">🎼</button>
-          <button id="gearBtn" class="icon-btn" title="Practice settings">⚙️</button>
-          <button id="fsBtn" class="icon-btn" title="Fullscreen">⛶</button>
+          <span id="gpuBadge" class="badge gpu-badge hidden" data-i18n-title="player.gpuTitle" title="Falling notes are GPU-accelerated (WebGL)">GPU</span>
+          <button id="metroBtn" class="icon-btn" data-i18n-title="player.metro" title="Metronome" aria-pressed="false">𝅗</button>
+          <button id="muteBtn" class="icon-btn" data-i18n-title="player.mute" title="Mute / unmute" aria-pressed="false">🔊</button>
+          <button id="exportBtn" class="icon-btn" data-i18n-title="player.export" title="Export recording as .mid" disabled>⤓</button>
+          <button id="sheetBtn" class="icon-btn" data-i18n-title="player.sheet" title="Sheet music" aria-pressed="false">🎼</button>
+          <button id="gearBtn" class="icon-btn" data-i18n-title="player.gear" title="Practice settings">⚙️</button>
+          <button id="fsBtn" class="icon-btn" data-i18n-title="player.fs" title="Fullscreen">⛶</button>
         </div>
       </header>
       <div class="player-progress">
-        <input id="seek" type="range" min="0" max="1000" value="0" title="Seek" />
+        <input id="seek" type="range" min="0" max="1000" value="0" data-i18n-title="player.seek" title="Seek" />
         <span id="time" class="time">0:00 / 0:00</span>
       </div>
       <main id="stage">
@@ -207,109 +217,110 @@
           <div id="judge" class="judge"></div>
         </div>
         <div id="handLegend" aria-hidden="true">
-          <span class="lg right">Right</span>
-          <span class="lg left">Left</span>
+          <span class="lg right" data-i18n="legend.right">Right</span>
+          <span class="lg left" data-i18n="legend.left">Left</span>
         </div>
         <div id="assistBadge" class="assist-badge hidden" aria-live="polite"></div>
-        <div id="coachHint" class="coach hidden" role="dialog" aria-label="How to play">
+        <div id="coachHint" class="coach hidden" role="dialog" data-i18n-aria="coach.aria" aria-label="How to play">
           <div class="coach-card">
-            <h3>🎹 Your turn!</h3>
-            <p class="coach-lead">Hit each key as its note reaches the glowing line.</p>
+            <h3 data-i18n="coach.title">🎹 Your turn!</h3>
+            <p class="coach-lead" data-i18n="coach.lead">Hit each key as its note reaches the glowing line.</p>
             <ul class="coach-list">
-              <li><span class="coach-ico">🎹</span> MIDI keyboard — plug in &amp; play</li>
-              <li><span class="coach-ico">⌨️</span> Computer keys <kbd>A</kbd>–<kbd>L</kbd> for the white keys</li>
-              <li><span class="coach-ico">👆</span> Tap or click the on-screen piano</li>
+              <li><span class="coach-ico">🎹</span> <span data-i18n="coach.midi">MIDI keyboard — plug in &amp; play</span></li>
+              <li><span class="coach-ico">⌨️</span> <span data-i18n="coach.keys.pre">Computer keys </span><kbd>A</kbd>–<kbd>L</kbd><span data-i18n="coach.keys.post"> for the white keys</span></li>
+              <li><span class="coach-ico">👆</span> <span data-i18n="coach.tap">Tap or click the on-screen piano</span></li>
             </ul>
-            <p class="coach-tip">Tip: enable <b>Wait mode</b> in ⚙️ settings to pause until you hit the right note.</p>
-            <button id="coachGotIt" class="btn btn-primary">Got it — let’s play</button>
+            <p class="coach-tip"><span data-i18n="coach.tip.pre">Tip: enable </span><b data-i18n="coach.tip.mode">Wait mode</b><span data-i18n="coach.tip.post"> in ⚙️ settings to pause until you hit the right note.</span></p>
+            <button id="coachGotIt" class="btn btn-primary" data-i18n="coach.gotit">Got it — let’s play</button>
           </div>
         </div>
       </main>
-      <div id="sheetPanel" class="sheet-panel hidden" role="dialog" aria-label="Sheet music">
+      <div id="sheetPanel" class="sheet-panel hidden" role="dialog" data-i18n-aria="sheet.aria" aria-label="Sheet music">
         <div class="sheet-head">
-          <span class="sheet-title">🎼 Sheet music</span>
-          <span class="sheet-hint">Treble = right hand · Bass = left hand</span>
-          <button id="sheetClose" class="icon-btn" title="Close sheet music">✕</button>
+          <span class="sheet-title" data-i18n="sheet.title">🎼 Sheet music</span>
+          <span class="sheet-hint" data-i18n="sheet.hint">Treble = right hand · Bass = left hand</span>
+          <button id="sheetClose" class="icon-btn" data-i18n-title="sheet.close" title="Close sheet music">✕</button>
         </div>
         <canvas id="sheetCanvas"></canvas>
       </div>
     </section>
 
     <!-- ============ PAUSE OVERLAY ============ -->
-    <div id="pauseOverlay" class="overlay hidden" role="dialog" aria-label="Paused">
+    <div id="pauseOverlay" class="overlay hidden" role="dialog" data-i18n-aria="pause.aria" aria-label="Paused">
       <div class="modal-card pause-card">
-        <h2>Paused</h2>
+        <h2 data-i18n="pause.title">Paused</h2>
         <div class="pause-actions">
-          <button id="pauseResume" class="btn btn-primary">▶ Resume</button>
-          <button id="pauseRestart" class="btn btn-ghost">↺ Restart</button>
-          <button id="pauseBack" class="btn btn-ghost">‹ Back to songs</button>
+          <button id="pauseResume" class="btn btn-primary" data-i18n="pause.resume">▶ Resume</button>
+          <button id="pauseRestart" class="btn btn-ghost" data-i18n="pause.restart">↺ Restart</button>
+          <button id="pauseBack" class="btn btn-ghost" data-i18n="pause.back">‹ Back to songs</button>
         </div>
       </div>
     </div>
 
     <!-- ============ PLAYER SETTINGS DRAWER ============ -->
-    <div id="playerSettings" class="drawer hidden" aria-label="Practice settings">
-      <div class="drawer-head"><span>⚙️ Practice settings</span><button id="playerSettingsClose" title="Close">✕</button></div>
+    <div id="playerSettings" class="drawer hidden" data-i18n-aria="ps.title" aria-label="Practice settings">
+      <div class="drawer-head"><span data-i18n="ps.title">⚙️ Practice settings</span><button id="playerSettingsClose" data-i18n-title="ps.close" title="Close">✕</button></div>
       <div class="drawer-body">
         <div class="form-grid">
-          <label>Mode
-            <select id="mode"><option value="listen">Listen</option><option value="practice">Practice</option></select>
+          <label><span data-i18n="label.mode">Mode</span>
+            <select id="mode"><option value="listen" data-i18n="mode.listen">Listen</option><option value="practice" data-i18n="mode.practice">Practice</option></select>
           </label>
-          <label>Hands
-            <select id="hands"><option value="both">Both</option><option value="right">Right</option><option value="left">Left</option></select>
+          <label><span data-i18n="label.hands">Hands</span>
+            <select id="hands"><option value="both" data-i18n="hands.both">Both</option><option value="right" data-i18n="hands.right">Right</option><option value="left" data-i18n="hands.left">Left</option></select>
           </label>
-          <label class="chk"><input id="handAssist" type="checkbox" checked /> App plays the other hand</label>
-          <label>Count-in
-            <select id="countIn"><option value="0">Off</option><option value="1">1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select>
+          <label class="chk"><input id="handAssist" type="checkbox" checked /> <span data-i18n="practice.assist">App plays the other hand</span></label>
+          <label><span data-i18n="label.countin">Count-in</span>
+            <select id="countIn"><option value="0" data-i18n="countin.off">Off</option><option value="1" data-i18n="countin.1">1 beat</option><option value="2" data-i18n="countin.2">2 beats</option><option value="4" data-i18n="countin.4">4 beats</option></select>
           </label>
-          <label>Instrument
+          <label><span data-i18n="label.instrument">Instrument</span>
             <select id="instrument"></select>
           </label>
-          <label class="chk"><input id="waitMode" type="checkbox" /> Wait for correct note</label>
-          <label class="chk"><input id="labels" type="checkbox" /> Key labels</label>
-          <label class="chk"><input id="noteLabels" type="checkbox" /> Note names</label>
-          <label class="chk"><input id="colorblind" type="checkbox" /> Colorblind palette</label>
-          <label class="chk"><input id="fitKeys" type="checkbox" /> Fit keyboard to song</label>
-          <label class="chk"><input id="gpu" type="checkbox" checked /> GPU notes (WebGL)</label>
-          <label class="chk"><input id="beatGrid" type="checkbox" checked /> Measure &amp; beat grid</label>
-          <label class="vol-row">Volume <input id="volume" type="range" min="0" max="100" value="90" /></label>
+          <label class="chk"><input id="waitMode" type="checkbox" /> <span data-i18n="practice.wait">Wait for correct note</span></label>
+          <label class="chk"><input id="labels" type="checkbox" /> <span data-i18n="settings.labels">Key labels</span></label>
+          <label class="chk"><input id="noteLabels" type="checkbox" /> <span data-i18n="ps.noteLabels">Note names</span></label>
+          <label class="chk"><input id="colorblind" type="checkbox" /> <span data-i18n="ps.colorblind">Colorblind palette</span></label>
+          <label class="chk"><input id="fitKeys" type="checkbox" /> <span data-i18n="ps.fitKeys">Fit keyboard to song</span></label>
+          <label class="chk"><input id="gpu" type="checkbox" checked /> <span data-i18n="ps.gpu">GPU notes (WebGL)</span></label>
+          <label class="chk"><input id="beatGrid" type="checkbox" checked /> <span data-i18n="settings.beatGrid">Measure &amp; beat grid</span></label>
+          <label class="vol-row"><span data-i18n="label.volume">Volume</span> <input id="volume" type="range" min="0" max="100" value="90" /></label>
+          <label class="vol-row"><span data-i18n="settings.language">Language</span> <select id="langSelectPlayer"></select></label>
         </div>
         <div class="loopgroup">
-          <label class="vol-row">Latency <input id="latency" type="range" min="-250" max="250" value="0" /> <span id="latencyVal" class="time">0 ms</span></label>
-          <div class="row-actions"><button id="latencyReset" class="btn btn-ghost">Reset latency</button></div>
-          <label class="vol-row">Hand split <input id="split" type="range" min="21" max="108" value="60" /> <span id="splitVal" class="time">C4</span></label>
-          <p class="muted-line">Latency compensates keyboard/audio delay. Hand split sets the left/right boundary for single-track songs.</p>
+          <label class="vol-row"><span data-i18n="ps.latency">Latency</span> <input id="latency" type="range" min="-250" max="250" value="0" /> <span id="latencyVal" class="time">0 ms</span></label>
+          <div class="row-actions"><button id="latencyReset" class="btn btn-ghost" data-i18n="ps.latencyReset">Reset latency</button></div>
+          <label class="vol-row"><span data-i18n="ps.split">Hand split</span> <input id="split" type="range" min="21" max="108" value="60" /> <span id="splitVal" class="time">C4</span></label>
+          <p class="muted-line" data-i18n="ps.calibHint">Latency compensates keyboard/audio delay. Hand split sets the left/right boundary for single-track songs.</p>
         </div>
         <div class="loopgroup">
-          <label class="chk"><input id="loopEnabled" type="checkbox" /> Loop region</label>
+          <label class="chk"><input id="loopEnabled" type="checkbox" /> <span data-i18n="ps.loop">Loop region</span></label>
           <div class="row-actions">
-            <button id="loopA" class="btn btn-ghost" title="Set loop start (A)">A</button>
-            <button id="loopB" class="btn btn-ghost" title="Set loop end (B)">B</button>
-            <button id="loopClear" class="btn btn-ghost" title="Clear loop">✕</button>
+            <button id="loopA" class="btn btn-ghost" data-i18n-title="ps.loopA" title="Set loop start (A)">A</button>
+            <button id="loopB" class="btn btn-ghost" data-i18n-title="ps.loopB" title="Set loop end (B)">B</button>
+            <button id="loopClear" class="btn btn-ghost" data-i18n-title="ps.loopClear" title="Clear loop">✕</button>
           </div>
           <span id="loopReadout" class="time">A –:– · B –:–</span>
         </div>
         <div class="row-actions">
-          <button id="psMidiBtn" class="btn btn-ghost">🎛 MIDI</button>
-          <button id="psPluginsBtn" class="btn btn-ghost">🧩 Plugins</button>
+          <button id="psMidiBtn" class="btn btn-ghost" data-i18n="ps.midi">🎛 MIDI</button>
+          <button id="psPluginsBtn" class="btn btn-ghost" data-i18n="ps.plugins">🧩 Plugins</button>
         </div>
       </div>
     </div>
 
     <!-- ============ GLOBAL DRAWERS ============ -->
-    <div id="midiPanel" class="drawer hidden" aria-label="MIDI devices">
-      <div class="drawer-head"><span>🎛 MIDI devices</span><button id="midiClose" title="Close">✕</button></div>
+    <div id="midiPanel" class="drawer hidden" data-i18n-aria="midi.aria" aria-label="MIDI devices">
+      <div class="drawer-head"><span data-i18n="midi.title">🎛 MIDI devices</span><button id="midiClose" data-i18n-title="ps.close" title="Close">✕</button></div>
       <div class="drawer-body">
         <div id="midiSupport" class="midi-support"></div>
         <div id="midiDeviceList"></div>
-        <div class="midi-monitor">Last note: <span id="midiLastNote">—</span></div>
+        <div class="midi-monitor"><span data-i18n="midi.last">Last note:</span> <span id="midiLastNote">—</span></div>
       </div>
     </div>
 
-    <div id="pluginsPanel" class="drawer hidden" aria-label="Plugins">
-      <div class="drawer-head"><span>🧩 Plugins</span><button id="pluginsClose" title="Close">✕</button></div>
+    <div id="pluginsPanel" class="drawer hidden" data-i18n-aria="plugins.aria" aria-label="Plugins">
+      <div class="drawer-head"><span data-i18n="plugins.title">🧩 Plugins</span><button id="pluginsClose" data-i18n-title="ps.close" title="Close">✕</button></div>
       <div class="drawer-body">
-        <div class="plugins-hint">Extend PianoFlow with overlays and practice aids. Toggles are saved.</div>
+        <div class="plugins-hint" data-i18n="plugins.hint">Extend PianoFlow with overlays and practice aids. Toggles are saved.</div>
         <div id="pluginsList"></div>
       </div>
     </div>
@@ -317,13 +328,13 @@
     <!-- ============ PROFILE MODAL ============ -->
     <div id="profileModal" class="overlay hidden">
       <div class="modal-card">
-        <h2 id="profileModalTitle">Create a profile</h2>
-        <p class="muted-line">Profiles are stored locally on this device — no server, no password.</p>
-        <input id="profileNameInput" type="text" placeholder="Your name" maxlength="24" autocomplete="off" />
+        <h2 id="profileModalTitle" data-i18n="profile.createTitle">Create a profile</h2>
+        <p class="muted-line" data-i18n="profile.hint">Profiles are stored locally on this device — no server, no password.</p>
+        <input id="profileNameInput" type="text" data-i18n-placeholder="profile.namePlaceholder" placeholder="Your name" maxlength="24" autocomplete="off" />
         <div id="profileList" class="profile-list"></div>
         <div class="row-actions end">
-          <button id="profileCancel" class="btn btn-ghost">Cancel</button>
-          <button id="profileSave" class="btn btn-primary">Continue</button>
+          <button id="profileCancel" class="btn btn-ghost" data-i18n="profile.cancel">Cancel</button>
+          <button id="profileSave" class="btn btn-primary" data-i18n="profile.continue">Continue</button>
         </div>
       </div>
     </div>
@@ -337,7 +348,7 @@
         <div id="resultStats" class="result-stats"></div>
         <div id="resultReview" class="result-review hidden">
           <div class="review-head">
-            <span class="review-title">Where to focus</span>
+            <span class="review-title" data-i18n="review.title">Where to focus</span>
             <span class="review-legend">
               <span class="lg-dot" style="background:#59d98e"></span>90%+
               <span class="lg-dot" style="background:#4ea1ff"></span>70%+
@@ -345,13 +356,13 @@
               <span class="lg-dot" style="background:#ff6b6b"></span>&lt;50%
             </span>
           </div>
-          <div id="reviewTimeline" class="review-timeline" aria-label="Per-measure accuracy"></div>
+          <div id="reviewTimeline" class="review-timeline" data-i18n-aria="review.aria" aria-label="Per-measure accuracy"></div>
           <div id="reviewFocus" class="review-focus"></div>
         </div>
         <div class="result-actions">
-          <button id="resultRetry" class="btn btn-primary">↻ Retry</button>
-          <button id="resultExport" class="btn btn-ghost">⤓ Export .mid</button>
-          <button id="resultClose" class="btn btn-ghost">Close</button>
+          <button id="resultRetry" class="btn btn-primary" data-i18n="result.retry">↻ Retry</button>
+          <button id="resultExport" class="btn btn-ghost" data-i18n="result.export">⤓ Export .mid</button>
+          <button id="resultClose" class="btn btn-ghost" data-i18n="result.close">Close</button>
         </div>
       </div>
     </div>

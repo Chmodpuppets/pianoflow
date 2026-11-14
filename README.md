@@ -85,6 +85,12 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   live note monitor; devices are detected automatically on hot-plug.
 - **Accessibility & readability** — optional note-name labels on the falling notes
   (C4, D4, …), key labels, and a colorblind-friendly palette.
+- **Bilingual UI (English / 中文)** — the entire interface is fully localised. Switch
+  language from the welcome screen, the sidebar, Settings, or the player's ⚙️ drawer; the
+  choice is saved and auto-detected from the browser on first run. Every screen, control,
+  judgement, plugin, instrument and achievement name is translated (a parity + key-coverage
+  test suite guarantees no string is missing or one-sided), and the switch is verified
+  against the real DOM headlessly (jsdom).
 - **Bundled public-domain songs** — seven classics: *Twinkle Twinkle*, *Ode to Joy*,
   *London Bridge*, *Happy Birthday*, *Minuet in G*, *Greensleeves*, and *Für Elise*.
 - **Song library** — browse bundled tracks with composer, duration, note count and a
@@ -167,6 +173,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Plugins | Settings → Plugins, player ⚙, or the Practice view; enable / disable (saved) |
 | Practice history | sidebar **Progress**: overall stats, per-song trends and recent sessions |
 | Profiles | welcome screen, or the sidebar footer (switch / create) |
+| Language | the 🌐 button on the welcome screen / sidebar footer, or Settings → Language / player ⚙ drawer (English / 中文; saved) |
 | Results | shown automatically at the end of a Practice run; **Retry** / **Close**; click a **focus chip** to jump to a weak measure |
 
 ## 🧱 Architecture
@@ -176,7 +183,7 @@ later power a desktop (Tauri) or mobile shell.
 
 ```
 packages/
-  core/      MIDI parsing/writing, tempo map, hand assignment, scoring, transport, progress/difficulty, session history/insights, practice review, viewport index, keyboard auto-fit, measure/beat rhythm grid, sheet-music notation, plugin manager (no DOM)
+  core/      MIDI parsing/writing, tempo map, hand assignment, scoring, transport, progress/difficulty, session history/insights, practice review, viewport index, keyboard auto-fit, measure/beat rhythm grid, sheet-music notation, bilingual i18n catalogue, plugin manager (no DOM)
   audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler, master mute/volume
   render/    Canvas2D falling-notes renderer (viewport culling + batched draws + glow/sparks) with an instanced WebGL note backend (SDF + gradient + bloom, Canvas2D fallback), scrolling grand-staff renderer, keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
@@ -254,6 +261,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M27 (done)** — rhythm grid: scrolling measure/beat lines behind the falling notes (stronger downbeats with 1-based measure numbers, faint beat lines, distance fade), built from the tempo map + time signatures by a pure `buildTimeGrid` core helper, synced to playback and toggleable (on by default). Verified by core grid tests, renderer grid tests (numbering, culling, disabled, state reset) and the render-preview harness.
 - **M28 (done)** — visual count-in: the audible lead-in clicks now drive a big pulsing "GET READY" countdown (4 · 3 · 2 · 1) with an expanding ring on the stage, synced to the negative-position lead-in so sound ties to a visible event. Verified by renderer count-in tests (number sequence, pop-on-click, no draw at/after 0, state reset) and the render-preview harness.
 - **M29 (done)** — practice review: the results screen gains a per-measure accuracy timeline ("Where to focus") and clickable focus chips that seek to your weakest measures and start practice, turning a grade into a concrete drill plan. Built on a pure `review` core (per-note judgements → per-measure accuracy → weakest measures, shared `accuracyColor` scale). Verified by core review tests, full-loop integration tests (perfect / silent / half-played runs) and the render-preview harness.
+- **M30 (done)** — bilingual UI (English / 中文): the whole interface is localised through a pure-core `i18n` catalogue (~210 `{en, zh}` entries) with `{placeholder}` interpolation and EN→key fallback. Static chrome uses `data-i18n*` attributes applied by a DOM-only `applyStaticTranslations`; dynamic views (library, plugins, MIDI, progress, results, HUD, judgements, achievements) re-render via `t()`. Language is switchable from the welcome screen, sidebar, Settings and player drawer, persisted, and auto-detected from the browser. Verified by catalogue parity + UI key-coverage tests (every used key exists in both languages, all id-keyed families covered) and a real-DOM jsdom runtime test (EN↔中文 flip, placeholder/title/aria, no markup clobbering, idempotency, no raw-key leaks).
 
 ## 📄 License & attribution
 
@@ -300,7 +308,7 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；游戏化奖励（连击里程碑 10/25/50/100 及之后每 50 触发金色冲击波环+放射火花+柔和双音提示音，越高连击音越高；漏音时舞台边缘红光闪烁，仅里程碑发声避免嘈杂，统一受主静音/音量控制）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；音色面板（三角钢琴/电钢琴/八音盒/颤音琴四种内置 FluidR3_GM 音色，播放器与设置中实时切换、离线优先、选择持久化）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
-内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）；自动曲库索引（把任意 .mid/.midi 放入 public/songs/ 即自动出现在歌单，开发环境实时刷新、构建时烘焙索引，未知文件归入 Imported 并按音高自动拆手）。
+内置 7 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝）；自动曲库索引（把任意 .mid/.midi 放入 public/songs/ 即自动出现在歌单，开发环境实时刷新、构建时烘焙索引，未知文件归入 Imported 并按音高自动拆手）；双语界面（English/中文全界面本地化，纯核心 i18n 词典约 210 条 {en,zh} 词条+占位符插值+英文回退，静态文案用 data-i18n 属性、动态视图经 t() 重渲染，欢迎页/侧栏/设置/播放器 ⚙ 均可切换并持久化、首次按浏览器语言自动检测，经词条奇偶校验+UI 键覆盖测试与真实 DOM jsdom 运行时测试验证）。
 
 **架构**：pnpm monorepo，平台无关的 TypeScript 核心（`core`/`audio`/`render`/`input`），
 便于后续扩展到 Tauri 桌面端与移动端。

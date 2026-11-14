@@ -136,6 +136,22 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 .welcome-tag { margin: 0 0 26px; color: var(--muted); font-size: 15px; }
 .welcome-actions { display: flex; flex-direction: column; gap: 12px; width: 100%; }
 .welcome-foot { margin: 22px 0 0; color: var(--faint); font-size: 12px; }
+.lang-fab {
+  position: absolute; top: 18px; right: 18px; z-index: 3;
+  padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  background: rgba(18,22,43,.72); border: 1px solid var(--border-2); color: var(--text);
+  font-size: 13px; font-weight: 600; backdrop-filter: blur(8px);
+  transition: border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+}
+.lang-fab:hover { border-color: var(--blue); box-shadow: 0 0 14px var(--glow-blue); transform: translateY(-1px); }
+.lang-fab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.lang-side {
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+  font-size: 12px; font-weight: 600; transition: color .12s ease, border-color .12s ease;
+}
+.lang-side:hover { color: var(--text); border-color: var(--blue); }
+.lang-side:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* ============ LIBRARY ============ */
 #screen-library { background: var(--bg-2); }

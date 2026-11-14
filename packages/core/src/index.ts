@@ -16,5 +16,6 @@ export * from './sheet';
 export * from './noteindex';
 export * from './adjust';
 export * from './instruments';
+export * from './i18n';
 export * from './plugin';
 export * from './plugins';

@@ -2,6 +2,7 @@ import { PianoFlowApp } from './app';
 import type { AppSettings, Hands, Mode } from './app';
 import { ProgressStore, SettingsStore, HistoryStore } from './storage';
 import { startWelcome } from './welcome';
+import { applyStaticTranslations, htmlLang } from './i18n-dom';
 import { SheetRenderer } from '@pianoflow/render';
 import {
   parseMidi,
@@ -18,8 +19,12 @@ import {
   recentActivity,
   computeAchievements,
   accuracyColor,
+  t,
+  detectLang,
+  isLang,
+  LANGS,
 } from '@pianoflow/core';
-import type { SessionResult, SongStats, Difficulty, SessionEntry } from '@pianoflow/core';
+import type { SessionResult, SongStats, Difficulty, SessionEntry, Lang } from '@pianoflow/core';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -56,6 +61,23 @@ function loadFavs(): Set<string> {
 let favs = loadFavs();
 function saveFavs(): void {
   try { localStorage.setItem(FAV_KEY, JSON.stringify([...favs])); } catch { /* ignore */ }
+}
+
+// ---------- language (English / 中文) ----------
+const LANG_KEY = 'pianoflow.lang.v1';
+function loadLang(): Lang {
+  try {
+    const raw = localStorage.getItem(LANG_KEY);
+    if (isLang(raw)) return raw;
+  } catch { /* ignore */ }
+  return detectLang(typeof navigator !== 'undefined' ? navigator.language : null);
+}
+let lang: Lang = loadLang();
+function tr(key: string, vars?: Record<string, string | number>): string {
+  return t(lang, key, vars);
+}
+function saveLang(): void {
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* ignore */ }
 }
 
 // ---------- app ----------
@@ -218,6 +240,11 @@ const resultRetry = $<HTMLButtonElement>('resultRetry');
 const resultExport = $<HTMLButtonElement>('resultExport');
 const resultClose = $<HTMLButtonElement>('resultClose');
 
+const langWelcome = $<HTMLButtonElement>('langWelcome');
+const langSide = $<HTMLButtonElement>('langSide');
+const langSelect = $<HTMLSelectElement>('langSelect');
+const langSelectPlayer = $<HTMLSelectElement>('langSelectPlayer');
+
 // ---------- helpers ----------
 function fmt(t: number): string {
   if (!isFinite(t) || t < 0) t = 0;
@@ -227,11 +254,11 @@ function fmt(t: number): string {
 }
 function fmtWhen(at: number): string {
   const d = Date.now() - at;
-  if (d < 60_000) return 'just now';
-  if (d < 3_600_000) return `${Math.floor(d / 60_000)}m ago`;
-  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}h ago`;
-  if (d < 7 * 86_400_000) return `${Math.floor(d / 86_400_000)}d ago`;
-  return new Date(at).toLocaleDateString();
+  if (d < 60_000) return tr('hist.when.justNow');
+  if (d < 3_600_000) return tr('hist.when.m', { n: Math.floor(d / 60_000) });
+  if (d < 86_400_000) return tr('hist.when.h', { n: Math.floor(d / 3_600_000) });
+  if (d < 7 * 86_400_000) return tr('hist.when.d', { n: Math.floor(d / 86_400_000) });
+  return new Date(at).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US');
 }
 function persist(): void {
   settings.save(app.getSettings());
@@ -267,12 +294,12 @@ function showView(name: string): void {
 
 // ---------- profiles ----------
 function refreshProfileChip(): void {
-  const name = profiles.active ?? 'Guest';
+  const name = profiles.active ?? tr('profile.guest');
   profileName.textContent = name;
   profileAvatar.textContent = name.charAt(0).toUpperCase();
 }
 function openProfileModal(mode: 'login' | 'create'): void {
-  profileModalTitle.textContent = mode === 'login' ? 'Log in to a profile' : 'Create a profile';
+  profileModalTitle.textContent = mode === 'login' ? tr('profile.loginTitle') : tr('profile.createTitle');
   profileNameInput.value = mode === 'create' ? '' : profiles.active ?? '';
   profileList.innerHTML = '';
   profiles.list.forEach((name) => {
@@ -320,9 +347,12 @@ const ART_EMOJI: Record<string, string> = { Classical: '🎼', Traditional: '�
 
 function diffBars(level: number): string {
   const lit = Math.max(1, Math.min(8, Math.round((level / 5) * 8)));
-  let html = `<span class="song-diff diff-${level}" title="Difficulty ${level}/5">`;
+  let html = `<span class="song-diff diff-${level}" title="${tr('songs.diff', { level })}">`;
   for (let i = 0; i < 8; i++) html += `<span class="diff-bar${i < lit ? ' lit' : ''}"></span>`;
   return html + '</span>';
+}
+function genreLabel(g: string): string {
+  return tr('genre.' + g);
 }
 function buildChips(): void {
   const genres = ['All Songs', ...Array.from(new Set(bundledSongs.map((s) => s.genre ?? 'Other')))];
@@ -330,7 +360,7 @@ function buildChips(): void {
   genres.forEach((g) => {
     const chip = document.createElement('button');
     chip.className = 'chip' + (g === activeGenre ? ' active' : '');
-    chip.textContent = g;
+    chip.textContent = genreLabel(g);
     chip.addEventListener('click', () => { activeGenre = g; buildChips(); buildSongList(); });
     genreChips.appendChild(chip);
   });
@@ -345,7 +375,7 @@ function buildSongList(): void {
   });
   songList.innerHTML = '';
   if (!rows.length) {
-    songList.innerHTML = '<div class="empty-note">No songs match your search.</div>';
+    songList.innerHTML = `<div class="empty-note">${tr('songs.empty')}</div>`;
     return;
   }
   rows.forEach((s) => {
@@ -354,15 +384,17 @@ function buildSongList(): void {
     const row = document.createElement('div');
     row.className = 'song-row' + (st.songId === s.id ? ' playing' : '');
     const genre = s.genre ?? 'Local';
+    const composer = s.composer === 'Imported' ? tr('songs.importedComposer') : s.composer;
+    const sub = info ? `${composer} · ${tr('songs.notes', { n: info.stats.noteCount })} · ${fmt(info.duration)}` : composer;
     row.innerHTML = `
       <div class="song-art art-${genre}">${ART_EMOJI[genre] ?? '🎵'}</div>
       <div class="song-meta">
         <div class="song-title">${s.title}</div>
-        <div class="song-sub">${s.composer}${info ? ` · ${info.stats.noteCount} notes · ${fmt(info.duration)}` : ''}</div>
+        <div class="song-sub">${sub}</div>
       </div>
       ${info ? diffBars(info.difficulty.level) : '<span class="song-diff"></span>'}
-      <button class="fav-btn${favs.has(s.id) ? ' on' : ''}" title="Favorite">${favs.has(s.id) ? '♥' : '♡'}</button>
-      <button class="btn btn-primary song-play">▶ Play</button>`;
+      <button class="fav-btn${favs.has(s.id) ? ' on' : ''}" title="${tr('songs.fav')}">${favs.has(s.id) ? '♥' : '♡'}</button>
+      <button class="btn btn-primary song-play">${tr('songs.play')}</button>`;
     const favBtn = row.querySelector('.fav-btn') as HTMLButtonElement;
     favBtn.addEventListener('click', () => {
       if (favs.has(s.id)) favs.delete(s.id); else favs.add(s.id);
@@ -409,7 +441,7 @@ fileInput.addEventListener('change', async () => {
   const name = f.name.replace(/\.(mid|midi)$/i, '');
   app.loadBuffer(buf, name, 'local:' + name);
   playerTitle.textContent = name;
-  playerComposer.textContent = 'Local file';
+  playerComposer.textContent = tr('songs.localComposer');
   showScreen('player');
   await app.play();
   fileInput.value = '';
@@ -459,17 +491,19 @@ function buildPluginList(container: HTMLElement): void {
   app.plugins.list().forEach((p) => {
     const item = document.createElement('div');
     item.className = 'plugin-item' + (p.enabled ? '' : ' off');
+    const name = tr('plugin.' + p.id + '.name');
+    const desc = tr('plugin.' + p.id + '.desc');
     item.innerHTML = `
       <div class="plugin-main">
-        <div class="plugin-name">${p.name}${p.version ? ` <span class="muted-line">v${p.version}</span>` : ''}</div>
-        <div class="plugin-desc">${p.description ?? ''}</div>
+        <div class="plugin-name">${name}${p.version ? ` <span class="muted-line">v${p.version}</span>` : ''}</div>
+        <div class="plugin-desc">${desc}</div>
       </div>
-      <label class="plugin-toggle"><input type="checkbox" ${p.enabled ? 'checked' : ''} /> <span>${p.enabled ? 'On' : 'Off'}</span></label>`;
+      <label class="plugin-toggle"><input type="checkbox" ${p.enabled ? 'checked' : ''} /> <span>${p.enabled ? tr('plugins.on') : tr('plugins.off')}</span></label>`;
     const chk = item.querySelector('input') as HTMLInputElement;
     const lbl = item.querySelector('.plugin-toggle span') as HTMLElement;
     chk.addEventListener('change', () => {
       app.plugins.setEnabled(p.id, chk.checked);
-      lbl.textContent = chk.checked ? 'On' : 'Off';
+      lbl.textContent = chk.checked ? tr('plugins.on') : tr('plugins.off');
       item.classList.toggle('off', !chk.checked);
       persist();
       buildPluginList(practicePlugins);
@@ -483,13 +517,11 @@ function buildPluginList(container: HTMLElement): void {
 let midiSig = '';
 function buildMidiDevices(): void {
   const st = app.getState();
-  midiSupport.textContent = st.midiSupported
-    ? 'WebMIDI supported. Select a device or use all.'
-    : 'WebMIDI not supported in this browser. Use Chrome/Edge, or play with keyboard/touch.';
+  midiSupport.textContent = st.midiSupported ? tr('midi.supported') : tr('midi.unsupported');
   midiDeviceList.innerHTML = '';
   const all = document.createElement('div');
   all.className = 'midi-item' + (st.midiSelected === null ? ' active' : '');
-  all.innerHTML = '<div><div class="midi-name">All devices</div><div class="midi-sub">Listen to every connected input</div></div>';
+  all.innerHTML = `<div><div class="midi-name">${tr('midi.all')}</div><div class="midi-sub">${tr('midi.allSub')}</div></div>`;
   all.addEventListener('click', () => { app.selectMidiDevice(null); buildMidiDevices(); });
   midiDeviceList.appendChild(all);
   st.midiDevices.forEach((d) => {
@@ -512,9 +544,9 @@ function renderInsights(log: SessionEntry[]): void {
   const now = Date.now();
   const streaks = computeStreaks(log, now);
   streakStats.innerHTML = `
-    <div class="streak"><div class="streak-val">🔥 ${streaks.current}</div><div class="streak-label">Current streak</div></div>
-    <div class="streak"><div class="streak-val">🏆 ${streaks.longest}</div><div class="streak-label">Longest streak</div></div>
-    <div class="streak"><div class="streak-val">📆 ${streaks.activeDays}</div><div class="streak-label">Active days</div></div>`;
+    <div class="streak"><div class="streak-val">🔥 ${streaks.current}</div><div class="streak-label">${tr('streak.current')}</div></div>
+    <div class="streak"><div class="streak-val">🏆 ${streaks.longest}</div><div class="streak-label">${tr('streak.longest')}</div></div>
+    <div class="streak"><div class="streak-val">📆 ${streaks.activeDays}</div><div class="streak-label">${tr('streak.activeDays')}</div></div>`;
 
   const act = recentActivity(log, now, 7);
   const max = Math.max(1, ...act.map((a) => a.count));
@@ -522,9 +554,10 @@ function renderInsights(log: SessionEntry[]): void {
   for (const a of act) {
     const col = document.createElement('div');
     col.className = 'activity-col' + (a.isToday ? ' today' : '');
-    col.title = `${a.key}: ${a.count} session${a.count === 1 ? '' : 's'}`;
+    col.title = tr('hist.activityTitle', { date: a.key, n: a.count });
+    const dow = new Date(a.key + 'T12:00:00').getDay();
     const h = Math.round((a.count / max) * 100);
-    col.innerHTML = `<div class="activity-bar" style="height:${Math.max(a.count ? 8 : 2, h)}%"></div><div class="activity-label">${a.label}</div>`;
+    col.innerHTML = `<div class="activity-bar" style="height:${Math.max(a.count ? 8 : 2, h)}%"></div><div class="activity-label">${tr('hist.dow.' + dow)}</div>`;
     activityBars.appendChild(col);
   }
 
@@ -537,8 +570,8 @@ function renderInsights(log: SessionEntry[]): void {
     card.innerHTML = `
       <div class="achievement-icon">${a.icon}</div>
       <div class="achievement-main">
-        <div class="achievement-title">${a.title}</div>
-        <div class="achievement-desc">${a.desc}</div>
+        <div class="achievement-title">${tr('ach.' + a.id + '.title')}</div>
+        <div class="achievement-desc">${tr('ach.' + a.id + '.desc')}</div>
         <div class="achievement-track"><div class="achievement-fill" style="width:${pct}%"></div></div>
       </div>
       <div class="achievement-state">${a.earned ? '✓' : `${a.value}/${a.target}`}</div>`;
@@ -550,34 +583,34 @@ function buildHistory(): void {
   const log = history.getAll();
   const sum = summarizeHistory(log);
   progressSummary.innerHTML = `
-    <div class="stat"><div class="stat-val">${sum.totalSessions}</div><div class="stat-label">Sessions</div></div>
-    <div class="stat"><div class="stat-val">${sum.songsPracticed}</div><div class="stat-label">Songs practiced</div></div>
-    <div class="stat"><div class="stat-val">${Math.round(sum.averageAccuracy * 100)}%</div><div class="stat-label">Avg accuracy</div></div>
-    <div class="stat"><div class="stat-val">${Math.round(sum.bestAccuracy * 100)}%</div><div class="stat-label">Best accuracy</div></div>`;
+    <div class="stat"><div class="stat-val">${sum.totalSessions}</div><div class="stat-label">${tr('stat.sessions')}</div></div>
+    <div class="stat"><div class="stat-val">${sum.songsPracticed}</div><div class="stat-label">${tr('stat.songsPracticed')}</div></div>
+    <div class="stat"><div class="stat-val">${Math.round(sum.averageAccuracy * 100)}%</div><div class="stat-label">${tr('stat.avgAccuracy')}</div></div>
+    <div class="stat"><div class="stat-val">${Math.round(sum.bestAccuracy * 100)}%</div><div class="stat-label">${tr('stat.bestAccuracy')}</div></div>`;
   renderInsights(log);
   progressList.innerHTML = '';
   if (!log.length) {
-    progressList.innerHTML = '<div class="empty-note">No sessions yet. Play a song in Practice mode to start tracking progress.</div>';
+    progressList.innerHTML = `<div class="empty-note">${tr('progress.empty')}</div>`;
     return;
   }
   const songsHead = document.createElement('div');
   songsHead.className = 'hist-section';
-  songsHead.textContent = 'Progress by song';
+  songsHead.textContent = tr('progress.bySong');
   progressList.appendChild(songsHead);
   practicedSongIds(log).forEach((id) => {
-    const t = songTrend(log, id);
-    if (!t) return;
+    const trend = songTrend(log, id);
+    if (!trend) return;
     const title = log.find((e) => e.songId === id)?.songTitle ?? id;
     const card = document.createElement('div');
     card.className = 'hist-song';
     card.innerHTML = `
-      <div class="hist-song-head"><span class="hist-song-title">${title}</span>${trendBadge(t.improvement)}</div>
-      <div class="hist-song-sub">${t.sessions} sessions · ${Math.round(t.firstAccuracy * 100)}% → ${Math.round(t.latestAccuracy * 100)}% · best ${Math.round(t.bestAccuracy * 100)}%</div>`;
+      <div class="hist-song-head"><span class="hist-song-title">${title}</span>${trendBadge(trend.improvement)}</div>
+      <div class="hist-song-sub">${tr('hist.sessions', { n: trend.sessions })} · ${Math.round(trend.firstAccuracy * 100)}% → ${Math.round(trend.latestAccuracy * 100)}% · ${tr('hist.best', { pct: Math.round(trend.bestAccuracy * 100) })}</div>`;
     progressList.appendChild(card);
   });
   const recentHead = document.createElement('div');
   recentHead.className = 'hist-section';
-  recentHead.textContent = 'Recent sessions';
+  recentHead.textContent = tr('progress.recent');
   progressList.appendChild(recentHead);
   recentSessions(log, 12).forEach((e) => {
     const row = document.createElement('div');
@@ -589,13 +622,13 @@ function buildHistory(): void {
   });
 }
 progressClear.addEventListener('click', () => {
-  if (window.confirm('Delete all recorded practice sessions?')) { history.clear(); buildHistory(); }
+  if (window.confirm(tr('confirm.clearHistory'))) { history.clear(); buildHistory(); }
 });
 clearHistoryBtn.addEventListener('click', () => {
-  if (window.confirm('Delete all recorded practice sessions?')) { history.clear(); buildHistory(); }
+  if (window.confirm(tr('confirm.clearHistory'))) { history.clear(); buildHistory(); }
 });
 clearProgressBtn.addEventListener('click', () => {
-  if (window.confirm('Delete all best scores?')) { progress.clear(); buildSongList(); }
+  if (window.confirm(tr('confirm.clearScores'))) { progress.clear(); buildSongList(); }
 });
 
 // ---------- result ----------
@@ -612,7 +645,7 @@ function renderReview(): void {
     cell.className = 'review-cell';
     cell.style.background = accuracyColor(m.accuracy);
     cell.style.flexGrow = String(Math.max(1, m.total));
-    const label = `Measure ${m.measure}: ${Math.round(m.accuracy * 100)}% (${m.perfect + m.good}/${m.total})`;
+    const label = tr('review.cell', { n: m.measure, pct: Math.round(m.accuracy * 100), hit: m.perfect + m.good, total: m.total });
     cell.title = label;
     cell.setAttribute('role', 'img');
     cell.setAttribute('aria-label', label);
@@ -622,20 +655,20 @@ function renderReview(): void {
   if (review.weakest.length === 0) {
     const clean = document.createElement('span');
     clean.className = 'review-clean';
-    clean.textContent = '🎉 Flawless — every measure clean!';
+    clean.textContent = tr('review.clean');
     reviewFocus.appendChild(clean);
     return;
   }
   const lbl = document.createElement('span');
   lbl.className = 'review-focus-label';
-  lbl.textContent = 'Practice these:';
+  lbl.textContent = tr('review.focus');
   reviewFocus.appendChild(lbl);
   for (const m of review.weakest) {
     const chip = document.createElement('button');
     chip.className = 'focus-chip';
     chip.style.setProperty('--fc', accuracyColor(m.accuracy));
-    chip.textContent = `▶ Measure ${m.measure} · ${Math.round(m.accuracy * 100)}%`;
-    chip.title = `Jump to measure ${m.measure} and practice it`;
+    chip.textContent = tr('review.chip', { n: m.measure, pct: Math.round(m.accuracy * 100) });
+    chip.title = tr('review.chipTitle', { n: m.measure });
     chip.addEventListener('click', () => {
       resultOverlay.classList.add('hidden');
       app.seek(m.start);
@@ -645,16 +678,18 @@ function renderReview(): void {
   }
 }
 
+let lastResult: { result: SessionResult; songId: string } | null = null;
 function showResult(result: SessionResult, songId: string): void {
+  lastResult = { result, songId };
   const rec = progress.get(songId);
   resultGrade.textContent = result.grade;
   resultGrade.className = 'result-grade grade-' + result.grade;
-  resultTitle.textContent = app.currentSongInfo().title || 'Session complete';
-  resultBest.textContent = rec ? `Best: ${rec.bestGrade} · ${Math.round(rec.bestAccuracy * 100)}%` : '';
+  resultTitle.textContent = app.currentSongInfo().title || tr('result.complete');
+  resultBest.textContent = rec ? tr('result.best', { grade: rec.bestGrade, pct: Math.round(rec.bestAccuracy * 100) }) : '';
   resultStats.innerHTML =
-    `Accuracy ${Math.round(result.accuracy * 100)}% · ${result.hits}/${result.total} hits<br>` +
-    `Perfect ${result.perfect} · Good ${result.good} · Miss ${result.miss} · Wrong ${result.wrong}<br>` +
-    `Max combo ${result.maxCombo}`;
+    tr('result.stats1', { pct: Math.round(result.accuracy * 100), hits: result.hits, total: result.total }) + '<br>' +
+    tr('result.stats2', { perfect: result.perfect, good: result.good, miss: result.miss, wrong: result.wrong }) + '<br>' +
+    tr('result.stats3', { combo: result.maxCombo });
   renderReview();
   hidePause();
   resultOverlay.classList.remove('hidden');
@@ -782,8 +817,8 @@ function syncControls(): void {
   muteBtn.setAttribute('aria-pressed', String(s.muted));
   muteBtn.classList.toggle('muted', s.muted);
   settingsSound.textContent =
-    st.soundfontSource === 'local' ? 'Sound: FluidR3_GM piano (bundled, offline).' :
-    st.soundfontSource === 'cdn' ? 'Sound: FluidR3_GM piano (streamed).' : 'Sound: built-in synth fallback.';
+    st.soundfontSource === 'local' ? tr('settings.sound.local') :
+    st.soundfontSource === 'cdn' ? tr('settings.sound.cdn') : tr('settings.sound.synth');
 }
 
 // ---------- player wiring ----------
@@ -794,25 +829,25 @@ function refresh(): void {
   recBtn.textContent = st.recording ? '⏹' : '⏺';
   recBtn.classList.toggle('recording', st.recording);
   recBtn.setAttribute('aria-pressed', String(st.recording));
-  recBtn.title = st.recording ? `Stop recording (${st.recordedNotes} notes)` : 'Record your performance';
+  recBtn.title = st.recording ? tr('player.recStop', { n: st.recordedNotes }) : tr('player.rec');
   exportBtn.disabled = !app.hasRecording;
   if (!seeking) seek.value = String(st.duration > 0 ? Math.round((st.position / st.duration) * 1000) : 0);
   timeEl.textContent = `${fmt(st.position)} / ${fmt(st.duration)}`;
   speedVal.textContent = Math.round(st.speed * 100) + '%';
   transVal.textContent = '♪ ' + (st.transpose > 0 ? '+' : '') + st.transpose;
-  latencyVal.textContent = `${st.latencyMs} ms`;
+  latencyVal.textContent = tr('ps.latencyUnit', { n: st.latencyMs });
   splitVal.textContent = noteName(st.splitMidi);
   const sc = st.score;
-  scoreEl.textContent = `Hits ${sc.hits}/${sc.total} · Combo ${sc.combo} · Acc ${Math.round(sc.accuracy * 100)}%`;
-  judgeEl.textContent = st.lastJudge ? st.lastJudge.toUpperCase() : '';
+  scoreEl.textContent = tr('hud.hits', { hits: sc.hits, total: sc.total, combo: sc.combo, pct: Math.round(sc.accuracy * 100) });
+  judgeEl.textContent = st.lastJudge ? tr('judge.' + st.lastJudge) : '';
   judgeEl.className = 'judge ' + (st.lastJudge || '');
   loopReadout.textContent = `A ${st.loopStart !== null ? fmt(st.loopStart) : '–:–'} · B ${st.loopEnd !== null ? fmt(st.loopEnd) : '–:–'}`;
   const assistOn = st.mode === 'practice' && st.handAssist && st.hands !== 'both';
   assistBadge.classList.toggle('hidden', !assistOn);
   if (assistOn) {
-    const you = st.hands === 'right' ? 'Right' : 'Left';
-    const auto = st.hands === 'right' ? 'Left' : 'Right';
-    assistBadge.textContent = `🎹 You: ${you} · App: ${auto}`;
+    const you = st.hands === 'right' ? tr('hands.right') : tr('hands.left');
+    const auto = st.hands === 'right' ? tr('hands.left') : tr('hands.right');
+    assistBadge.textContent = tr('assist.badge', { you, auto });
   }
   gpuBadge.classList.toggle('hidden', !st.gpuActive);
   midiLastNote.textContent = st.lastMidiNote !== null ? noteName(st.lastMidiNote) : '—';
@@ -983,21 +1018,65 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// ---------- language application ----------
+function applyLanguage(): void {
+  document.documentElement.lang = htmlLang(lang);
+  applyStaticTranslations(document, tr);
+  langSelect.value = lang;
+  langSelectPlayer.value = lang;
+  const otherLabel = lang === 'en' ? '🌐 中文' : '🌐 English';
+  langWelcome.textContent = otherLabel;
+  langSide.textContent = otherLabel;
+  langWelcome.title = tr('settings.language');
+  langSide.title = tr('settings.language');
+  for (const sel of [sInstrument, instrumentSel]) {
+    for (const opt of Array.from(sel.options)) opt.textContent = tr('instrument.' + opt.value);
+  }
+  refreshProfileChip();
+  buildChips();
+  buildSongList();
+  buildPluginList(practicePlugins);
+  buildPluginList(pluginsList);
+  if (!midiPanel.classList.contains('hidden')) buildMidiDevices();
+  if (!views.progress.classList.contains('hidden')) buildHistory();
+  if (lastResult && !resultOverlay.classList.contains('hidden')) showResult(lastResult.result, lastResult.songId);
+  syncControls();
+  refresh();
+}
+function setLang(next: Lang): void {
+  if (!isLang(next)) return;
+  lang = next;
+  saveLang();
+  applyLanguage();
+}
+langWelcome.addEventListener('click', () => setLang(lang === 'en' ? 'zh' : 'en'));
+langSide.addEventListener('click', () => setLang(lang === 'en' ? 'zh' : 'en'));
+langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
+langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
+
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.29.0';
+aboutVersion.textContent = 'v0.30.0';
+for (const sel of [langSelect, langSelectPlayer]) {
+  sel.innerHTML = '';
+  for (const l of LANGS) {
+    const opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = l.label;
+    sel.appendChild(opt);
+  }
+}
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {
     const opt = document.createElement('option');
     opt.value = inst.id;
-    opt.textContent = inst.label;
+    opt.textContent = tr('instrument.' + inst.id);
     sel.appendChild(opt);
   }
 }
-refreshProfileChip();
 const saved = settings.get();
 app.applySettings(saved);
-syncControls();
+applyLanguage();
 showView('songs');
 showScreen('welcome');
 void app.init().then(() => { refresh(); });
