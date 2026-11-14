@@ -98,6 +98,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   instrument: DEFAULT_INSTRUMENT,
   fitKeyboard: true,
   handAssist: true,
+  gpu: true,
   plugins: {},
 };
 

@@ -121,6 +121,7 @@
               <label class="chk"><input id="sNoteLabels" type="checkbox" /> Note names on falling notes</label>
               <label class="chk"><input id="sColorblind" type="checkbox" /> Colorblind-friendly palette</label>
               <label class="chk"><input id="sFitKeys" type="checkbox" /> Fit keyboard to song range</label>
+              <label class="chk"><input id="sGpu" type="checkbox" checked /> GPU-accelerated notes (WebGL)</label>
               <label class="chk"><input id="sMute" type="checkbox" /> Mute all sound</label>
               <label class="vol-row">Volume <input id="sVolume" type="range" min="0" max="100" value="90" /></label>
             </div>
@@ -185,6 +186,7 @@
           <button id="transUp" class="icon-btn" title="Raise pitch">+</button>
         </div>
         <div class="player-right">
+          <span id="gpuBadge" class="badge gpu-badge hidden" title="Falling notes are GPU-accelerated (WebGL)">GPU</span>
           <button id="metroBtn" class="icon-btn" title="Metronome" aria-pressed="false">𝅗</button>
           <button id="muteBtn" class="icon-btn" title="Mute / unmute" aria-pressed="false">🔊</button>
           <button id="exportBtn" class="icon-btn" title="Export recording as .mid" disabled>⤓</button>
@@ -267,6 +269,7 @@
           <label class="chk"><input id="noteLabels" type="checkbox" /> Note names</label>
           <label class="chk"><input id="colorblind" type="checkbox" /> Colorblind palette</label>
           <label class="chk"><input id="fitKeys" type="checkbox" /> Fit keyboard to song</label>
+          <label class="chk"><input id="gpu" type="checkbox" checked /> GPU notes (WebGL)</label>
           <label class="vol-row">Volume <input id="volume" type="range" min="0" max="100" value="90" /></label>
         </div>
         <div class="loopgroup">

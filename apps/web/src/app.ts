@@ -63,6 +63,7 @@ export interface AppSettings {
   instrument: string;
   fitKeyboard: boolean;
   handAssist: boolean;
+  gpu: boolean;
   plugins: Record<string, boolean>;
 }
 
@@ -99,6 +100,8 @@ export interface AppState {
   loopEnd: number | null;
   recording: boolean;
   recordedNotes: number;
+  gpu: boolean;
+  gpuActive: boolean;
 }
 
 const GOOD_WINDOW = 0.15;
@@ -171,6 +174,7 @@ export class PianoFlowApp {
   private instrument = DEFAULT_INSTRUMENT;
   private fitKeyboard = true;
   private handAssist = true;
+  private gpu = true;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -330,6 +334,11 @@ export class PianoFlowApp {
     this.handAssist = b;
     this.applyConfig();
   }
+  setGpu(b: boolean): void {
+    this.gpu = b;
+    this.renderer.setGpuEnabled(b);
+    this.onState?.();
+  }
   setWaitMode(w: boolean): void {
     this.waitMode = w;
     if (!w) this.resumeFromWait();
@@ -440,6 +449,7 @@ export class PianoFlowApp {
       instrument: this.instrument,
       fitKeyboard: this.fitKeyboard,
       handAssist: this.handAssist,
+      gpu: this.gpu,
       plugins: this.plugins.states(),
     };
   }
@@ -463,6 +473,7 @@ export class PianoFlowApp {
     if (typeof s.instrument === 'string' && isInstrument(s.instrument)) this.setInstrument(s.instrument);
     if (typeof s.fitKeyboard === 'boolean') this.setFitKeyboard(s.fitKeyboard);
     if (typeof s.handAssist === 'boolean') this.setHandAssist(s.handAssist);
+    if (typeof s.gpu === 'boolean') this.setGpu(s.gpu);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -866,6 +877,8 @@ export class PianoFlowApp {
       loopEnd: this.engine.loopEnd,
       recording: this.recording,
       recordedNotes: this.recording ? this.recorder.noteCount : this.lastRecording.length,
+      gpu: this.gpu,
+      gpuActive: this.renderer.usingGpu,
     };
   }
 
@@ -874,5 +887,6 @@ export class PianoFlowApp {
     this.pointer.detach();
     this.webmidi.dispose();
     this.engine.dispose();
+    this.renderer.dispose();
   }
 }

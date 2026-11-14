@@ -339,6 +339,15 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 }
 .assist-badge.hidden { display: none; }
 
+/* GPU acceleration indicator (player top bar) */
+.gpu-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: .8px; padding: 3px 8px; border-radius: 999px;
+  color: #06281a; background: linear-gradient(135deg, var(--green), #8ff0b6);
+  border: 1px solid rgba(89,217,142,.6); box-shadow: 0 0 10px rgba(89,217,142,.4);
+  align-self: center; user-select: none;
+}
+.gpu-badge.hidden { display: none; }
+
 /* ---- first-play coaching overlay ---- */
 .coach {
   position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;

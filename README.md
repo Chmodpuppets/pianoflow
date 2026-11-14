@@ -17,7 +17,12 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   Practice, Progress and Settings views.
 - **Falling-notes renderer** — Canvas2D, 88-key keyboard, color-coded hands, HiDPI aware.
 - **Built for dense scores** — a time-bucket note index + viewport culling draws only the
-  notes on screen (batched per hand), so very dense "black MIDI" files stay smooth.
+  notes on screen, so very dense "black MIDI" files stay smooth.
+- **GPU-accelerated notes (WebGL)** — falling notes render through an instanced WebGL backend
+  (one draw call for thousands of notes, SDF rounded corners + per-note gradient and bloom in
+  the fragment shader), composited over the Canvas2D stage. Falls back to batched Canvas2D
+  automatically when WebGL is unavailable; toggle it in Settings and watch for the green **GPU**
+  badge in the player. Verified with real headless-gl pixel tests.
 - **Stage presentation** — a layered gradient backdrop with an ambient strike-line glow,
   a luminous hit line that pulses when you hit a note, and gradient keys with a soft glow
   on pressed keys, wrapped in a cohesive dark "concert stage" UI with glassy panels.
@@ -146,6 +151,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Fullscreen | the ⛶ button in the player top bar |
 | Sheet music | the 🎼 button in the player top bar opens a synced grand-staff panel (✕ or Esc closes) |
 | Fit keyboard | player ⚙ drawer or Settings → Display: "Fit keyboard to song" zooms to the song's range (off = full 88 keys) |
+| GPU notes | player ⚙ drawer or Settings → Display: "GPU notes (WebGL)" toggles the instanced WebGL backend; a green **GPU** badge shows when active (auto-falls back to Canvas2D) |
 | Song library | sidebar **Songs**: search, genre chips, ♥ favorite, ▶ Play, or open a local `.mid` |
 | MIDI devices | Settings → MIDI, or player ⚙ → MIDI; pick a device (or All) and watch the note monitor |
 | Plugins | Settings → Plugins, player ⚙, or the Practice view; enable / disable (saved) |
@@ -162,7 +168,7 @@ later power a desktop (Tauri) or mobile shell.
 packages/
   core/      MIDI parsing/writing, tempo map, hand assignment, scoring, transport, progress/difficulty, session history/insights, viewport index, keyboard auto-fit, sheet-music notation, plugin manager (no DOM)
   audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler, master mute/volume
-  render/    Canvas2D falling-notes renderer (viewport culling + batched draws + glow/sparks), scrolling grand-staff renderer, keyboard geometry, themes
+  render/    Canvas2D falling-notes renderer (viewport culling + batched draws + glow/sparks) with an instanced WebGL note backend (SDF + gradient + bloom, Canvas2D fallback), scrolling grand-staff renderer, keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
 apps/
   web/       Vite app wiring everything together (3-screen UI + controls + PWA)
@@ -213,7 +219,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
 - **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
 - **M4 (done)** — expanded public-domain song library (7 tracks) and settings persistence.
-- **M5 (partial)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws (done); WebGL renderer pending.
+- **M5 (done)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws; completed by the M26 WebGL renderer.
 - **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with bundled plugins and a toggle panel.
 - **M7 (done)** — readability & feedback: note-name labels on falling notes and a Practice HUD plugin (live accuracy + song progress).
 - **M8 (done)** — Tempo trainer plugin: gradual speed-up after consecutive clean passes (host `setSpeed` API).
@@ -234,6 +240,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M23 (done)** — game-feel pass: a headless full-loop integration test drives the real controller (load → practice → hit/miss/wait/transpose/record → result) end-to-end, plus combo-milestone celebrations (golden shockwave + spark burst + chime) and a red miss flash, all verified visually via the render-preview harness.
 - **M24 (done)** — play-along discoverability: a prominent Listen / Play segmented toggle in the player top bar and a one-time, dismissible first-play coaching card (MIDI / computer-keyboard / touch input + Wait-mode tip), making the core game loop one tap away.
 - **M25 (done)** — hand assist: in Practice, select one hand and PianoFlow auto-plays the other (muted falling notes + lit keys via a scheduler callback), judging only your hand; a stage badge shows which hand is yours, with a toggle for silent practice. Verified by renderer dim-hand tests, a headless assisted-run integration test, and the render-preview harness.
+- **M26 (done)** — WebGL renderer: an instanced GPU backend draws all falling notes in a single call (SDF rounded corners, per-note vertical gradient and bloom in the fragment shader), composited over the Canvas2D stage at the correct depth, with automatic batched-Canvas2D fallback, a Settings toggle and a live **GPU** badge. Verified by real headless-gl pixel tests, a mock-GL command-stream test, geometry-equivalence and composite-wiring tests, and a full GPU-composited playfield render.
 
 ## 📄 License & attribution
 
@@ -276,7 +283,7 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；单手辅助练习（练习模式选定一只手后，应用自动演奏另一只手——其音符淡化下落、琴键同步点亮，仅判定你演奏的手；舞台徽章显示「你:右手 · 应用:左手」，可关闭辅助回到全静音练习）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
-判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；练习洞察（当前/最长连续天数与活跃天数、近 7 天活动图、12 枚成就徽章含进度，Progress 视图本地计算）；五线谱视图（播放器 🎼 按钮开启滚动大谱表：高音=右手/低音=左手，矢量谱号、拍号小节线、符头/符干/符尾/升降号/加线与同步播放光标，纯函数记谱核心+无头测试）；自适应键盘（Synthesia 式按曲目音域自动缩放，白键对齐、可切换全 88 键，加载/移调时重新适配）；无头真实 Canvas 渲染预览（pnpm render-preview 将演奏画面与五线谱光栅化为 PNG 供视觉校验）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
+判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；练习洞察（当前/最长连续天数与活跃天数、近 7 天活动图、12 枚成就徽章含进度，Progress 视图本地计算）；五线谱视图（播放器 🎼 按钮开启滚动大谱表：高音=右手/低音=左手，矢量谱号、拍号小节线、符头/符干/符尾/升降号/加线与同步播放光标，纯函数记谱核心+无头测试）；自适应键盘（Synthesia 式按曲目音域自动缩放，白键对齐、可切换全 88 键，加载/移调时重新适配）；WebGL 渲染器（实例化 GPU 后端单次绘制全部下落音符，片元着色器实现 SDF 圆角+逐音符渐变+辉光，按正确层级合成到 Canvas2D 舞台，无 WebGL 时自动回退批量 Canvas2D，设置可开关并显示 GPU 徽标，经真实 headless-gl 像素测试验证）；无头真实 Canvas 渲染预览（pnpm render-preview 将演奏画面与五线谱光栅化为 PNG 供视觉校验）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；游戏化奖励（连击里程碑 10/25/50/100 及之后每 50 触发金色冲击波环+放射火花+柔和双音提示音，越高连击音越高；漏音时舞台边缘红光闪烁，仅里程碑发声避免嘈杂，统一受主静音/音量控制）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；音色面板（三角钢琴/电钢琴/八音盒/颤音琴四种内置 FluidR3_GM 音色，播放器与设置中实时切换、离线优先、选择持久化）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；

@@ -2,6 +2,7 @@ import type { MidiNote } from '@pianoflow/core';
 import { NoteIndex, noteName } from '@pianoflow/core';
 import { buildKeyboard, keyAt, type KeyboardLayout } from './keyboard';
 import { defaultTheme, type Theme } from './theme';
+import { createNoteBackend, type WebGLNoteBackend } from './webgl';
 
 /** Convert a #rrggbb color to an rgba() string with the given alpha. */
 function withAlpha(hex: string, alpha: number): string {
@@ -101,6 +102,12 @@ export class Renderer {
   private static readonly SHOCKWAVE_CAP = 6;
   private missFlash = 0;
 
+  // GPU note backend (instanced WebGL). Created lazily on first render when a
+  // WebGL context is available; null means the batched Canvas2D path is used.
+  private noteBackend: WebGLNoteBackend | null = null;
+  private gpuTried = false;
+  private gpuEnabled = true;
+
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
@@ -141,6 +148,31 @@ export class Renderer {
   /** Current strike-line pulse level (0..1); exposed for tests/overlays. */
   get pulseLevel(): number {
     return this.hitPulse;
+  }
+
+  /** Enable/disable GPU (WebGL) note rendering; falls back to Canvas2D when off
+   *  or unavailable. Re-enabling retries context creation if it previously failed. */
+  setGpuEnabled(on: boolean): void {
+    this.gpuEnabled = on;
+    if (on) this.gpuTried = false;
+  }
+  /** Whether notes are currently drawn by the GPU backend (for UI badges/tests). */
+  get usingGpu(): boolean {
+    return this.gpuEnabled && this.noteBackend != null;
+  }
+  private ensureGpu(): boolean {
+    if (!this.gpuEnabled) return false;
+    if (!this.gpuTried) {
+      this.gpuTried = true;
+      this.noteBackend = createNoteBackend(this.canvas);
+    }
+    return this.noteBackend != null;
+  }
+  /** Release GPU resources (called when the renderer is torn down). */
+  dispose(): void {
+    this.noteBackend?.dispose();
+    this.noteBackend = null;
+    this.gpuTried = false;
   }
 
   /** Spawn a burst of hand-colored sparks at the strike line on a successful hit. */
@@ -311,6 +343,7 @@ export class Renderer {
     const t1 = pos + config.secondsVisible + 1;
     const visible = index.query(t0, t1);
 
+    const gpu = this.ensureGpu();
     this.rightBuf.length = 0;
     this.leftBuf.length = 0;
     this.dimBuf.length = 0;
@@ -327,28 +360,43 @@ export class Renderer {
       const h = Math.min(bottom, this.keyboardTop) - y;
       if (h <= 0 || w <= 0) continue;
       const dim = state.dimHand != null && n.hand === state.dimHand;
-      const buf = dim ? this.dimBuf : n.hand === 'left' ? this.leftBuf : this.rightBuf;
-      buf.push(x, y, w, h, Math.min(4, w / 2));
+      // The GPU backend builds its own instance buffer from `visible`; only the
+      // Canvas2D fallback needs the per-hand rect buffers here.
+      if (!gpu) {
+        const buf = dim ? this.dimBuf : n.hand === 'left' ? this.leftBuf : this.rightBuf;
+        buf.push(x, y, w, h, Math.min(4, w / 2));
+      }
       // Only label blocks big enough to hold legible text (never the muted hand).
       if (!dim && config.showNoteLabels && h >= 12 && w >= 12) {
         this.labelBuf.push(x, y, w, h, n.midi);
       }
     }
-    // Auto-played (assisted) hand first: muted flat color, no bloom, so the
-    // player's own hand reads as the bright, actionable layer on top.
-    if (state.dimHand != null && this.dimBuf.length > 0) {
-      const dimColor =
-        state.dimHand === 'left' ? withAlpha(theme.leftNote, 0.3) : withAlpha(theme.rightNote, 0.3);
-      this.fillBatch(this.dimBuf, dimColor);
+    if (gpu && this.noteBackend) {
+      const b = this.noteBackend;
+      if (b.cssW !== cssW || b.cssH !== cssH || b.dpr !== this.dpr) b.resize(cssW, cssH, this.dpr);
+      b.draw({
+        notes: visible, layout: this.layout, pps, position: pos,
+        keyboardTop: this.keyboardTop, cssH, theme, dimHand: state.dimHand,
+      });
+      // Composite the transparent GPU note layer at the exact note depth.
+      ctx.drawImage(b.canvas, 0, 0, cssW, cssH);
+    } else {
+      // Auto-played (assisted) hand first: muted flat color, no bloom, so the
+      // player's own hand reads as the bright, actionable layer on top.
+      if (state.dimHand != null && this.dimBuf.length > 0) {
+        const dimColor =
+          state.dimHand === 'left' ? withAlpha(theme.leftNote, 0.3) : withAlpha(theme.rightNote, 0.3);
+        this.fillBatch(this.dimBuf, dimColor);
+      }
+      // One fill per hand instead of one per note, with a soft luminous bloom.
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = withAlpha(theme.rightNote, 0.7);
+      this.fillBatch(this.rightBuf, theme.rightNote, this.noteGradRight);
+      ctx.shadowColor = withAlpha(theme.leftNote, 0.7);
+      this.fillBatch(this.leftBuf, theme.leftNote, this.noteGradLeft);
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'rgba(0,0,0,0)';
     }
-    // One fill per hand instead of one per note, with a soft luminous bloom.
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = withAlpha(theme.rightNote, 0.7);
-    this.fillBatch(this.rightBuf, theme.rightNote, this.noteGradRight);
-    ctx.shadowColor = withAlpha(theme.leftNote, 0.7);
-    this.fillBatch(this.leftBuf, theme.leftNote, this.noteGradLeft);
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = 'rgba(0,0,0,0)';
     if (config.showNoteLabels) this.drawNoteLabels(theme);
 
     this.drawHitLine(theme);
