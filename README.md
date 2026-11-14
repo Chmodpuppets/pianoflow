@@ -12,7 +12,7 @@
 [![Release](https://img.shields.io/github/v/release/Chmodpuppets/pianoflow)](https://github.com/Chmodpuppets/pianoflow/releases/latest)
 
 **[▶ Live demo 在线试玩](https://chmodpuppets.github.io/pianoflow/)** ·
-**[⬇ macOS app 桌面下载](https://github.com/Chmodpuppets/pianoflow/releases/latest)** ·
+**[⬇ Desktop app 桌面下载](https://github.com/Chmodpuppets/pianoflow/releases/latest)** ·
 **[📖 Full guide 完整文档](docs/GUIDE.md)**
 
 [中文](#中文) · [English](#english)
@@ -50,7 +50,7 @@ Add to Home Screen for a full-screen, offline practice app.
 
 ## 中文
 
-**PianoFlow** 是一个开源的 Synthesia 风格钢琴练习应用：音符下落、真实钢琴音色、MIDI 键盘 / 电脑键盘输入、即时评分。浏览器即开即玩，也有原生 macOS 桌面版。
+**PianoFlow** 是一个开源的 Synthesia 风格钢琴练习应用：音符下落、真实钢琴音色、MIDI 键盘 / 电脑键盘输入、即时评分。浏览器即开即玩，也有 macOS / Windows / Linux 原生桌面版。
 
 ### 亮点
 - 🎮 **下落音符舞台** — 双手分色、键盘自动适配音域、节奏网格、视觉倒数。
@@ -60,7 +60,7 @@ Add to Home Screen for a full-screen, offline practice app.
 - 🎵 **12 首内置公版曲目** — 致爱丽丝、卡农、巴赫前奏曲、奇异恩典等。
 - 🎤 **真实音色** — 4 种离线 SoundFont（钢琴/电钢/音乐盒/颤音琴）。
 - 🌐 **双语界面** — English / 中文 一键切换，曲目名与作者也本地化。
-- 📦 **PWA + 桌面** — 可安装、离线可用；Tauri 原生 macOS 应用。
+- 📦 **PWA + 桌面** — 可安装、离线可用；Tauri 原生桌面应用（macOS / Windows / Linux）。
 
 ### 快速开始
 ```bash
@@ -75,8 +75,8 @@ pnpm tauri:build  # 原生 macOS .app（需 Rust）
 ## English
 
 **PianoFlow** is an open-source, Synthesia-style piano practice app: falling notes, real piano
-sound, MIDI / computer-keyboard input and instant scoring. Runs in the browser, with a native
-macOS desktop build.
+sound, MIDI / computer-keyboard input and instant scoring. Runs in the browser, with native
+macOS / Windows / Linux desktop builds.
 
 ### Highlights
 - 🎮 **Falling-notes stage** — color-coded hands, auto-fit keyboard, rhythm grid, visual count-in.
@@ -86,7 +86,7 @@ macOS desktop build.
 - 🎵 **12 bundled public-domain songs** — Für Elise, Canon in D, Bach Prelude, Amazing Grace…
 - 🎤 **Real sound** — 4 offline SoundFonts (piano / e-piano / music box / vibraphone).
 - 🌐 **Bilingual UI** — English / 中文, one tap; song titles & composers localized too.
-- 📦 **PWA + desktop** — installable & offline; native Tauri macOS app.
+- 📦 **PWA + desktop** — installable & offline; native Tauri apps for macOS / Windows / Linux.
 
 ### Quick start
 ```bash

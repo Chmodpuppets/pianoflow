@@ -9,8 +9,8 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 **▶ Live demo:** <https://chmodpuppets.github.io/pianoflow/> — an installable PWA that
 runs fully offline once loaded.
 
-**⬇ macOS app:** <https://github.com/Chmodpuppets/pianoflow/releases/latest> — native
-Tauri build (Apple Silicon), no browser required.
+**⬇ Desktop app:** <https://github.com/Chmodpuppets/pianoflow/releases/latest> — native
+Tauri builds for macOS (universal), Windows and Linux; no browser required.
 
 [![CI](https://github.com/Chmodpuppets/pianoflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Chmodpuppets/pianoflow/actions/workflows/ci.yml)
 [![Deploy Pages](https://github.com/Chmodpuppets/pianoflow/actions/workflows/pages.yml/badge.svg)](https://github.com/Chmodpuppets/pianoflow/actions/workflows/pages.yml)
@@ -183,16 +183,30 @@ locale auto-detect pass, asserting zero console errors throughout. It also runs 
 ### Desktop app (Tauri)
 
 Requires the web prerequisites above **plus a [Rust toolchain](https://www.rust-lang.org/tools/install)**
-(stable, ≥ 1.77.2) and the platform WebView deps (macOS: Xcode Command Line Tools).
+(stable, ≥ 1.77.2) and the platform WebView deps (macOS: Xcode Command Line Tools; Linux:
+`libwebkit2gtk-4.1-dev` + `libayatana-appindicator3-dev` + `librsvg2-dev`; Windows: WebView2,
+preinstalled on Windows 10/11).
 
 ```bash
 pnpm tauri:dev      # run the desktop app against the Vite dev server (hot reload)
-pnpm tauri:build    # build a native release bundle (macOS .app under src-tauri/target/release/bundle)
+pnpm tauri:build    # build native release bundles under src-tauri/target/release/bundle
 ```
 
 The shell lives in `src-tauri/` and loads `apps/web` — in dev from `http://localhost:5173`,
 in release from the baked `apps/web/dist`. No web code changes are needed; the same UI runs
 in the browser, as a PWA, and in the desktop window.
+
+**Cross-platform installers.** `bundle.targets` is `"all"`, so a build produces the native
+installers for the host OS: macOS `.app` + `.dmg`, Windows `.msi` + NSIS `.exe`, Linux
+`.deb` + `.rpm` + `.AppImage`. The [`Release` workflow](../.github/workflows/release.yml)
+(`tauri-apps/tauri-action`) builds **macOS (universal), Windows and Linux** in a CI matrix on
+every `v*` tag (or manual dispatch) and attaches all installers to one GitHub Release
+(created as a draft, then published). Prebuilt downloads:
+<https://github.com/Chmodpuppets/pianoflow/releases/latest>.
+
+> macOS builds are currently **unsigned** (no Apple Developer ID); Gatekeeper may warn on
+> first launch — right-click → Open, or `xattr -dr com.apple.quarantine PianoFlow.app`.
+> Code-signing / notarization can be added to the Release workflow via `APPLE_*` secrets.
 
 > **Slow crates.io?** If cargo downloads crawl, point it at a regional mirror via
 > `~/.cargo/config.toml` (e.g. `[source.crates-io] replace-with = 'rsproxy-sparse'` +
@@ -320,6 +334,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M33 (done)** — library sorting: a persisted sort control (recommended / title / easiest / hardest / shortest / recently played / best grade / favorites) backed by a pure, stable `sortLibrary` core with sane defaults for unplayed/unknown songs. Verified by 11 headless unit tests (order, stability, no-mutation, missing-metadata) + DOM wiring.
 - **M34 (done)** — real-browser E2E verification: `pnpm e2e` drives headless system Chrome (playwright-core, no browser download) against the production build served under `/pianoflow/`, covering the complete desktop primary flow, a touch mobile pass (390×844, overflow + reachability + piano input), zh-CN auto-detect, and zero-console-error assertions — 25 checks, all green, wired into CI as a second job.
 - **M35 (done)** — polish pass closing three audit gaps: (a) **localised song metadata** — every bundled piece carries `titleZh`/`composerZh`, so the library, player, results, history and sheet export show Chinese titles/composers in 中文 (search matches both languages); (b) **undo after destructive actions** — clearing history or scores now shows an 8-second toast with an Undo button that restores the exact snapshot (replacing the blocking `confirm()`); (c) **sheet beams** — consecutive eighth/sixteenth notes in the same beat are joined by a shared beam (primary + secondary sixteenth beams, clamped slope, stems extended to the beam line) instead of individual flags, in both the scrolling view and the printable page, via a pure `buildBeamGroups` core + shared `beamGeometry`/`drawBeamLines` primitives. Verified by 10 new headless tests (beam grouping, flag suppression, page beams) and two new real-browser E2E checks (undo restore, localised titles) — 26/26 E2E green.
+- **M36 (done)** — cross-platform desktop release pipeline: aligned the Tauri shell to the app version (0.34.0), set `bundle.targets: "all"`, and added a `Release` GitHub Actions workflow (`tauri-apps/tauri-action`) that builds **macOS (universal arm64+x64), Windows (.msi/.exe) and Linux (.deb/.rpm/.AppImage)** in a matrix on every `v*` tag / manual dispatch and attaches all installers to a single GitHub Release. macOS `.app` rebuilt and launch-verified locally; the full matrix is built and verified in CI.
 
 ## 📄 License & attribution
 

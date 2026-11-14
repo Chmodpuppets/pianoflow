@@ -1,6 +1,6 @@
 [package]
 name = "pianoflow"
-version = "0.32.0"
+version = "0.34.0"
 description = "Open-source falling-notes piano practice app — a libre Synthesia alternative."
 authors = ["PianoFlow contributors"]
 license = "GPL-3.0-or-later"
