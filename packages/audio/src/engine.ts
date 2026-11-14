@@ -155,6 +155,10 @@ export class AudioEngine {
   get countIn(): number {
     return this.countInBeats;
   }
+  /** Duration of one beat in song-seconds at 1× speed (for the visual count-in). */
+  get beatDuration(): number {
+    return this.beatDur0;
+  }
   /** Mute/unmute all audio (synth, soundfont, metronome) via the master gain. */
   setMuted(muted: boolean): void {
     this._muted = muted;

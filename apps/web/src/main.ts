@@ -933,7 +933,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.27.0';
+aboutVersion.textContent = 'v0.28.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {

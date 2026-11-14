@@ -43,6 +43,12 @@ export interface RenderState {
   dimHand?: 'left' | 'right';
   /** measure/beat rhythm grid lines (seconds) to scroll behind the notes */
   grid?: GridLine[];
+  /**
+   * Count-in lead-in: when present and position < 0, a big pulsing countdown
+   * number is drawn so the audible count-in clicks tie to a visible event.
+   * `beats` is the total count-in beats; `beatDur` is one beat in song-seconds.
+   */
+  countIn?: { beats: number; beatDur: number };
 }
 
 interface Spark {
@@ -421,6 +427,63 @@ export class Renderer {
     this.drawMissFlash();
     this.missFlash *= 0.88;
     if (this.missFlash < 0.02) this.missFlash = 0;
+
+    // Count-in countdown sits on top of everything during the lead-in.
+    if (state.countIn && pos < 0) this.drawCountIn(state.countIn, pos, theme);
+  }
+
+  /** A big pulsing countdown number + ring during the count-in lead-in, so the
+   *  audible clicks are tied to a clear visible event ("4 · 3 · 2 · 1"). */
+  private drawCountIn(countIn: { beats: number; beatDur: number }, pos: number, theme: Theme): void {
+    const { ctx, cssW, keyboardTop } = this;
+    const beatDur = Math.max(0.05, countIn.beatDur);
+    const beatsRemaining = -pos / beatDur;
+    if (beatsRemaining <= 0) return;
+    const remaining = Math.max(1, Math.min(countIn.beats, Math.ceil(beatsRemaining)));
+    // phase 0 at each click (number just appeared) → 1 just before the next.
+    const phase = beatsRemaining - Math.floor(beatsRemaining);
+    const pulse = 1 - phase;
+    const alpha = 0.55 + 0.45 * pulse;
+    const scale = 1 + 0.35 * pulse;
+    const gold = theme.keyPressed;
+    const cx = cssW / 2;
+    const cy = keyboardTop * 0.4;
+    const baseR = Math.min(cssW, keyboardTop) * 0.13;
+
+    ctx.save();
+    // Expanding ring that pops on each beat.
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseR * (1 + 0.12 * pulse), 0, Math.PI * 2);
+    ctx.strokeStyle = withAlpha(gold, 0.5 * alpha);
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseR * 1.28, 0, Math.PI * 2);
+    ctx.strokeStyle = withAlpha(gold, 0.16 * alpha);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // "GET READY" caption above the number.
+    ctx.globalAlpha = 0.7 * alpha;
+    ctx.fillStyle = gold;
+    ctx.font = 'bold 13px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('GET READY', cx, cy - baseR * 1.28 - 16);
+
+    // The countdown number, popping larger and brighter on each click.
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = withAlpha(gold, 0.8);
+    ctx.shadowBlur = 26 * pulse;
+    ctx.font = `bold ${Math.round(88 * scale)}px system-ui, sans-serif`;
+    ctx.fillText(String(remaining), cx, cy + 4);
+    ctx.restore();
+
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'rgba(0,0,0,0)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
   }
 
   /** Soft hand-colored glow on keys whose notes are about to arrive, so the

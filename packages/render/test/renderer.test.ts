@@ -507,3 +507,57 @@ describe('Renderer measure/beat grid', () => {
     expect(ctx.textBaseline).toBe('alphabetic');
   });
 });
+
+describe('Renderer visual count-in', () => {
+  const CI = { beats: 4, beatDur: 0.5 };
+  function countInCtx() {
+    const ctx = mockCtx();
+    const texts: { text: string; font: string; alpha: number }[] = [];
+    const arcs: number[] = [];
+    ctx.fillText = (t: string) => { texts.push({ text: t, font: ctx.font, alpha: ctx.globalAlpha }); };
+    ctx.arc = (_x: number, _y: number, r: number) => { arcs.push(r); };
+    return { ctx, texts, arcs };
+  }
+  function renderAt(pos: number, countIn?: { beats: number; beatDur: number }) {
+    const { ctx, texts, arcs } = countInCtx();
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    r.render({ position: pos, notes: [], pressed: new Set<number>(), countIn });
+    return { ctx, texts, arcs };
+  }
+  const fontSize = (f: string) => parseInt(f.replace(/[^\d]/g, ''), 10);
+
+  it('counts down 4 → 3 → 2 → 1 across the lead-in with a GET READY caption', () => {
+    expect(renderAt(-2.0, CI).texts.map((t) => t.text)).toContain('4');
+    expect(renderAt(-1.5, CI).texts.map((t) => t.text)).toContain('3');
+    expect(renderAt(-1.0, CI).texts.map((t) => t.text)).toContain('2');
+    expect(renderAt(-0.5, CI).texts.map((t) => t.text)).toContain('1');
+    const first = renderAt(-2.0, CI);
+    expect(first.texts.map((t) => t.text)).toContain('GET READY');
+    expect(first.arcs.length).toBeGreaterThanOrEqual(2); // pulsing ring + outer ring
+  });
+
+  it('draws nothing once playback reaches position 0', () => {
+    expect(renderAt(0, CI).texts).toHaveLength(0);
+    expect(renderAt(1.5, CI).texts).toHaveLength(0);
+  });
+
+  it('draws nothing when no count-in is provided', () => {
+    expect(renderAt(-2.0, undefined).texts).toHaveLength(0);
+  });
+
+  it('pops the number larger and brighter on each click', () => {
+    const atClick = renderAt(-2.0, CI).texts.find((t) => t.text === '4')!;
+    const midBeat = renderAt(-1.75, CI).texts.find((t) => t.text === '4')!;
+    expect(fontSize(atClick.font)).toBeGreaterThan(fontSize(midBeat.font));
+    expect(atClick.alpha).toBeGreaterThan(midBeat.alpha);
+  });
+
+  it('restores canvas state after drawing the count-in', () => {
+    const { ctx } = renderAt(-2.0, CI);
+    expect(ctx.globalAlpha).toBe(1);
+    expect(ctx.textAlign).toBe('left');
+    expect(ctx.textBaseline).toBe('alphabetic');
+    expect(ctx.shadowBlur).toBe(0);
+  });
+});

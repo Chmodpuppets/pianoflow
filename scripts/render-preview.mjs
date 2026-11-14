@@ -91,6 +91,18 @@ gridRenderer.resize(W, H);
 gridRenderer.render({ position: 3.0, notes: song.notes, pressed: new Set(), dt: 1 / 60, grid });
 save(gridCanvas, 'playfield-grid.png');
 
+// Visual count-in: a big pulsing countdown number during the lead-in (position < 0),
+// tying the audible count-in clicks to a visible event. Show "3" at full pop.
+const beatDur = grid.length > 1 ? grid[1].time - grid[0].time : 0.5;
+const ciCanvas = prep(createCanvas(W, H));
+const ciRenderer = new Renderer(ciCanvas, { showNoteLabels: true, showBeatGrid: true, ...fitted });
+ciRenderer.resize(W, H);
+ciRenderer.render({
+  position: -beatDur * 3, notes: song.notes, pressed: new Set(), dt: 1 / 60, grid,
+  countIn: { beats: 4, beatDur },
+});
+save(ciCanvas, 'playfield-countin.png');
+
 // Resize stability: shrink and re-render the same scene.
 renderer.resize(820, 620);
 renderer.render({ position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60 });

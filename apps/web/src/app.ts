@@ -672,6 +672,10 @@ export class PianoFlowApp {
       dt,
       dimHand: assist ? (this.hands === 'right' ? 'left' : 'right') : undefined,
       grid: this.timeGrid,
+      countIn:
+        this.engine.countIn > 0 && pos < 0
+          ? { beats: this.engine.countIn, beatDur: this.engine.beatDuration }
+          : undefined,
       loop: {
         enabled: this.engine.loopEnabled,
         start: this.engine.loopStart ?? 0,
