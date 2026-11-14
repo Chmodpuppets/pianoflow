@@ -164,6 +164,10 @@
           <div id="playerTitle" class="pt-name">—</div>
           <div id="playerComposer" class="pt-sub"></div>
         </div>
+        <div class="mode-seg" role="group" aria-label="Play mode">
+          <button id="modeListen" class="seg-btn" aria-pressed="true" title="Watch &amp; listen">🎧 Listen</button>
+          <button id="modePlay" class="seg-btn" aria-pressed="false" title="Play along &amp; get scored">🎹 Play</button>
+        </div>
         <div class="player-transport">
           <button id="playBtn" class="icon-btn big" title="Play / pause (Space)">▶</button>
           <button id="nextBtn" class="icon-btn" title="Next song">⏭</button>
@@ -201,6 +205,19 @@
         <div id="handLegend" aria-hidden="true">
           <span class="lg right">Right</span>
           <span class="lg left">Left</span>
+        </div>
+        <div id="coachHint" class="coach hidden" role="dialog" aria-label="How to play">
+          <div class="coach-card">
+            <h3>🎹 Your turn!</h3>
+            <p class="coach-lead">Hit each key as its note reaches the glowing line.</p>
+            <ul class="coach-list">
+              <li><span class="coach-ico">🎹</span> MIDI keyboard — plug in &amp; play</li>
+              <li><span class="coach-ico">⌨️</span> Computer keys <kbd>A</kbd>–<kbd>L</kbd> for the white keys</li>
+              <li><span class="coach-ico">👆</span> Tap or click the on-screen piano</li>
+            </ul>
+            <p class="coach-tip">Tip: enable <b>Wait mode</b> in ⚙️ settings to pause until you hit the right note.</p>
+            <button id="coachGotIt" class="btn btn-primary">Got it — let’s play</button>
+          </div>
         </div>
       </main>
       <div id="sheetPanel" class="sheet-panel hidden" role="dialog" aria-label="Sheet music">

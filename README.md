@@ -50,10 +50,13 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Standard MIDI file parsing** — zero-dependency SMF parser (format 0/1, tempo map,
   time signatures, running status).
 - **Transport** — play / pause / stop / seek, speed 0.25×–2×.
-- **Two modes**
+- **Two modes** — a prominent 🎧 Listen / 🎹 Play segmented toggle sits in the player top
+  bar, so the core play-along loop is one tap away (no drawer digging).
   - *Listen* — auto-plays the song; play along freely.
   - *Practice* — you produce the sound; hits are judged (`perfect` / `good`), misses
-    and wrong notes are counted, with combo / accuracy / grade (S–D).
+    and wrong notes are counted, with combo / accuracy / grade (S–D). The first time you
+    enter Practice, a dismissible coaching card explains the three input methods (MIDI,
+    computer keys A–L, tap the on-screen piano) and the Wait-mode tip.
 - **Wait mode** — playback pauses at each note **or chord** until you press the right
   key(s) (Practice).
 - **A-B loop** — mark a region with the **A** / **B** buttons and loop it to drill
@@ -128,7 +131,8 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Play notes | USB MIDI keyboard, computer keys `A W S E D F T G Y H U J K O L P ;`, or click/touch the keys |
 | Seek | drag the timeline slider under the player top bar |
 | Speed | the − / + stepper in the player top bar (or Practice view) |
-| Hands / Mode / Count-in | player ⚙ drawer, or the Practice view |
+| Mode | the 🎧 Listen / 🎹 Play toggle in the player top bar (or ⚙ drawer / Practice view) |
+| Hands / Count-in | player ⚙ drawer, or the Practice view |
 | Wait / Key labels / Note names / Colorblind | player ⚙ drawer, or the Settings view |
 | A-B loop | player ⚙ drawer: **A** / **B** set the region, **Loop** toggles, **✕** clears |
 | Metronome | the metronome button in the player top bar (or Practice view) |
@@ -223,6 +227,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M21 (done)** — sheet-music view: a scrolling grand staff with vector clefs, time-signature barlines, noteheads/stems/flags/accidentals/ledger lines and a synced play cursor; pure notation core + canvas renderer, headless-tested.
 - **M22 (done)** — auto-fit keyboard (Synthesia-style zoom to the song's pitch span, white-key snapped, toggleable) + a headless real-canvas render-preview harness (`pnpm render-preview`) that rasterizes the playfield and sheet to PNGs for visual QA.
 - **M23 (done)** — game-feel pass: a headless full-loop integration test drives the real controller (load → practice → hit/miss/wait/transpose/record → result) end-to-end, plus combo-milestone celebrations (golden shockwave + spark burst + chime) and a red miss flash, all verified visually via the render-preview harness.
+- **M24 (done)** — play-along discoverability: a prominent Listen / Play segmented toggle in the player top bar and a one-time, dismissible first-play coaching card (MIDI / computer-keyboard / touch input + Wait-mode tip), making the core game loop one tap away.
 
 ## 📄 License & attribution
 
@@ -261,7 +266,7 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 专注的全屏播放器，侧栏另含练习/进度/设置视图）；Canvas2D 下落音符 + 88 键键盘（时间桶索引 + 视口裁剪 + 批量绘制，密集黑 MIDI 更流畅）；FluidR3_GM SoundFont 真实钢琴音色（采样已
 本地内置、完全离线可用，缺失时回退 CDN 再回退内置合成器）；MIDI 设备映射（列出/选择输入设备、
 实时音符监视、热插拔检测）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
-两种模式；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
+两种模式（播放器顶栏 🎧 聆听 / 🎹 演奏 分段开关，核心玩法一键直达；首次进入演奏弹出可关闭的新手引导卡：MIDI/电脑键盘 A–L/触屏三种输入+等待模式提示）；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、

@@ -283,6 +283,21 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 .player-title { min-width: 0; flex: 0 1 260px; }
 .pt-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pt-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mode-seg {
+  display: flex; align-items: center; gap: 2px; flex: 0 0 auto;
+  background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 999px; padding: 3px;
+}
+.seg-btn {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--blue-2) 100%);
+  color: #fff; box-shadow: 0 0 14px rgba(78,161,255,.45);
+}
+.seg-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .player-transport { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .speed-stepper { display: flex; align-items: center; gap: 2px; background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 999px; padding: 2px 6px; }
 .speed-val { min-width: 52px; text-align: center; font-size: 14px; font-weight: 700; }
@@ -314,6 +329,36 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 #handLegend .lg.right::before { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
 #handLegend .lg.left { color: var(--green); }
 #handLegend .lg.left::before { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/* ---- first-play coaching overlay ---- */
+.coach {
+  position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+  background: rgba(7,10,18,.55); backdrop-filter: blur(3px);
+}
+.coach.hidden { display: none; }
+.coach-card {
+  width: min(420px, calc(100% - 48px)); padding: 26px 28px; text-align: center;
+  background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 1px solid var(--border-2); border-radius: 18px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.5), 0 0 40px rgba(78,161,255,.12);
+  animation: coach-in .25s ease;
+}
+@keyframes coach-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+.coach-card h3 { margin: 0 0 8px; font-size: 22px; }
+.coach-lead { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+.coach-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; text-align: left; }
+.coach-list li {
+  display: flex; align-items: center; gap: 10px; font-size: 14px;
+  background: var(--panel-3); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
+}
+.coach-ico { font-size: 18px; }
+.coach-list kbd {
+  background: var(--panel); border: 1px solid var(--border-2); border-bottom-width: 2px;
+  border-radius: 5px; padding: 1px 6px; font-size: 12px; font-family: inherit;
+}
+.coach-tip { margin: 0 0 18px; font-size: 12.5px; color: var(--muted); }
+.coach-tip b { color: var(--gold); }
+.coach-card .btn { width: 100%; }
 
 /* ---- sheet music panel ---- */
 .sheet-panel {

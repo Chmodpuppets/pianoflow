@@ -169,6 +169,10 @@ const pauseBack = $<HTMLButtonElement>('pauseBack');
 const playerSettings = $<HTMLElement>('playerSettings');
 const playerSettingsClose = $<HTMLButtonElement>('playerSettingsClose');
 const modeSel = $<HTMLSelectElement>('mode');
+const modeListen = $<HTMLButtonElement>('modeListen');
+const modePlay = $<HTMLButtonElement>('modePlay');
+const coachHint = $<HTMLElement>('coachHint');
+const coachGotIt = $<HTMLButtonElement>('coachGotIt');
 const handsSel = $<HTMLSelectElement>('hands');
 const countInSel = $<HTMLSelectElement>('countIn');
 const waitChk = $<HTMLInputElement>('waitMode');
@@ -233,6 +237,7 @@ function showScreen(name: ScreenName): void {
   }
   if (name === 'player') {
     doResize();
+    maybeShowCoach();
   } else {
     app.pause();
   }
@@ -673,6 +678,11 @@ function syncControls(): void {
   const s = app.getSettings();
   const st = app.getState();
   modeSel.value = s.mode;
+  const isPractice = s.mode === 'practice';
+  modeListen.classList.toggle('active', !isPractice);
+  modePlay.classList.toggle('active', isPractice);
+  modeListen.setAttribute('aria-pressed', String(!isPractice));
+  modePlay.setAttribute('aria-pressed', String(isPractice));
   handsSel.value = s.hands;
   pHands.value = s.hands;
   countInSel.value = String(s.countIn);
@@ -801,7 +811,44 @@ seek.addEventListener('change', () => { seeking = false; });
 seek.addEventListener('pointerup', () => { seeking = false; });
 
 // player settings drawer controls
-modeSel.addEventListener('change', () => { app.setMode(modeSel.value as Mode); persist(); syncControls(); });
+modeSel.addEventListener('change', () => setModeAndSync(modeSel.value as Mode));
+
+// ---- prominent play-mode toggle + first-play coaching ----
+const COACH_KEY = 'pianoflow.coach.v1';
+function coachSeen(): boolean {
+  try {
+    return localStorage.getItem(COACH_KEY) === '1';
+  } catch {
+    return true; // storage unavailable -> don't nag
+  }
+}
+function showCoach(): void {
+  coachHint.classList.remove('hidden');
+}
+function hideCoach(): void {
+  coachHint.classList.add('hidden');
+}
+function maybeShowCoach(): void {
+  if (app.getSettings().mode === 'practice' && !coachSeen()) showCoach();
+}
+function dismissCoach(): void {
+  hideCoach();
+  try {
+    localStorage.setItem(COACH_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+coachGotIt.addEventListener('click', dismissCoach);
+function setModeAndSync(mode: Mode): void {
+  app.setMode(mode);
+  persist();
+  syncControls();
+  if (mode === 'practice') maybeShowCoach();
+  else hideCoach();
+}
+modeListen.addEventListener('click', () => setModeAndSync('listen'));
+modePlay.addEventListener('click', () => setModeAndSync('practice'));
 handsSel.addEventListener('change', () => { app.setHands(handsSel.value as Hands); persist(); syncControls(); });
 countInSel.addEventListener('change', () => { app.setCountIn(Number(countInSel.value)); persist(); syncControls(); });
 waitChk.addEventListener('change', () => { app.setWaitMode(waitChk.checked); persist(); syncControls(); });
@@ -845,7 +892,8 @@ window.addEventListener('keydown', (e) => {
   if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
   if (e.code === 'Space' && currentScreen === 'player') { e.preventDefault(); userToggle(); }
   if (e.key === 'Escape') {
-    if (!pauseOverlay.classList.contains('hidden')) { hidePause(); void app.play(); }
+    if (!coachHint.classList.contains('hidden')) dismissCoach();
+    else if (!pauseOverlay.classList.contains('hidden')) { hidePause(); void app.play(); }
     else if (!resultOverlay.classList.contains('hidden')) resultOverlay.classList.add('hidden');
     else if (!profileModal.classList.contains('hidden')) closeProfileModal();
     else if (!sheetPanel.classList.contains('hidden')) closeSheet();
@@ -854,7 +902,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.23.0';
+aboutVersion.textContent = 'v0.24.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {
