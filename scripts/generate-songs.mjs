@@ -117,6 +117,7 @@ const C3 = 48, D3 = 50, E3 = 52, F3 = 53, G3 = 55, A3 = 57;
 const C4 = 60, D4 = 62, E4 = 64, F4 = 65, G4 = 67, A4 = 69, B4 = 71;
 const C5 = 72, D5 = 74, E5 = 76, F5 = 77, G5 = 79;
 const Fs4 = 66, Gs4 = 68, Ds5 = 75, Fs5 = 78;
+const B2 = 47, F2 = 41, Fs2 = 42, B3 = 59, Cs5 = 73;
 
 // --- Twinkle Twinkle Little Star (4/4) ---
 const twinkleMelody = [
@@ -224,6 +225,84 @@ const londonBridgeMelody = [
 ];
 const londonBridgeRoots = [C3,C3,G2,C3,C3,C3,G2,C3];
 
+// --- Canon in D (4/4, Pachelbel) — the famous descending half-note theme ---
+const canonMelody = [
+  [Fs5,2],[E5,2],
+  [D5,2],[Cs5,2],
+  [B4,2],[A4,2],
+  [B4,2],[Cs5,2],
+  [D5,2],[Cs5,2],
+  [B4,2],[A4,2],
+  [G4,2],[Fs4,2],
+  [G4,2],[A4,2],
+  [D5,4],
+];
+const canonRoots = [D3,A2,B2,Fs2,G2,D3,G2,A2,D3];
+
+// --- Prelude in C, BWV 846 (4/4, J.S. Bach) — broken-chord arpeggios ---
+// Each bar is the iconic 16-sixteenth figure [a b c d e c d e] twice.
+const bachBar = (shape) => {
+  const [a, b, c, d, e] = shape;
+  const fig = [a, b, c, d, e, c, d, e];
+  return [...fig, ...fig].map((m) => [m, 0.25]);
+};
+const preludeMelody = [
+  ...bachBar([C4,E4,G4,C5,E5]),
+  ...bachBar([B3,D4,G4,B4,D5]),
+  ...bachBar([A3,C4,E4,A4,C5]),
+  ...bachBar([E3,G3,B3,E4,G4]),
+  ...bachBar([F3,A3,C4,F4,A4]),
+  ...bachBar([C4,E4,G4,C5,E5]),
+  ...bachBar([F3,A3,C4,F4,A4]),
+  ...bachBar([G3,B3,D4,G4,B4]),
+  ...bachBar([C4,E4,G4,C5,E5]),
+];
+const preludeRoots = [C3,B2,A2,E2,F2,C3,F2,G2,C3];
+
+// --- Amazing Grace (3/4, G major) — two phrases of the hymn ---
+const amazingMelody = [
+  [D4,1],
+  [G4,2],[B4,1],
+  [B4,2],[A4,1],
+  [G4,2],[E4,1],
+  [D4,2],[D4,1],
+  [G4,2],[B4,1],
+  [B4,2],[A4,1],
+  [G4,3],
+  [D5,2],[B4,1],
+  [B4,2],[A4,1],
+  [G4,2],[E4,1],
+  [D4,2],[D4,1],
+  [G4,2],[B4,1],
+  [B4,2],[A4,1],
+  [G4,3],
+];
+const amazingRoots = [G2,C3,G2,D3,G2,C3,G2, G2,C3,G2,D3,G2,C3,G2];
+
+// --- When the Saints Go Marching In (4/4, C major) ---
+const saintsMelody = [
+  [C4,1],[E4,1],[F4,1],[G4,1],
+  [C4,1],[E4,1],[F4,1],[G4,1],
+  [C4,1],[E4,1],[F4,1],[G4,1],
+  [E4,1],[C4,1],[E4,1],[D4,1],
+  [C4,2],[E4,1],[C4,1],
+  [D4,2],[0,2],
+];
+const saintsRoots = [C3,C3,C3,G2,C3,G2];
+
+// --- Scarborough Fair (3/4, A Dorian) ---
+const scarboroughMelody = [
+  [A4,1],[A4,1],[E5,1],
+  [E5,1.5],[D5,0.5],[C5,1],
+  [D5,1],[E5,1],[C5,1],
+  [A4,2],[0,1],
+  [E5,1],[E5,1],[E5,1],
+  [E5,1.5],[D5,0.5],[C5,1],
+  [D5,1],[E5,1],[C5,1],
+  [A4,2],[0,1],
+];
+const scarboroughRoots = [A2,G2,A2,E2, A2,G2,A2,A2];
+
 const songs = [
   { id: 'twinkle', title: 'Twinkle Twinkle Little Star', composer: 'Traditional (Public Domain)', genre: 'Traditional', file: 'twinkle.mid', melody: twinkleMelody, roots: twinkleRoots },
   { id: 'ode-to-joy', title: 'Ode to Joy', composer: 'L. van Beethoven (Public Domain)', genre: 'Classical', file: 'ode-to-joy.mid', melody: odeMelody, roots: odeRoots },
@@ -232,6 +311,11 @@ const songs = [
   { id: 'minuet-in-g', title: 'Minuet in G', composer: 'C. Petzold (Public Domain)', genre: 'Classical', file: 'minuet-in-g.mid', melody: minuetMelody, roots: minuetRoots, bpm: 110, timeSig: [3, 2], measureBeats: 3 },
   { id: 'greensleeves', title: 'Greensleeves', composer: 'Traditional (Public Domain)', genre: 'Folk', file: 'greensleeves.mid', melody: greensleevesMelody, roots: greensleevesRoots, bpm: 100, timeSig: [6, 3], measureBeats: 3, pickup: 0.5, bassPattern: [[0, 1.5, 66], [1.5, 1.5, 55]] },
   { id: 'fur-elise', title: 'Für Elise', composer: 'L. van Beethoven (Public Domain)', genre: 'Classical', file: 'fur-elise.mid', melody: furEliseMelody, left: furEliseLeft, bpm: 100, timeSig: [3, 3], measureBeats: 1.5, pickup: 0.5 },
+  { id: 'canon-in-d', title: 'Canon in D', composer: 'J. Pachelbel (Public Domain)', genre: 'Classical', file: 'canon-in-d.mid', melody: canonMelody, roots: canonRoots, bpm: 72, bassPattern: [[0, 3.9, 62]] },
+  { id: 'prelude-in-c', title: 'Prelude in C (BWV 846)', composer: 'J.S. Bach (Public Domain)', genre: 'Classical', file: 'prelude-in-c.mid', melody: preludeMelody, roots: preludeRoots, bpm: 72, bassPattern: [[0, 3.9, 60]] },
+  { id: 'amazing-grace', title: 'Amazing Grace', composer: 'Traditional (Public Domain)', genre: 'Traditional', file: 'amazing-grace.mid', melody: amazingMelody, roots: amazingRoots, bpm: 80, timeSig: [3, 2], measureBeats: 3, pickup: 1 },
+  { id: 'when-the-saints', title: 'When the Saints Go Marching In', composer: 'Traditional (Public Domain)', genre: 'Traditional', file: 'when-the-saints.mid', melody: saintsMelody, roots: saintsRoots, bpm: 120 },
+  { id: 'scarborough-fair', title: 'Scarborough Fair', composer: 'Traditional (Public Domain)', genre: 'Folk', file: 'scarborough-fair.mid', melody: scarboroughMelody, roots: scarboroughRoots, bpm: 90, timeSig: [3, 2], measureBeats: 3 },
 ];
 
 const manifest = [];

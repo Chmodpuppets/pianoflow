@@ -146,6 +146,27 @@ assistRenderer.render({
 });
 save(assistCanvas, 'playfield-assist.png');
 
+// ---- New bundled content: Bach Prelude in C (dense arpeggios) + Canon in D ----
+const prelude = loadSong('prelude-in-c.mid');
+const preludeGrid = buildTimeGrid({ ppq: prelude.ppq, tempos: prelude.tempos, timeSignatures: prelude.timeSignatures, durationTicks: prelude.durationTicks });
+const preludeFit = fitKeyboardRange(prelude.notes);
+const preludeCanvas = prep(createCanvas(W, H));
+const preludeRenderer = new Renderer(preludeCanvas, { showNoteLabels: false, showBeatGrid: true, ...preludeFit });
+preludeRenderer.resize(W, H);
+preludeRenderer.render({ position: 2.0, notes: prelude.notes, pressed: new Set(), dt: 1 / 60, grid: preludeGrid });
+save(preludeCanvas, 'playfield-prelude.png');
+console.log('prelude fitted', preludeFit, 'notes', prelude.notes.length);
+
+const canon = loadSong('canon-in-d.mid');
+const canonGrid = buildTimeGrid({ ppq: canon.ppq, tempos: canon.tempos, timeSignatures: canon.timeSignatures, durationTicks: canon.durationTicks });
+const canonFit = fitKeyboardRange(canon.notes);
+const canonCanvas = prep(createCanvas(W, H));
+const canonRenderer = new Renderer(canonCanvas, { showNoteLabels: true, showBeatGrid: true, ...canonFit });
+canonRenderer.resize(W, H);
+canonRenderer.render({ position: 3.0, notes: canon.notes, pressed: new Set(), dt: 1 / 60, grid: canonGrid });
+save(canonCanvas, 'playfield-canon.png');
+console.log('canon fitted', canonFit, 'notes', canon.notes.length);
+
 // ---- Sheet-music grand staff -------------------------------------------------------------
 const layout = buildSheet(song, 60);
 const sheetCanvas = prep(createCanvas(1280, 440));

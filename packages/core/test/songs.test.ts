@@ -17,8 +17,8 @@ function load(file: string): MidiSong {
 }
 
 describe('bundled songs', () => {
-  it('manifest lists seven public-domain songs', () => {
-    expect(manifest.length).toBe(7);
+  it('manifest lists twelve public-domain songs', () => {
+    expect(manifest.length).toBe(12);
     expect(manifest.every((s) => s.id && s.title && s.file)).toBe(true);
   });
 
@@ -59,6 +59,36 @@ describe('bundled songs', () => {
     const end = (track: number) =>
       Math.max(...song.notes.filter((n) => n.track === track).map((n) => n.time + n.duration));
     expect(Math.abs(end(0) - end(1))).toBeLessThan(0.1);
+  });
+
+  it('encodes the new pieces with the right metres', () => {
+    expect(load('amazing-grace.mid').timeSignatures[0]).toMatchObject({ numerator: 3, denominator: 4 });
+    expect(load('scarborough-fair.mid').timeSignatures[0]).toMatchObject({ numerator: 3, denominator: 4 });
+    expect(load('canon-in-d.mid').timeSignatures[0]).toMatchObject({ numerator: 4, denominator: 4 });
+    expect(load('prelude-in-c.mid').timeSignatures[0]).toMatchObject({ numerator: 4, denominator: 4 });
+    expect(load('when-the-saints.mid').timeSignatures[0]).toMatchObject({ numerator: 4, denominator: 4 });
+  });
+
+  it('renders the Bach prelude as a dense sixteenth-note arpeggio study', () => {
+    const song = load('prelude-in-c.mid');
+    const right = song.notes.filter((n) => n.track === 0);
+    expect(right.length).toBe(144); // 9 bars x 16 sixteenths
+    // Every right-hand note is a sixteenth (0.25 beat; ~0.208s at 72bpm).
+    expect(right.every((n) => n.duration < 0.25)).toBe(true);
+    assignHands(song.notes);
+    expect(right.every((n) => n.hand === 'right')).toBe(true);
+  });
+
+  it('keeps Canon in D hands aligned and assigns melody to the right hand', () => {
+    const song = load('canon-in-d.mid');
+    assignHands(song.notes);
+    const right = song.notes.filter((n) => n.hand === 'right');
+    const left = song.notes.filter((n) => n.hand === 'left');
+    expect(right.length).toBe(17);
+    expect(left.length).toBe(9);
+    // The melody sits above the bass.
+    const avg = (ns: typeof right) => ns.reduce((s, n) => s + n.midi, 0) / ns.length;
+    expect(avg(right)).toBeGreaterThan(avg(left));
   });
 });
 

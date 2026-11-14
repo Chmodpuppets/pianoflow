@@ -47,5 +47,40 @@
     "composer": "L. van Beethoven (Public Domain)",
     "genre": "Classical",
     "file": "fur-elise.mid"
+  },
+  {
+    "id": "canon-in-d",
+    "title": "Canon in D",
+    "composer": "J. Pachelbel (Public Domain)",
+    "genre": "Classical",
+    "file": "canon-in-d.mid"
+  },
+  {
+    "id": "prelude-in-c",
+    "title": "Prelude in C (BWV 846)",
+    "composer": "J.S. Bach (Public Domain)",
+    "genre": "Classical",
+    "file": "prelude-in-c.mid"
+  },
+  {
+    "id": "amazing-grace",
+    "title": "Amazing Grace",
+    "composer": "Traditional (Public Domain)",
+    "genre": "Traditional",
+    "file": "amazing-grace.mid"
+  },
+  {
+    "id": "when-the-saints",
+    "title": "When the Saints Go Marching In",
+    "composer": "Traditional (Public Domain)",
+    "genre": "Traditional",
+    "file": "when-the-saints.mid"
+  },
+  {
+    "id": "scarborough-fair",
+    "title": "Scarborough Fair",
+    "composer": "Traditional (Public Domain)",
+    "genre": "Folk",
+    "file": "scarborough-fair.mid"
   }
 ]
