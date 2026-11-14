@@ -7,6 +7,7 @@ export * from './song';
 export * from './scoring';
 export * from './transport';
 export * from './meter';
+export * from './grid';
 export * from './progress';
 export * from './history';
 export * from './insights';

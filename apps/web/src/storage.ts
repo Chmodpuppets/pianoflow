@@ -99,6 +99,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   fitKeyboard: true,
   handAssist: true,
   gpu: true,
+  beatGrid: true,
   plugins: {},
 };
 

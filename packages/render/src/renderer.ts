@@ -1,4 +1,4 @@
-import type { MidiNote } from '@pianoflow/core';
+import type { MidiNote, GridLine } from '@pianoflow/core';
 import { NoteIndex, noteName } from '@pianoflow/core';
 import { buildKeyboard, keyAt, type KeyboardLayout } from './keyboard';
 import { defaultTheme, type Theme } from './theme';
@@ -24,6 +24,8 @@ export interface RenderConfig {
   showLabels: boolean;
   /** draw note names (C4, D4, …) on the falling note blocks */
   showNoteLabels: boolean;
+  /** draw the scrolling measure/beat rhythm grid behind the falling notes */
+  showBeatGrid: boolean;
   theme: Theme;
 }
 
@@ -39,6 +41,8 @@ export interface RenderState {
    * them while the player practices the other hand). They get no name labels.
    */
   dimHand?: 'left' | 'right';
+  /** measure/beat rhythm grid lines (seconds) to scroll behind the notes */
+  grid?: GridLine[];
 }
 
 interface Spark {
@@ -58,6 +62,7 @@ export const defaultRenderConfig: RenderConfig = {
   keyboardHeightRatio: 0.18,
   showLabels: false,
   showNoteLabels: false,
+  showBeatGrid: false,
   theme: defaultTheme,
 };
 
@@ -334,6 +339,9 @@ export class Renderer {
     const pps = this.keyboardTop / Math.max(0.2, config.secondsVisible);
     const pos = state.position;
 
+    // Rhythm grid sits behind the falling notes so blocks read on top of it.
+    if (config.showBeatGrid && state.grid) this.drawGrid(state.grid, pos, pps, theme);
+
     // Only iterate notes that can overlap the visible time window, not the
     // whole song. The window is padded by 1s; the exact pixel cull below still
     // applies, so output is identical to a full scan but far cheaper for dense
@@ -523,6 +531,39 @@ export class Renderer {
       ctx.fillStyle = this.vignetteGrad;
       ctx.fillRect(0, 0, cssW, cssH);
     }
+  }
+
+  /**
+   * Scrolling measure/beat rhythm grid behind the notes. Measure (downbeat)
+   * lines are stronger and carry a 1-based measure number at the left edge;
+   * beat lines are faint. Lines fade with distance from the strike line so the
+   * grid adds depth without competing with the falling blocks.
+   */
+  private drawGrid(grid: GridLine[], pos: number, pps: number, theme: Theme): void {
+    const { ctx, cssW, keyboardTop } = this;
+    if (keyboardTop <= 0) return;
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    for (const line of grid) {
+      const y = keyboardTop - (line.time - pos) * pps;
+      if (y < 0 || y > keyboardTop) continue;
+      const depth = 0.35 + 0.65 * (y / keyboardTop); // nearer the line = clearer
+      const measure = line.kind === 'measure';
+      ctx.globalAlpha = (measure ? 0.22 : 0.08) * depth;
+      ctx.fillStyle = theme.grid;
+      ctx.fillRect(0, y - (measure ? 1 : 0.5), cssW, measure ? 2 : 1);
+      if (measure) {
+        ctx.globalAlpha = 0.5 * depth;
+        ctx.fillStyle = theme.grid;
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText(String(line.measure), 6, y - 4);
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
   }
 
   /** Luminous strike line with a soft bloom that pulses when a note is hit. */

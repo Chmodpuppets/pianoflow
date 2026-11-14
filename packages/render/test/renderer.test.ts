@@ -2,7 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Renderer } from '../src/index';
 import {
   ComboOverlayPlugin,
+  buildTimeGrid,
   type MidiNote,
+  type GridLine,
   type DrawSurface,
   type FrameInfo,
   type PluginEvent,
@@ -435,5 +437,73 @@ describe('Renderer hand-assist (dimmed auto-played hand)', () => {
     r.render({ position: 50, notes, pressed: new Set<number>(), dimHand: 'left' });
     expect(texts).toContain('C4'); // player (right) hand labeled
     expect(texts).not.toContain('C3'); // assisted (left) hand not labeled
+  });
+});
+
+describe('Renderer measure/beat grid', () => {
+  const GRID_COLOR = '#8fa3c8';
+  function gridCtx() {
+    const ctx = mockCtx();
+    const rects: { x: number; y: number; w: number; h: number; style: unknown; alpha: number }[] = [];
+    const texts: string[] = [];
+    ctx.fillRect = (x: number, y: number, w: number, h: number) => {
+      rects.push({ x, y, w, h, style: ctx.fillStyle, alpha: ctx.globalAlpha });
+    };
+    ctx.fillText = (t: string) => { texts.push(t); };
+    return { ctx, rects, texts };
+  }
+  function songGrid(): GridLine[] {
+    return buildTimeGrid({
+      ppq: 480,
+      tempos: [{ ticks: 0, bpm: 120 }],
+      timeSignatures: [{ ticks: 0, numerator: 4, denominator: 4 }],
+      durationTicks: 480 * 16, // 4 measures / 8 seconds
+    });
+  }
+  const gridRects = (rects: ReturnType<typeof gridCtx>['rects']) =>
+    rects.filter((r) => r.style === GRID_COLOR && r.w === 1040);
+
+  it('draws measure lines with numbers and fainter beat lines when enabled', () => {
+    const { ctx, rects, texts } = gridCtx();
+    const r = new Renderer(mockCanvas(ctx), { showBeatGrid: true });
+    r.resize(1040, 600);
+    r.render({ position: 0, notes: [], pressed: new Set<number>(), grid: songGrid() });
+    const g = gridRects(rects);
+    expect(g.length).toBeGreaterThan(0);
+    // measure numbers for the bars visible in the 3s lookahead (1 and 2; 3 is off-screen)
+    expect(texts).toContain('1');
+    expect(texts).toContain('2');
+    expect(texts).not.toContain('3');
+    // measure lines are stronger than beat lines
+    const alphas = g.map((r) => r.alpha);
+    expect(Math.max(...alphas)).toBeGreaterThan(Math.min(...alphas));
+  });
+
+  it('culls grid lines outside the visible window', () => {
+    const { ctx, rects } = gridCtx();
+    const r = new Renderer(mockCanvas(ctx), { showBeatGrid: true });
+    r.resize(1040, 600);
+    const far: GridLine[] = [{ time: 1000, kind: 'measure', measure: 99, beat: 1 }];
+    r.render({ position: 0, notes: [], pressed: new Set<number>(), grid: far });
+    expect(gridRects(rects)).toHaveLength(0);
+  });
+
+  it('draws no grid when disabled', () => {
+    const { ctx, rects, texts } = gridCtx();
+    const r = new Renderer(mockCanvas(ctx), { showBeatGrid: false });
+    r.resize(1040, 600);
+    r.render({ position: 0, notes: [], pressed: new Set<number>(), grid: songGrid() });
+    expect(gridRects(rects)).toHaveLength(0);
+    expect(texts).toHaveLength(0);
+  });
+
+  it('restores canvas state after drawing the grid', () => {
+    const { ctx } = gridCtx();
+    const r = new Renderer(mockCanvas(ctx), { showBeatGrid: true });
+    r.resize(1040, 600);
+    r.render({ position: 0, notes: [], pressed: new Set<number>(), grid: songGrid() });
+    expect(ctx.globalAlpha).toBe(1);
+    expect(ctx.textAlign).toBe('left');
+    expect(ctx.textBaseline).toBe('alphabetic');
   });
 });

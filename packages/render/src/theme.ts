@@ -19,6 +19,8 @@ export interface Theme {
   loopMarker: string;
   /** color of the note-name labels drawn on falling notes */
   noteLabel: string;
+  /** color of the scrolling measure/beat rhythm grid behind the notes */
+  grid: string;
 }
 
 export const defaultTheme: Theme = {
@@ -37,6 +39,7 @@ export const defaultTheme: Theme = {
   text: '#e6e6e6',
   loopMarker: '#ffd166',
   noteLabel: '#ffffff',
+  grid: '#8fa3c8',
 };
 
 export const colorblindTheme: Theme = {

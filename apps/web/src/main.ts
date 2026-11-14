@@ -119,6 +119,7 @@ const sNoteLabels = $<HTMLInputElement>('sNoteLabels');
 const sColorblind = $<HTMLInputElement>('sColorblind');
 const sFitKeys = $<HTMLInputElement>('sFitKeys');
 const sGpu = $<HTMLInputElement>('sGpu');
+const sBeatGrid = $<HTMLInputElement>('sBeatGrid');
 const sMute = $<HTMLInputElement>('sMute');
 const sVolume = $<HTMLInputElement>('sVolume');
 const sInstrument = $<HTMLSelectElement>('sInstrument');
@@ -183,6 +184,7 @@ const noteLabelsChk = $<HTMLInputElement>('noteLabels');
 const cbChk = $<HTMLInputElement>('colorblind');
 const fitKeysChk = $<HTMLInputElement>('fitKeys');
 const gpuChk = $<HTMLInputElement>('gpu');
+const beatGridChk = $<HTMLInputElement>('beatGrid');
 const gpuBadge = $<HTMLElement>('gpuBadge');
 const handAssistChk = $<HTMLInputElement>('handAssist');
 const assistBadge = $<HTMLElement>('assistBadge');
@@ -706,6 +708,8 @@ function syncControls(): void {
   sFitKeys.checked = s.fitKeyboard;
   gpuChk.checked = s.gpu;
   sGpu.checked = s.gpu;
+  beatGridChk.checked = s.beatGrid;
+  sBeatGrid.checked = s.beatGrid;
   handAssistChk.checked = s.handAssist;
   pHandAssist.checked = s.handAssist;
   const assistEnabled = s.hands !== 'both';
@@ -878,6 +882,7 @@ noteLabelsChk.addEventListener('change', () => { app.setNoteLabels(noteLabelsChk
 cbChk.addEventListener('change', () => { app.setColorblind(cbChk.checked); persist(); syncControls(); });
 fitKeysChk.addEventListener('change', () => { app.setFitKeyboard(fitKeysChk.checked); persist(); syncControls(); });
 gpuChk.addEventListener('change', () => { app.setGpu(gpuChk.checked); persist(); syncControls(); });
+beatGridChk.addEventListener('change', () => { app.setBeatGrid(beatGridChk.checked); persist(); syncControls(); });
 handAssistChk.addEventListener('change', () => { app.setHandAssist(handAssistChk.checked); persist(); syncControls(); });
 loopChk.addEventListener('change', () => { app.setLoopEnabled(loopChk.checked); syncControls(); });
 loopA.addEventListener('click', () => { app.markLoopStart(); syncControls(); });
@@ -906,6 +911,7 @@ sNoteLabels.addEventListener('change', () => { app.setNoteLabels(sNoteLabels.che
 sColorblind.addEventListener('change', () => { app.setColorblind(sColorblind.checked); persist(); syncControls(); });
 sFitKeys.addEventListener('change', () => { app.setFitKeyboard(sFitKeys.checked); persist(); syncControls(); });
 sGpu.addEventListener('change', () => { app.setGpu(sGpu.checked); persist(); syncControls(); });
+sBeatGrid.addEventListener('change', () => { app.setBeatGrid(sBeatGrid.checked); persist(); syncControls(); });
 sMute.addEventListener('change', () => { app.setMuted(sMute.checked); persist(); syncControls(); });
 
 // nav
@@ -927,7 +933,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.26.0';
+aboutVersion.textContent = 'v0.27.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {

@@ -17,8 +17,8 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const entry = `
 import { Renderer, SheetRenderer, defaultTheme } from './packages/render/src/index.ts';
-import { parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD } from './packages/core/src/index.ts';
-export { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD };
+import { parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid } from './packages/core/src/index.ts';
+export { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid };
 `;
 
 const result = await build({
@@ -36,7 +36,7 @@ const result = await build({
 
 const bundlePath = path.join(root, 'exports', '.preview-bundle.mjs');
 fs.writeFileSync(bundlePath, result.outputFiles[0].text);
-const { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD } =
+const { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid } =
   await import(bundlePath);
 
 // The renderers read window.devicePixelRatio; pin it to 1 for deterministic previews.
@@ -63,6 +63,12 @@ function prep(canvas) {
 }
 
 const song = loadSong('fur-elise.mid');
+const grid = buildTimeGrid({
+  ppq: song.ppq,
+  tempos: song.tempos,
+  timeSignatures: song.timeSignatures,
+  durationTicks: song.durationTicks,
+});
 
 // ---- Falling-notes playfield -------------------------------------------------------------
 const W = 1280;
@@ -70,13 +76,20 @@ const H = 800;
 const fitted = fitKeyboardRange(song.notes);
 console.log('fitted keyboard range', fitted, 'full', FULL_KEYBOARD);
 const canvas = prep(createCanvas(W, H));
-const renderer = new Renderer(canvas, { showNoteLabels: true, ...fitted });
+const renderer = new Renderer(canvas, { showNoteLabels: true, showBeatGrid: true, ...fitted });
 renderer.resize(W, H);
 renderer.triggerPulse();
 renderer.notifyHit(71, 'right');
 renderer.notifyHit(64, 'left');
-renderer.render({ position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60 });
+renderer.render({ position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60, grid });
 save(canvas, 'playfield.png');
+
+// Clean rhythm-grid view (no particles): scrolling measure lines + numbers + beat lines.
+const gridCanvas = prep(createCanvas(W, H));
+const gridRenderer = new Renderer(gridCanvas, { showNoteLabels: true, showBeatGrid: true, ...fitted });
+gridRenderer.resize(W, H);
+gridRenderer.render({ position: 3.0, notes: song.notes, pressed: new Set(), dt: 1 / 60, grid });
+save(gridCanvas, 'playfield-grid.png');
 
 // Resize stability: shrink and re-render the same scene.
 renderer.resize(820, 620);

@@ -31,6 +31,8 @@ import {
   type SheetLayout,
   fitKeyboardRange,
   FULL_KEYBOARD,
+  buildTimeGrid,
+  type GridLine,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -64,6 +66,7 @@ export interface AppSettings {
   fitKeyboard: boolean;
   handAssist: boolean;
   gpu: boolean;
+  beatGrid: boolean;
   plugins: Record<string, boolean>;
 }
 
@@ -102,6 +105,7 @@ export interface AppState {
   recordedNotes: number;
   gpu: boolean;
   gpuActive: boolean;
+  beatGrid: boolean;
 }
 
 const GOOD_WINDOW = 0.15;
@@ -152,6 +156,7 @@ export class PianoFlowApp {
   private notes: MidiNote[] = [];
   private sheetCache: SheetLayout | null = null;
   private sheetCacheNotes: MidiNote[] | null = null;
+  private timeGrid: GridLine[] = [];
   private active: MidiNote[] = [];
   private judged: boolean[] = [];
   private missPtr = 0;
@@ -175,6 +180,7 @@ export class PianoFlowApp {
   private fitKeyboard = true;
   private handAssist = true;
   private gpu = true;
+  private beatGrid = true;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -210,6 +216,7 @@ export class PianoFlowApp {
     const soundfontUrlFor = (id: string) => new URL(`soundfont/${instrumentFile(id)}`, document.baseURI).href;
     this.engine = new AudioEngine({ soundfontUrl, soundfontUrlFor });
     this.renderer = new Renderer(canvas);
+    this.renderer.setConfig({ showBeatGrid: this.beatGrid });
     const handlers: NoteHandlers = {
       onNoteOn: (m, v) => this.handleNoteOn(m, v),
       onNoteOff: (m) => this.handleNoteOff(m),
@@ -317,6 +324,12 @@ export class PianoFlowApp {
       timeSignatures: song.timeSignatures,
       durationTicks: song.durationTicks,
     });
+    this.timeGrid = buildTimeGrid({
+      ppq: song.ppq,
+      tempos: song.tempos,
+      timeSignatures: song.timeSignatures,
+      durationTicks: song.durationTicks,
+    });
     this.clearLoop();
     this.applyConfig();
     this.plugins.emit({ type: 'song-loaded', song });
@@ -337,6 +350,11 @@ export class PianoFlowApp {
   setGpu(b: boolean): void {
     this.gpu = b;
     this.renderer.setGpuEnabled(b);
+    this.onState?.();
+  }
+  setBeatGrid(b: boolean): void {
+    this.beatGrid = b;
+    this.renderer.setConfig({ showBeatGrid: b });
     this.onState?.();
   }
   setWaitMode(w: boolean): void {
@@ -450,6 +468,7 @@ export class PianoFlowApp {
       fitKeyboard: this.fitKeyboard,
       handAssist: this.handAssist,
       gpu: this.gpu,
+      beatGrid: this.beatGrid,
       plugins: this.plugins.states(),
     };
   }
@@ -474,6 +493,7 @@ export class PianoFlowApp {
     if (typeof s.fitKeyboard === 'boolean') this.setFitKeyboard(s.fitKeyboard);
     if (typeof s.handAssist === 'boolean') this.setHandAssist(s.handAssist);
     if (typeof s.gpu === 'boolean') this.setGpu(s.gpu);
+    if (typeof s.beatGrid === 'boolean') this.setBeatGrid(s.beatGrid);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -651,6 +671,7 @@ export class PianoFlowApp {
       pressed,
       dt,
       dimHand: assist ? (this.hands === 'right' ? 'left' : 'right') : undefined,
+      grid: this.timeGrid,
       loop: {
         enabled: this.engine.loopEnabled,
         start: this.engine.loopStart ?? 0,
@@ -879,6 +900,7 @@ export class PianoFlowApp {
       recordedNotes: this.recording ? this.recorder.noteCount : this.lastRecording.length,
       gpu: this.gpu,
       gpuActive: this.renderer.usingGpu,
+      beatGrid: this.beatGrid,
     };
   }
 
