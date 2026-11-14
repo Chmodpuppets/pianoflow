@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/img/og.png" alt="PianoFlow — open-source Synthesia-style piano trainer" width="100%">
+<img src="docs/img/hero-mockup.png" alt="PianoFlow — open-source Synthesia-style piano trainer in a browser window" width="100%">
 
 # 🎹 PianoFlow
 

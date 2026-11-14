@@ -333,5 +333,87 @@ save(og, 'og.png');
 fs.copyFileSync(path.join(outDir, 'og.png'), path.join(root, 'apps/web/public/og.png'));
 console.log('copied og.png -> apps/web/public/og.png');
 
+// ---- Browser-window mockup hero (README first view) --------------------------------------
+// Wraps a real playfield render in a macOS-style browser chrome so the GitHub first view
+// reads as a shipped product, not a bare canvas.
+const CW = 1440;             // content width
+const CH = 860;              // content height
+const BAR = 56;              // title bar height
+const PAD = 60;              // desktop margin
+const MW = CW + PAD * 2;
+const MH = CH + BAR + PAD * 2;
+const mock = prep(createCanvas(MW, MH));
+const mx = mock.getContext('2d');
+// Desktop backdrop.
+const bg = mx.createLinearGradient(0, 0, MW, MH);
+bg.addColorStop(0, '#0b0e1a');
+bg.addColorStop(1, '#141b30');
+mx.fillStyle = bg;
+mx.fillRect(0, 0, MW, MH);
+// Window shadow + body.
+mx.save();
+mx.shadowColor = 'rgba(0,0,0,0.6)';
+mx.shadowBlur = 48;
+mx.shadowOffsetY = 18;
+mx.fillStyle = '#0f1220';
+mx.beginPath();
+mx.roundRect(PAD, PAD, CW, CH + BAR, 16);
+mx.fill();
+mx.restore();
+// Clip to the window so chrome + content share rounded corners.
+mx.save();
+mx.beginPath();
+mx.roundRect(PAD, PAD, CW, CH + BAR, 16);
+mx.clip();
+// Title bar.
+mx.fillStyle = '#1a2030';
+mx.fillRect(PAD, PAD, CW, BAR);
+mx.strokeStyle = '#262c4d';
+mx.lineWidth = 1;
+mx.beginPath();
+mx.moveTo(PAD, PAD + BAR + 0.5);
+mx.lineTo(PAD + CW, PAD + BAR + 0.5);
+mx.stroke();
+// Traffic lights.
+const lights = ['#ff5f57', '#febc2e', '#28c840'];
+lights.forEach((c, i) => {
+  mx.fillStyle = c;
+  mx.beginPath();
+  mx.arc(PAD + 26 + i * 24, PAD + BAR / 2, 7, 0, Math.PI * 2);
+  mx.fill();
+});
+// URL pill.
+mx.fillStyle = '#0d1120';
+mx.beginPath();
+mx.roundRect(PAD + CW / 2 - 260, PAD + 12, 520, BAR - 24, 10);
+mx.fill();
+mx.fillStyle = '#9aa3c0';
+mx.font = '500 15px system-ui, sans-serif';
+mx.textAlign = 'center';
+mx.textBaseline = 'middle';
+mx.fillText('🔒 chmodpuppets.github.io/pianoflow', PAD + CW / 2, PAD + BAR / 2 + 1);
+mx.textAlign = 'left';
+mx.textBaseline = 'alphabetic';
+// Real playfield content.
+const content = prep(createCanvas(CW, CH));
+const cRenderer = new Renderer(content, { showNoteLabels: true, showBeatGrid: true, ...fitted });
+cRenderer.resize(CW, CH);
+cRenderer.triggerPulse();
+cRenderer.notifyHit(71, 'right');
+cRenderer.notifyMilestone(50);
+const cState = { position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60, grid };
+for (let i = 0; i < 6; i++) cRenderer.render(cState);
+mx.drawImage(content, PAD, PAD + BAR);
+mx.restore();
+// Hairline window border.
+mx.strokeStyle = 'rgba(120,140,200,0.25)';
+mx.lineWidth = 1;
+mx.beginPath();
+mx.roundRect(PAD + 0.5, PAD + 0.5, CW - 1, CH + BAR - 1, 16);
+mx.stroke();
+save(mock, 'hero-mockup.png');
+fs.copyFileSync(path.join(outDir, 'hero-mockup.png'), path.join(root, 'docs/img/hero-mockup.png'));
+console.log('copied hero-mockup.png -> docs/img/hero-mockup.png');
+
 fs.rmSync(bundlePath, { force: true });
 console.log('done');
