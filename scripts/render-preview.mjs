@@ -273,5 +273,65 @@ rx.font = '12px system-ui, sans-serif';
 rx.fillText('Cell width ∝ notes in measure · click a chip to jump to that measure and practice it.', 44, 252);
 save(rc, 'review.png');
 
+// ---- Open Graph / social share card (1200x630) -------------------------------------------
+// Real playfield render as the backdrop, then a left scrim + brand text so the card reads
+// as a product hero when the repo / demo link is shared. Written to public/ so it ships.
+const OW = 1200;
+const OH = 630;
+const og = prep(createCanvas(OW, OH));
+const ogRenderer = new Renderer(og, { showNoteLabels: true, showBeatGrid: true, ...fitted });
+ogRenderer.resize(OW, OH);
+ogRenderer.triggerPulse();
+ogRenderer.notifyHit(71, 'right');
+ogRenderer.notifyMilestone(50);
+const ogState = { position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60, grid };
+for (let i = 0; i < 6; i++) ogRenderer.render(ogState);
+const ox = og.getContext('2d');
+// Left-to-right scrim so brand text stays legible over the falling notes.
+const scrim = ox.createLinearGradient(0, 0, OW, 0);
+scrim.addColorStop(0, 'rgba(8,10,20,0.97)');
+scrim.addColorStop(0.45, 'rgba(8,10,20,0.88)');
+scrim.addColorStop(0.75, 'rgba(8,10,20,0.35)');
+scrim.addColorStop(1, 'rgba(8,10,20,0.10)');
+ox.fillStyle = scrim;
+ox.fillRect(0, 0, OW, OH);
+// Brand mark + title.
+ox.textAlign = 'left';
+ox.textBaseline = 'alphabetic';
+ox.fillStyle = '#4ea1ff';
+ox.font = 'bold 30px system-ui, sans-serif';
+ox.fillText('🎹', 64, 150);
+ox.fillStyle = '#eef1fb';
+ox.font = 'bold 84px system-ui, sans-serif';
+ox.fillText('PianoFlow', 64, 236);
+ox.fillStyle = '#9aa3c0';
+ox.font = '28px system-ui, sans-serif';
+ox.fillText('Learn piano by playing the falling notes.', 66, 292);
+ox.fillText('A Synthesia-style trainer, open source.', 66, 330);
+// Feature pills.
+const pills = ['Open source', 'Web + macOS', 'MIDI · WebGL · PWA'];
+ox.font = '600 20px system-ui, sans-serif';
+let px = 66;
+for (const p of pills) {
+  const w = ox.measureText(p).width + 36;
+  ox.fillStyle = 'rgba(78,161,255,0.14)';
+  ox.strokeStyle = 'rgba(78,161,255,0.55)';
+  ox.lineWidth = 1.5;
+  ox.beginPath();
+  ox.roundRect(px, 372, w, 44, 22);
+  ox.fill();
+  ox.stroke();
+  ox.fillStyle = '#bcd6ff';
+  ox.fillText(p, px + 18, 401);
+  px += w + 14;
+}
+// Live-demo URL footer.
+ox.fillStyle = '#59d98e';
+ox.font = '600 24px system-ui, sans-serif';
+ox.fillText('▶  chmodpuppets.github.io/pianoflow', 66, 560);
+save(og, 'og.png');
+fs.copyFileSync(path.join(outDir, 'og.png'), path.join(root, 'apps/web/public/og.png'));
+console.log('copied og.png -> apps/web/public/og.png');
+
 fs.rmSync(bundlePath, { force: true });
 console.log('done');

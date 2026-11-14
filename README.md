@@ -6,6 +6,9 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 **▶ Live demo:** <https://chmodpuppets.github.io/pianoflow/> — an installable PWA that
 runs fully offline once loaded.
 
+**⬇ macOS app:** <https://github.com/Chmodpuppets/pianoflow/releases/latest> — native
+Tauri build (Apple Silicon), no browser required.
+
 [![CI](https://github.com/Chmodpuppets/pianoflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Chmodpuppets/pianoflow/actions/workflows/ci.yml)
 [![Deploy Pages](https://github.com/Chmodpuppets/pianoflow/actions/workflows/pages.yml/badge.svg)](https://github.com/Chmodpuppets/pianoflow/actions/workflows/pages.yml)
 
