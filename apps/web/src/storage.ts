@@ -96,6 +96,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   splitMidi: 60,
   latencyMs: 0,
   instrument: DEFAULT_INSTRUMENT,
+  fitKeyboard: true,
   plugins: {},
 };
 

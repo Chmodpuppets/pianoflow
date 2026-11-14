@@ -28,6 +28,8 @@ import {
   instrumentFile,
   buildSheet,
   type SheetLayout,
+  fitKeyboardRange,
+  FULL_KEYBOARD,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -58,6 +60,7 @@ export interface AppSettings {
   splitMidi: number;
   latencyMs: number;
   instrument: string;
+  fitKeyboard: boolean;
   plugins: Record<string, boolean>;
 }
 
@@ -87,6 +90,7 @@ export interface AppState {
   splitMidi: number;
   latencyMs: number;
   instrument: string;
+  fitKeyboard: boolean;
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
@@ -159,6 +163,7 @@ export class PianoFlowApp {
   private splitMidi = 60;
   private latencyMs = 0;
   private instrument = DEFAULT_INSTRUMENT;
+  private fitKeyboard = true;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -379,11 +384,26 @@ export class PianoFlowApp {
     this.onState?.();
   }
 
+  /** Auto-zoom the keyboard to the song's pitch span (Synthesia-style), or show all 88 keys. */
+  setFitKeyboard(b: boolean): void {
+    this.fitKeyboard = b;
+    this.applyKeyboardRange();
+    this.onState?.();
+  }
+
+  /** Fit the visible keyboard to the current notes, or fall back to the full piano. */
+  private applyKeyboardRange(): void {
+    const range =
+      this.fitKeyboard && this.notes.length ? fitKeyboardRange(this.notes) : FULL_KEYBOARD;
+    this.renderer.setConfig({ startMidi: range.startMidi, endMidi: range.endMidi });
+  }
+
   /** Re-derive playable notes from the raw parse applying transpose + hand split. */
   private rebuildNotes(): void {
     const shifted = transposeNotes(this.rawNotes, this.transpose);
     assignHands(shifted, { splitMidi: this.splitMidi });
     this.notes = shifted;
+    this.applyKeyboardRange();
   }
 
   /** Snapshot of user preferences, for persistence. */
@@ -404,6 +424,7 @@ export class PianoFlowApp {
       splitMidi: this.splitMidi,
       latencyMs: this.latencyMs,
       instrument: this.instrument,
+      fitKeyboard: this.fitKeyboard,
       plugins: this.plugins.states(),
     };
   }
@@ -425,6 +446,7 @@ export class PianoFlowApp {
     if (typeof s.splitMidi === 'number' && isFinite(s.splitMidi)) this.setSplit(s.splitMidi);
     if (typeof s.latencyMs === 'number' && isFinite(s.latencyMs)) this.setLatency(s.latencyMs);
     if (typeof s.instrument === 'string' && isInstrument(s.instrument)) this.setInstrument(s.instrument);
+    if (typeof s.fitKeyboard === 'boolean') this.setFitKeyboard(s.fitKeyboard);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -777,6 +799,7 @@ export class PianoFlowApp {
       splitMidi: this.splitMidi,
       latencyMs: this.latencyMs,
       instrument: this.instrument,
+      fitKeyboard: this.fitKeyboard,
       loopEnabled: this.engine.loopEnabled,
       loopStart: this.engine.loopStart,
       loopEnd: this.engine.loopEnd,

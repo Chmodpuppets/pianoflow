@@ -96,3 +96,60 @@ const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export function noteName(midi: number): string {
   return NAMES[midi % 12] + (Math.floor(midi / 12) - 1);
 }
+
+export interface KeyboardRange {
+  startMidi: number;
+  endMidi: number;
+}
+
+export interface FitKeyboardOptions {
+  /** semitones of headroom added above/below the song's extremes (default 2) */
+  padding?: number;
+  /** minimum span in semitones so narrow songs still show ~2 octaves (default 24) */
+  minSpan?: number;
+}
+
+const BLACK_PC = new Set([1, 3, 6, 8, 10]);
+const isBlackMidi = (m: number): boolean => BLACK_PC.has(((m % 12) + 12) % 12);
+const snapDownWhite = (m: number): number => {
+  while (isBlackMidi(m)) m--;
+  return m;
+};
+const snapUpWhite = (m: number): number => {
+  while (isBlackMidi(m)) m++;
+  return m;
+};
+
+/** Full 88-key piano range (A0–C8). */
+export const FULL_KEYBOARD: KeyboardRange = { startMidi: 21, endMidi: 108 };
+
+/**
+ * Fit the visible keyboard to a song's actual pitch span (Synthesia-style auto-zoom),
+ * so the falling notes fill the stage instead of clustering in the middle of 88 keys.
+ * Snaps the boundaries to white keys, keeps a minimum span, and clamps to A0–C8.
+ * Pure: returns the full range for empty input.
+ */
+export function fitKeyboardRange(notes: MidiNote[], opts: FitKeyboardOptions = {}): KeyboardRange {
+  if (!notes.length) return { ...FULL_KEYBOARD };
+  let min = 127;
+  let max = 0;
+  for (const n of notes) {
+    if (n.midi < min) min = n.midi;
+    if (n.midi > max) max = n.midi;
+  }
+  const padding = opts.padding ?? 2;
+  const minSpan = opts.minSpan ?? 24;
+  let start = min - padding;
+  let end = max + padding;
+  if (end - start < minSpan) {
+    const center = Math.round((min + max) / 2);
+    start = center - Math.floor(minSpan / 2);
+    end = start + minSpan;
+  }
+  start = snapDownWhite(start);
+  end = snapUpWhite(end);
+  start = Math.max(FULL_KEYBOARD.startMidi, start);
+  end = Math.min(FULL_KEYBOARD.endMidi, end);
+  if (end <= start) return { ...FULL_KEYBOARD };
+  return { startMidi: start, endMidi: end };
+}

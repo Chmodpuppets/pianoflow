@@ -116,6 +116,7 @@ const progressClear = $<HTMLButtonElement>('progressClear');
 const sLabels = $<HTMLInputElement>('sLabels');
 const sNoteLabels = $<HTMLInputElement>('sNoteLabels');
 const sColorblind = $<HTMLInputElement>('sColorblind');
+const sFitKeys = $<HTMLInputElement>('sFitKeys');
 const sMute = $<HTMLInputElement>('sMute');
 const sVolume = $<HTMLInputElement>('sVolume');
 const sInstrument = $<HTMLSelectElement>('sInstrument');
@@ -174,6 +175,7 @@ const waitChk = $<HTMLInputElement>('waitMode');
 const labelsChk = $<HTMLInputElement>('labels');
 const noteLabelsChk = $<HTMLInputElement>('noteLabels');
 const cbChk = $<HTMLInputElement>('colorblind');
+const fitKeysChk = $<HTMLInputElement>('fitKeys');
 const loopChk = $<HTMLInputElement>('loopEnabled');
 const loopA = $<HTMLButtonElement>('loopA');
 const loopB = $<HTMLButtonElement>('loopB');
@@ -684,6 +686,8 @@ function syncControls(): void {
   sNoteLabels.checked = s.noteLabels;
   cbChk.checked = s.colorblind;
   sColorblind.checked = s.colorblind;
+  fitKeysChk.checked = s.fitKeyboard;
+  sFitKeys.checked = s.fitKeyboard;
   pMetro.checked = s.metronome;
   sMute.checked = s.muted;
   const volPct = Math.round(s.volume * 100);
@@ -804,6 +808,7 @@ waitChk.addEventListener('change', () => { app.setWaitMode(waitChk.checked); per
 labelsChk.addEventListener('change', () => { app.setLabels(labelsChk.checked); persist(); syncControls(); });
 noteLabelsChk.addEventListener('change', () => { app.setNoteLabels(noteLabelsChk.checked); persist(); syncControls(); });
 cbChk.addEventListener('change', () => { app.setColorblind(cbChk.checked); persist(); syncControls(); });
+fitKeysChk.addEventListener('change', () => { app.setFitKeyboard(fitKeysChk.checked); persist(); syncControls(); });
 loopChk.addEventListener('change', () => { app.setLoopEnabled(loopChk.checked); syncControls(); });
 loopA.addEventListener('click', () => { app.markLoopStart(); syncControls(); });
 loopB.addEventListener('click', () => { app.markLoopEnd(); syncControls(); });
@@ -828,6 +833,7 @@ startPracticeBtn.addEventListener('click', async () => {
 sLabels.addEventListener('change', () => { app.setLabels(sLabels.checked); persist(); syncControls(); });
 sNoteLabels.addEventListener('change', () => { app.setNoteLabels(sNoteLabels.checked); persist(); syncControls(); });
 sColorblind.addEventListener('change', () => { app.setColorblind(sColorblind.checked); persist(); syncControls(); });
+sFitKeys.addEventListener('change', () => { app.setFitKeyboard(sFitKeys.checked); persist(); syncControls(); });
 sMute.addEventListener('change', () => { app.setMuted(sMute.checked); persist(); syncControls(); });
 
 // nav
@@ -848,7 +854,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.21.0';
+aboutVersion.textContent = 'v0.22.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {

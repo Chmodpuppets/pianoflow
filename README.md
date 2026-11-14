@@ -24,6 +24,10 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
 - **Playfield feedback** — keys glow in the hand color as their notes approach so you can
   anticipate finger placement, and successful hits burst into hand-colored sparks at the
   strike line for immediate, satisfying feedback.
+- **Auto-fit keyboard** — the visible keyboard zooms to the song's actual pitch span
+  (Synthesia-style), so the falling notes fill the stage and stay large and readable instead
+  of clustering in the middle of 88 keys. Boundaries snap to white keys with a minimum span;
+  toggle "Fit keyboard to song" off to see the full A0–C8 piano. Re-fits on load and transpose.
 - **Master mute** — one always-visible 🔊 button in the top bar silences everything
   (piano + metronome) in a single click; sound is on by default and the choice is saved.
 - **Player comfort** — a persisted volume slider (mute always wins), a pause overlay with
@@ -128,6 +132,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Next song | the ⏭ button in the player top bar |
 | Fullscreen | the ⛶ button in the player top bar |
 | Sheet music | the 🎼 button in the player top bar opens a synced grand-staff panel (✕ or Esc closes) |
+| Fit keyboard | player ⚙ drawer or Settings → Display: "Fit keyboard to song" zooms to the song's range (off = full 88 keys) |
 | Song library | sidebar **Songs**: search, genre chips, ♥ favorite, ▶ Play, or open a local `.mid` |
 | MIDI devices | Settings → MIDI, or player ⚙ → MIDI; pick a device (or All) and watch the note monitor |
 | Plugins | Settings → Plugins, player ⚙, or the Practice view; enable / disable (saved) |
@@ -142,15 +147,17 @@ later power a desktop (Tauri) or mobile shell.
 
 ```
 packages/
-  core/      MIDI parsing, tempo map, hand assignment, scoring, transport, progress/difficulty, session history, viewport index, plugin manager (no DOM)
-  audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler
-  render/    Canvas2D falling-notes renderer (viewport culling + batched draws), keyboard geometry, themes
+  core/      MIDI parsing/writing, tempo map, hand assignment, scoring, transport, progress/difficulty, session history/insights, viewport index, keyboard auto-fit, sheet-music notation, plugin manager (no DOM)
+  audio/     Web Audio engine: smplr SoundFont + synth fallback, look-ahead scheduler, master mute/volume
+  render/    Canvas2D falling-notes renderer (viewport culling + batched draws + glow/sparks), scrolling grand-staff renderer, keyboard geometry, themes
   input/     Web MIDI, computer keyboard, pointer/touch adapters
 apps/
-  web/       Vite app wiring everything together (DOM + controls)
+  web/       Vite app wiring everything together (3-screen UI + controls + PWA)
 scripts/
   generate-songs.mjs   zero-dependency MIDI writer for the bundled PD songs
-  fetch-soundfont.mjs  downloads the bundled offline piano SoundFont
+  fetch-soundfont.mjs  downloads the bundled offline instrument SoundFonts
+  generate-icons.py    renders the PWA/app icons (Pillow)
+  render-preview.mjs   headless real-canvas (@napi-rs/canvas) PNG previews of the playfield + sheet for visual QA
 ```
 
 The packages export TypeScript source directly and are consumed by Vite via aliases,
@@ -210,6 +217,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M19 (done)** — sound palette: four bundled FluidR3_GM timbres (grand piano / electric piano / music box / vibraphone) with a live instrument picker in the player and Settings; engine hot-swaps samples offline-first, choice persisted.
 - **M20 (done)** — practice insights: current/longest streaks + active days, a 7-day activity chart, and a 12-badge achievement board with per-badge progress in the Progress view (pure, headless-tested).
 - **M21 (done)** — sheet-music view: a scrolling grand staff with vector clefs, time-signature barlines, noteheads/stems/flags/accidentals/ledger lines and a synced play cursor; pure notation core + canvas renderer, headless-tested.
+- **M22 (done)** — auto-fit keyboard (Synthesia-style zoom to the song's pitch span, white-key snapped, toggleable) + a headless real-canvas render-preview harness (`pnpm render-preview`) that rasterizes the playfield and sheet to PNGs for visual QA.
 
 ## 📄 License & attribution
 
@@ -252,7 +260,7 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
 静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
-判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；练习洞察（当前/最长连续天数与活跃天数、近 7 天活动图、12 枚成就徽章含进度，Progress 视图本地计算）；五线谱视图（播放器 🎼 按钮开启滚动大谱表：高音=右手/低音=左手，矢量谱号、拍号小节线、符头/符干/符尾/升降号/加线与同步播放光标，纯函数记谱核心+无头测试）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
+判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；练习洞察（当前/最长连续天数与活跃天数、近 7 天活动图、12 枚成就徽章含进度，Progress 视图本地计算）；五线谱视图（播放器 🎼 按钮开启滚动大谱表：高音=右手/低音=左手，矢量谱号、拍号小节线、符头/符干/符尾/升降号/加线与同步播放光标，纯函数记谱核心+无头测试）；自适应键盘（Synthesia 式按曲目音域自动缩放，白键对齐、可切换全 88 键，加载/移调时重新适配）；无头真实 Canvas 渲染预览（pnpm render-preview 将演奏画面与五线谱光栅化为 PNG 供视觉校验）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；音色面板（三角钢琴/电钢琴/八音盒/颤音琴四种内置 FluidR3_GM 音色，播放器与设置中实时切换、离线优先、选择持久化）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
