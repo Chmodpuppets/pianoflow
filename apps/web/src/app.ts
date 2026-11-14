@@ -8,6 +8,7 @@ import {
   compensateLatency,
   ScoreKeeper,
   judgeHit,
+  comboMilestone,
   summarize,
   songStats,
   estimateDifficulty,
@@ -610,6 +611,7 @@ export class PianoFlowApp {
         this.judged[i] = true;
         this.score.registerMiss();
         this.lastJudge = 'miss';
+        this.renderer.notifyMiss();
         this.plugins.emit({ type: 'note-miss', note: this.active[i] });
       }
     }
@@ -676,6 +678,11 @@ export class PianoFlowApp {
         this.lastJudge = grade;
         this.renderer.triggerPulse();
         this.renderer.notifyHit(this.active[idx].midi, this.active[idx].hand);
+        const milestone = comboMilestone(this.score.combo);
+        if (milestone != null) {
+          this.renderer.notifyMilestone(milestone);
+          this.engine.playMilestone(milestone);
+        }
         this.plugins.emit({
           type: 'note-hit',
           note: this.active[idx],

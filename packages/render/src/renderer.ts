@@ -40,6 +40,11 @@ interface Spark {
   life: number; maxLife: number; size: number; color: string;
 }
 
+/** An expanding ring radiating from the strike line on a combo milestone. */
+interface Shockwave {
+  r: number; maxR: number; life: number; maxLife: number; color: string;
+}
+
 export const defaultRenderConfig: RenderConfig = {
   startMidi: 21,
   endMidi: 108,
@@ -84,6 +89,10 @@ export class Renderer {
   // Hit spark particles (capped so repeated hits never leak / unbounded growth).
   private sparks: Spark[] = [];
   private static readonly SPARK_CAP = 240;
+  // Combo-milestone shockwaves (capped) + a decaying red flash on a miss.
+  private shockwaves: Shockwave[] = [];
+  private static readonly SHOCKWAVE_CAP = 6;
+  private missFlash = 0;
 
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
@@ -153,6 +162,47 @@ export class Renderer {
   /** Live spark count (for tests / diagnostics). */
   get particleCount(): number {
     return this.sparks.length;
+  }
+
+  /**
+   * Celebrate a combo milestone: an expanding golden ring from the strike-line
+   * center plus a radial burst of golden sparks. Higher combos glow warmer.
+   */
+  notifyMilestone(combo: number): void {
+    const color = combo >= 100 ? '#ff5db1' : combo >= 50 ? '#ffd166' : '#ffe9a8';
+    if (this.shockwaves.length >= Renderer.SHOCKWAVE_CAP) this.shockwaves.shift();
+    const maxR = Math.max(this.cssW, this.cssH) * 0.62;
+    this.shockwaves.push({ r: 0, maxR, life: 0.6, maxLife: 0.6, color });
+    const cx = this.cssW / 2;
+    const cy = this.keyboardTop;
+    const count = 26;
+    for (let i = 0; i < count; i++) {
+      if (this.sparks.length >= Renderer.SPARK_CAP) this.sparks.shift();
+      const ang = (i / count) * Math.PI * 2; // full radial burst
+      const speed = 120 + Math.random() * 160;
+      const maxLife = 0.5 + Math.random() * 0.35;
+      this.sparks.push({
+        x: cx, y: cy,
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed - 40,
+        life: maxLife, maxLife,
+        size: 2 + Math.random() * 2.5,
+        color,
+      });
+    }
+  }
+  /** Live shockwave count (for tests / diagnostics). */
+  get shockwaveCount(): number {
+    return this.shockwaves.length;
+  }
+
+  /** Flash the stage edges red when a note is missed (decays per frame). */
+  notifyMiss(): void {
+    this.missFlash = 1;
+  }
+  /** Current miss-flash level (0..1); exposed for tests. */
+  get missFlashLevel(): number {
+    return this.missFlash;
   }
 
   private buildGradients(): void {
@@ -293,7 +343,12 @@ export class Renderer {
 
     this.drawAnticipation(state.notes, pos, state.pressed, theme);
     this.drawKeyboard(state.pressed);
-    this.drawSparks(state.dt ?? 1 / 60);
+    const dt = state.dt ?? 1 / 60;
+    this.drawSparks(dt);
+    this.drawShockwaves(dt);
+    this.drawMissFlash();
+    this.missFlash *= 0.88;
+    if (this.missFlash < 0.02) this.missFlash = 0;
   }
 
   /** Soft hand-colored glow on keys whose notes are about to arrive, so the
@@ -345,6 +400,49 @@ export class Renderer {
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'rgba(0,0,0,0)';
+  }
+
+  /** Expand + fade milestone rings; expired rings are removed each frame. */
+  private drawShockwaves(dt: number): void {
+    const { ctx, cssW } = this;
+    if (this.shockwaves.length === 0) return;
+    const cy = this.keyboardTop;
+    ctx.save();
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      const w = this.shockwaves[i];
+      w.life -= dt;
+      if (w.life <= 0) { this.shockwaves.splice(i, 1); continue; }
+      const t = 1 - w.life / w.maxLife; // 0..1 progress
+      w.r = w.maxR * (1 - Math.pow(1 - t, 2)); // ease-out expansion
+      const a = Math.max(0, w.life / w.maxLife);
+      ctx.globalAlpha = a * 0.7;
+      ctx.strokeStyle = w.color;
+      ctx.lineWidth = 2 + a * 4;
+      ctx.shadowColor = w.color;
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(cssW / 2, cy, Math.max(1, w.r), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'rgba(0,0,0,0)';
+  }
+
+  /** A brief red wash over the stage edges so a miss is felt, not just read. */
+  private drawMissFlash(): void {
+    if (this.missFlash <= 0) return;
+    const { ctx, cssW, cssH } = this;
+    const g = ctx.createRadialGradient(
+      cssW / 2, cssH * 0.5, Math.min(cssW, cssH) * 0.3,
+      cssW / 2, cssH * 0.5, Math.max(cssW, cssH) * 0.72,
+    );
+    g.addColorStop(0, 'rgba(255,80,80,0)');
+    g.addColorStop(1, `rgba(255,80,80,${(0.34 * this.missFlash).toFixed(3)})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, cssW, cssH);
   }
 
   /** Layered stage backdrop: vertical gradient + ambient strike-line wash + vignette. */

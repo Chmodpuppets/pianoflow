@@ -90,6 +90,25 @@ fullRenderer.resize(W, H);
 fullRenderer.render({ position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60 });
 save(fullCanvas, 'playfield-full.png');
 
+// Combo-milestone celebration: golden shockwave ring + radial spark burst.
+const mileCanvas = prep(createCanvas(W, H));
+const mileRenderer = new Renderer(mileCanvas, { showNoteLabels: true, ...fitted });
+mileRenderer.resize(W, H);
+mileRenderer.triggerPulse();
+mileRenderer.notifyHit(71, 'right');
+mileRenderer.notifyMilestone(50);
+const mileState = { position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60 };
+for (let i = 0; i < 8; i++) mileRenderer.render(mileState); // let the ring expand a little
+save(mileCanvas, 'playfield-milestone.png');
+
+// Miss feedback: red edge wash over the stage.
+const missCanvas = prep(createCanvas(W, H));
+const missRenderer = new Renderer(missCanvas, { showNoteLabels: true, ...fitted });
+missRenderer.resize(W, H);
+missRenderer.notifyMiss();
+missRenderer.render({ position: 3.0, notes: song.notes, pressed: new Set(), dt: 1 / 60 });
+save(missCanvas, 'playfield-miss.png');
+
 // ---- Sheet-music grand staff -------------------------------------------------------------
 const layout = buildSheet(song, 60);
 const sheetCanvas = prep(createCanvas(1280, 440));

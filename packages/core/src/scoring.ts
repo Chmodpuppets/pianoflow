@@ -24,6 +24,22 @@ export function judgeHit(
 
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D';
 
+/** Fixed combo thresholds that trigger a celebration. */
+const COMBO_MILESTONES = [10, 25, 50, 100];
+
+/**
+ * Return the milestone value when `combo` lands exactly on a celebration
+ * threshold (10 / 25 / 50 / 100, then every 50 above 100), else null. Used to
+ * fire a one-off reward (visual burst + chime) rather than feedback on every
+ * note, so streaks feel earned without the stage reading as noise.
+ */
+export function comboMilestone(combo: number): number | null {
+  if (!Number.isFinite(combo) || combo <= 0) return null;
+  if (COMBO_MILESTONES.includes(combo)) return combo;
+  if (combo > 100 && combo % 50 === 0) return combo;
+  return null;
+}
+
 export class ScoreKeeper {
   total = 0;
   hits = 0;

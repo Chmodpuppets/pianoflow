@@ -381,6 +381,30 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * A soft, bright two-note chime rewarding a combo milestone. Routed through
+   * the master gain so it obeys mute/volume, and fired only at milestones (not
+   * every note) so it reads as a reward rather than noise. Higher combos ring
+   * higher.
+   */
+  playMilestone(combo: number): void {
+    const t = this.ctx.currentTime;
+    const base = combo >= 100 ? 880 : combo >= 50 ? 783.99 : combo >= 25 ? 659.25 : 523.25;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    g.connect(this.masterGain);
+    for (const mult of [1, 1.5]) {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = base * mult;
+      osc.connect(g);
+      osc.start(t);
+      osc.stop(t + 0.5);
+    }
+  }
+
   dispose(): void {
     this.pause();
     void this.ctx.close();

@@ -17,6 +17,7 @@ function mockCtx(): CanvasRenderingContext2D {
     textBaseline: 'alphabetic',
     fillRect: noop, strokeRect: noop, clearRect: noop,
     beginPath: noop, moveTo: noop, arcTo: noop, closePath: noop, lineTo: noop,
+    arc: noop,
     fill: noop, stroke: noop, setLineDash: noop, fillText: noop, setTransform: noop,
     measureText: () => ({ width: 0 }),
     createLinearGradient: gradient, createRadialGradient: gradient,
@@ -346,5 +347,55 @@ describe('Renderer playfield feedback (anticipation glow + hit sparks)', () => {
     // A large dt expires every spark.
     r.render({ position: 0, notes: [], pressed: new Set<number>(), dt: 1 });
     expect(r.particleCount).toBe(0);
+  });
+});
+
+describe('Renderer game-feel feedback (combo milestone + miss flash)', () => {
+  const idle = { position: 0, notes: [] as MidiNote[], pressed: new Set<number>() };
+
+  it('notifyMilestone spawns an expanding ring + golden sparks that decay away', () => {
+    const ctx = mockCtx();
+    let arcs = 0;
+    ctx.arc = () => { arcs++; };
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    expect(r.shockwaveCount).toBe(0);
+    r.notifyMilestone(10);
+    expect(r.shockwaveCount).toBe(1);
+    expect(r.particleCount).toBeGreaterThan(0); // radial spark burst
+    r.render(idle);
+    expect(arcs).toBeGreaterThan(0); // the ring is stroked
+    expect(r.shockwaveCount).toBe(1); // still alive after one frame
+    // Repeated milestones never exceed the ring cap.
+    for (let i = 0; i < 20; i++) r.notifyMilestone(50);
+    expect(r.shockwaveCount).toBeLessThanOrEqual(6);
+    // A large dt expires every ring and spark.
+    r.render({ ...idle, dt: 1 });
+    expect(r.shockwaveCount).toBe(0);
+    expect(r.particleCount).toBe(0);
+  });
+
+  it('notifyMiss flashes the stage edges then decays back to zero', () => {
+    const ctx = mockCtx();
+    let radial = 0;
+    const orig = ctx.createRadialGradient.bind(ctx);
+    ctx.createRadialGradient = (...args: Parameters<CanvasRenderingContext2D['createRadialGradient']>) => {
+      radial++;
+      return orig(...args);
+    };
+    const r = new Renderer(mockCanvas(ctx));
+    r.resize(1040, 600);
+    const base = radial;
+    r.render(idle);
+    expect(radial).toBe(base); // no miss -> no extra wash
+    expect(r.missFlashLevel).toBe(0);
+    r.notifyMiss();
+    expect(r.missFlashLevel).toBe(1);
+    r.render(idle);
+    expect(radial).toBe(base + 1); // one red edge wash while flashing
+    expect(r.missFlashLevel).toBeGreaterThan(0);
+    expect(r.missFlashLevel).toBeLessThan(1); // decayed by one frame
+    for (let i = 0; i < 60; i++) r.render(idle);
+    expect(r.missFlashLevel).toBe(0); // fully settled
   });
 });
