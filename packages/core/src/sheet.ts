@@ -123,3 +123,51 @@ export function buildSheet(song: MidiSong, splitMidi = 60): SheetLayout {
   const first = sigs[0];
   return { notes, barTimes, beatsPerMeasure: first.numerator * (4 / first.denominator) };
 }
+
+/** One horizontal row ("system") of a printed full-score page. */
+export interface SheetSystem {
+  index: number; // 0-based system index
+  startMeasure: number; // 1-based number of the first measure in this system
+  measureCount: number;
+  startTime: number; // seconds (inclusive)
+  endTime: number; // seconds (exclusive; start of next system or piece end)
+}
+
+/**
+ * Paginate a grand-staff layout into systems of `measuresPerSystem` measures for
+ * a static, printable full-score page. Pure: each `barTimes` entry is a measure
+ * START (the final end barline is omitted by buildSheet), so the measure count
+ * equals barTimes.length. The last system's endTime extends to the end of the
+ * final note (or one typical measure past the last barline) so partial final
+ * measures still get horizontal space.
+ */
+export function buildSheetSystems(layout: SheetLayout, measuresPerSystem = 4): SheetSystem[] {
+  const per = Math.max(1, Math.floor(measuresPerSystem));
+  const bars = layout.barTimes.length ? layout.barTimes : [0];
+  const typical = bars.length >= 2 ? bars[1] - bars[0] : 2;
+  let noteEnd = 0;
+  let lastWithNote = -1;
+  for (const n of layout.notes) {
+    noteEnd = Math.max(noteEnd, n.time + n.duration);
+    // Measure index = the last barline at or before the note's onset.
+    let mi = 0;
+    for (let i = 0; i < bars.length; i++) {
+      if (bars[i] <= n.time + 1e-9) mi = i;
+      else break;
+    }
+    if (mi > lastWithNote) lastWithNote = mi;
+  }
+  // Drop trailing empty measures so a printed score never ends on a blank system
+  // (the MIDI duration can round up past the final note). Keep >= 1 measure.
+  const total = Math.max(1, lastWithNote + 1);
+  const pieceEnd = Math.max(noteEnd, bars[Math.min(total, bars.length) - 1] + typical);
+
+  const systems: SheetSystem[] = [];
+  for (let i = 0; i < total; i += per) {
+    const count = Math.min(per, total - i);
+    const startTime = bars[i];
+    const endTime = i + count < total ? bars[i + count] : pieceEnd;
+    systems.push({ index: systems.length, startMeasure: i + 1, measureCount: count, startTime, endTime });
+  }
+  return systems;
+}

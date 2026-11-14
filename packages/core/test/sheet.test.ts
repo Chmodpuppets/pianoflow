@@ -5,6 +5,7 @@ import {
   stepsAboveBottom,
   noteValue,
   buildSheet,
+  buildSheetSystems,
   TREBLE_BOTTOM,
   BASS_BOTTOM,
 } from '../src/sheet';
@@ -105,5 +106,62 @@ describe('buildSheet', () => {
     const layout = buildSheet(s);
     expect(layout.beatsPerMeasure).toBe(3);
     expect(layout.barTimes).toEqual([0, 1.5]); // barlines at the start of each measure
+  });
+});
+
+describe('buildSheetSystems', () => {
+  // Two measures of 4/4 with a note in each (barTimes [0,2]).
+  const twoMeasures = () => buildSheet(song([note(0, 480, 60), note(1920, 480, 62)]));
+
+  it('paginates measures into systems of the requested size', () => {
+    const systems = buildSheetSystems(twoMeasures(), 1);
+    expect(systems).toHaveLength(2);
+    expect(systems.map((s) => s.startMeasure)).toEqual([1, 2]);
+    expect(systems.map((s) => s.measureCount)).toEqual([1, 1]);
+    expect(systems[0]).toMatchObject({ index: 0, startTime: 0, endTime: 2 });
+    expect(systems[1]).toMatchObject({ index: 1, startTime: 2 });
+    expect(systems[1].endTime).toBeGreaterThanOrEqual(4);
+  });
+  it('packs multiple measures per system and handles a partial last system', () => {
+    const layout = twoMeasures();
+    const one = buildSheetSystems(layout, 4);
+    expect(one).toHaveLength(1);
+    expect(one[0]).toMatchObject({ startMeasure: 1, measureCount: 2 });
+    const two = buildSheetSystems(layout, 2);
+    expect(two).toHaveLength(1);
+    expect(two[0].measureCount).toBe(2);
+  });
+  it('extends the final system to the end of the last note', () => {
+    const layout = buildSheet(song([note(0, 480, 60), note(1920, 3840, 48)])); // last note ends at 6s
+    const systems = buildSheetSystems(layout, 4);
+    expect(systems[systems.length - 1].endTime).toBeGreaterThanOrEqual(6);
+  });
+  it('drops trailing empty measures so the score never ends on a blank system', () => {
+    // barTimes span 2 measures but the only note is in measure 1 → 1 measure printed.
+    const layout = buildSheet(song([note(0, 480, 60)]));
+    const systems = buildSheetSystems(layout, 1);
+    expect(systems).toHaveLength(1);
+    expect(systems[0].measureCount).toBe(1);
+  });
+  it('produces one system for an empty layout', () => {
+    const layout = buildSheet(song([]));
+    const systems = buildSheetSystems(layout, 4);
+    expect(systems).toHaveLength(1);
+    expect(systems[0]).toMatchObject({ startMeasure: 1, startTime: 0 });
+    expect(systems[0].measureCount).toBeGreaterThanOrEqual(1);
+  });
+  it('clamps a non-positive measures-per-system to 1', () => {
+    const layout = twoMeasures();
+    expect(buildSheetSystems(layout, 0)).toHaveLength(2);
+    expect(buildSheetSystems(layout, -3)).toHaveLength(2);
+  });
+  it('covers 3/4 measures with correct numbering', () => {
+    const s = song([note(0, 480, 60), note(2880, 480, 60)], 4320); // notes in measures 1 and 3
+    s.timeSignatures = [{ ticks: 0, numerator: 3, denominator: 4 }];
+    const layout = buildSheet(s);
+    const systems = buildSheetSystems(layout, 2);
+    expect(systems).toHaveLength(2);
+    expect(systems[0]).toMatchObject({ startMeasure: 1, measureCount: 2 });
+    expect(systems[1]).toMatchObject({ startMeasure: 3, measureCount: 1 });
   });
 });

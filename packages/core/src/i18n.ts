@@ -225,6 +225,7 @@ export const MESSAGES: Record<string, Entry> = {
   'sheet.title': { en: '🎼 Sheet music', zh: '🎼 五线谱' },
   'sheet.hint': { en: 'Treble = right hand · Bass = left hand', zh: '高音谱表 = 右手 · 低音谱表 = 左手' },
   'sheet.close': { en: 'Close sheet music', zh: '关闭五线谱' },
+  'sheet.export': { en: '⤓ Export PNG', zh: '⤓ 导出 PNG' },
 
   // ---- pause ----
   'pause.aria': { en: 'Paused', zh: '已暂停' },

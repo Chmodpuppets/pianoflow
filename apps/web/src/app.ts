@@ -39,7 +39,7 @@ import {
   type ReviewSummary,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
-import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
+import { Renderer, defaultTheme, colorblindTheme, SheetPageRenderer } from '@pianoflow/render';
 import {
   WebMidiInput,
   ComputerKeyboardInput,
@@ -845,6 +845,25 @@ export class PianoFlowApp {
       this.sheetCacheNotes = this.notes;
     }
     return this.sheetCache;
+  }
+
+  /**
+   * Render the full printable grand-staff score of the current song onto `canvas`
+   * (a tall "paper" page). Returns false when no song is loaded. The caller owns
+   * the canvas and any subsequent PNG download / print.
+   */
+  exportSheetTo(
+    canvas: HTMLCanvasElement,
+    opts: { title?: string; composer?: string; scale?: number; measuresPerSystem?: number } = {},
+  ): boolean {
+    const layout = this.getSheetLayout();
+    if (!layout) return false;
+    const page = new SheetPageRenderer(canvas, {
+      scale: opts.scale ?? 2,
+      measuresPerSystem: opts.measuresPerSystem ?? 4,
+    });
+    page.render({ layout, title: opts.title ?? this.songTitle, composer: opts.composer });
+    return true;
   }
 
   /**

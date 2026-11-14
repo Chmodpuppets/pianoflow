@@ -49,3 +49,18 @@ export const colorblindTheme: Theme = {
   keyPressed: '#F0E442',
   loopMarker: '#CC79A7',
 };
+
+/** Light "paper" palette for the printable full-score export (dark ink on white). */
+export const paperTheme: Theme = {
+  ...defaultTheme,
+  background: '#ffffff',
+  bgTop: '#ffffff',
+  bgBottom: '#f4f5f8',
+  stageGlow: '#2f6fd0',
+  text: '#20242e',
+  rightNote: '#2f6fd0',
+  leftNote: '#1f8a55',
+  hitLine: '#c9a227',
+  grid: '#9aa3c0',
+  noteLabel: '#20242e',
+};

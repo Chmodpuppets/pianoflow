@@ -16,9 +16,9 @@ const outDir = path.join(root, 'exports', 'preview');
 fs.mkdirSync(outDir, { recursive: true });
 
 const entry = `
-import { Renderer, SheetRenderer, defaultTheme } from './packages/render/src/index.ts';
+import { Renderer, SheetRenderer, SheetPageRenderer, defaultTheme, paperTheme } from './packages/render/src/index.ts';
 import { parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor } from './packages/core/src/index.ts';
-export { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor };
+export { Renderer, SheetRenderer, SheetPageRenderer, defaultTheme, paperTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor };
 `;
 
 const result = await build({
@@ -36,7 +36,7 @@ const result = await build({
 
 const bundlePath = path.join(root, 'exports', '.preview-bundle.mjs');
 fs.writeFileSync(bundlePath, result.outputFiles[0].text);
-const { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor } =
+const { Renderer, SheetRenderer, SheetPageRenderer, defaultTheme, paperTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor } =
   await import(bundlePath);
 
 // The renderers read window.devicePixelRatio; pin it to 1 for deterministic previews.
@@ -155,6 +155,13 @@ sheet.render({ layout, position: 3.0, theme: defaultTheme });
 save(sheetCanvas, 'sheet.png');
 sheet.render({ layout, position: 0.0, theme: defaultTheme });
 save(sheetCanvas, 'sheet-start.png');
+
+// ---- Full printable score (static multi-system grand-staff page) -------------------------
+const pageCanvas = prep(createCanvas(1000, 200));
+const page = new SheetPageRenderer(pageCanvas, { width: 1000, measuresPerSystem: 4, scale: 1 });
+page.render({ layout, title: 'Für Elise', composer: 'Ludwig van Beethoven', theme: paperTheme });
+save(pageCanvas, 'sheet-page.png');
+console.log('sheet page css size', page.viewWidth + 'x' + page.viewHeight);
 
 // ---- Practice-review timeline (results screen) -------------------------------------------
 // Mirrors the DOM result-review layout using the SAME accuracyColor scale the app uses,

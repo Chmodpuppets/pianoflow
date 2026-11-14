@@ -175,6 +175,7 @@ const sheetBtn = $<HTMLButtonElement>('sheetBtn');
 const sheetPanel = $<HTMLElement>('sheetPanel');
 const sheetCanvas = $<HTMLCanvasElement>('sheetCanvas');
 const sheetClose = $<HTMLButtonElement>('sheetClose');
+const sheetExport = $<HTMLButtonElement>('sheetExport');
 const sheet = new SheetRenderer(sheetCanvas);
 const seek = $<HTMLInputElement>('seek');
 const timeEl = $<HTMLElement>('time');
@@ -767,6 +768,26 @@ function toggleSheet(): void {
 sheetBtn.addEventListener('click', toggleSheet);
 sheetClose.addEventListener('click', closeSheet);
 
+/** Render the full printable score to an offscreen canvas and download it as PNG. */
+function exportSheetPng(): void {
+  const info = app.currentSongInfo();
+  const composer = bundledSongs.find((s) => s.id === info.id)?.composer ?? '';
+  const off = document.createElement('canvas');
+  if (!app.exportSheetTo(off, { title: info.title, composer, scale: 2 })) return;
+  off.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (info.title || 'sheet').replace(/[^\w\- ]+/g, '') + '-sheet.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
+}
+sheetExport.addEventListener('click', exportSheetPng);
+
 // ---------- control sync ----------
 function syncControls(): void {
   const s = app.getSettings();
@@ -1055,7 +1076,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.30.0';
+aboutVersion.textContent = 'v0.31.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {
