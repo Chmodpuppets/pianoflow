@@ -302,3 +302,61 @@ describe('PianoFlowApp full playable loop (headless integration)', () => {
     expect(parsed.notes.map((n) => n.midi).sort((a, b) => a - b)).toEqual([60, 64, 67]);
   });
 });
+
+describe('PianoFlowApp hand assist (practice one hand, app plays the other)', () => {
+  function lastLoadedNotes(spy: ReturnType<typeof vi.spyOn>): MidiNote[] {
+    const calls = spy.mock.calls;
+    return calls[calls.length - 1][0] as MidiNote[];
+  }
+
+  it('loads the complementary hand for auto-play and judges only the selected hand', async () => {
+    await load();
+    app.setMode('practice');
+    const loadSpy = vi.spyOn(app.engine, 'load');
+    app.setHands('right');
+    app.setHandAssist(true);
+    const auto = lastLoadedNotes(loadSpy);
+    expect(auto.length).toBeGreaterThan(0);
+    expect(auto.every((n) => n.hand === 'left')).toBe(true); // app plays the left hand
+    expect(activeNotes().every((n) => n.hand === 'right')).toBe(true); // player judged on right
+    expect(app.getState().handAssist).toBe(true);
+  });
+
+  it('turning assist off keeps single-hand practice silent', async () => {
+    await load();
+    app.setMode('practice');
+    app.setHands('right');
+    const loadSpy = vi.spyOn(app.engine, 'load');
+    app.setHandAssist(false);
+    expect(lastLoadedNotes(loadSpy)).toEqual([]);
+  });
+
+  it('an assisted right-hand run scores every right-hand note and finishes with S', async () => {
+    await load();
+    app.setMode('practice');
+    app.setHands('right');
+    app.setHandAssist(true);
+    const notes = activeNotes();
+    const judged = judgedFlags();
+    const total = notes.length;
+    expect(total).toBeGreaterThan(0);
+    await app.play();
+    let ptr = 0;
+    let guard = 0;
+    while (app.engine.position < app.getState().duration && guard++ < 20000) {
+      const pos = app.engine.position;
+      while (ptr < total && notes[ptr].time <= pos + 0.03) {
+        if (!judged[ptr]) hit(notes[ptr].midi);
+        ptr++;
+      }
+      step(0.02);
+    }
+    step(0.05);
+    expect(results.length).toBe(1);
+    const r = results[0].result;
+    expect(r.hits).toBe(total);
+    expect(r.miss).toBe(0);
+    expect(r.wrong).toBe(0);
+    expect(r.grade).toBe('S');
+  });
+});

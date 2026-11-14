@@ -62,6 +62,7 @@ export interface AppSettings {
   latencyMs: number;
   instrument: string;
   fitKeyboard: boolean;
+  handAssist: boolean;
   plugins: Record<string, boolean>;
 }
 
@@ -92,6 +93,7 @@ export interface AppState {
   latencyMs: number;
   instrument: string;
   fitKeyboard: boolean;
+  handAssist: boolean;
   loopEnabled: boolean;
   loopStart: number | null;
   loopEnd: number | null;
@@ -151,6 +153,9 @@ export class PianoFlowApp {
   private judged: boolean[] = [];
   private missPtr = 0;
   private pressed = new Set<number>();
+  // Keys the app auto-plays (listen mode, or the assisted hand in practice):
+  // midi -> {start,end} in song-position seconds, so the key lights while sounding.
+  private autoPressed = new Map<number, { start: number; end: number }>();
 
   private mode: Mode = 'listen';
   private hands: Hands = 'both';
@@ -165,6 +170,7 @@ export class PianoFlowApp {
   private latencyMs = 0;
   private instrument = DEFAULT_INSTRUMENT;
   private fitKeyboard = true;
+  private handAssist = true;
   private waiting = false;
   private waitIndex = -1;
   private waitEnd = -1;
@@ -227,6 +233,9 @@ export class PianoFlowApp {
         end: this.engine.loopEnd ?? 0,
       });
       this.resetJudgingFrom(this.engine.loopStart ?? 0);
+    };
+    this.engine.onScheduledNote = (n) => {
+      this.autoPressed.set(n.midi, { start: n.time, end: n.time + n.duration });
     };
 
     // Plugin system: a platform-agnostic host backed by this app, plus the
@@ -315,6 +324,10 @@ export class PianoFlowApp {
   }
   setHands(h: Hands): void {
     this.hands = h;
+    this.applyConfig();
+  }
+  setHandAssist(b: boolean): void {
+    this.handAssist = b;
     this.applyConfig();
   }
   setWaitMode(w: boolean): void {
@@ -426,6 +439,7 @@ export class PianoFlowApp {
       latencyMs: this.latencyMs,
       instrument: this.instrument,
       fitKeyboard: this.fitKeyboard,
+      handAssist: this.handAssist,
       plugins: this.plugins.states(),
     };
   }
@@ -448,6 +462,7 @@ export class PianoFlowApp {
     if (typeof s.latencyMs === 'number' && isFinite(s.latencyMs)) this.setLatency(s.latencyMs);
     if (typeof s.instrument === 'string' && isInstrument(s.instrument)) this.setInstrument(s.instrument);
     if (typeof s.fitKeyboard === 'boolean') this.setFitKeyboard(s.fitKeyboard);
+    if (typeof s.handAssist === 'boolean') this.setHandAssist(s.handAssist);
     if (s.plugins) {
       for (const [id, enabled] of Object.entries(s.plugins)) {
         if (typeof enabled === 'boolean') this.plugins.setEnabled(id, enabled);
@@ -502,10 +517,28 @@ export class PianoFlowApp {
     this.score.reset();
     this.plugins.emit({ type: 'score-reset' });
     this.engine.stop();
-    // In practice mode the engine advances the clock silently; the player
-    // produces the sound by hitting keys. In listen mode it auto-plays.
-    this.engine.load(this.mode === 'practice' ? [] : this.active, this.song.duration);
+    this.autoPressed.clear();
+    // In listen mode the engine auto-plays the active hand. In practice mode the
+    // player produces the sound by hitting keys; when a single hand is selected
+    // and hand-assist is on, the engine auto-plays the OTHER hand so the player
+    // can focus on one hand at a time (the classic play-along workflow).
+    this.engine.load(this.engineNotes(), this.song.duration);
     this.onState?.();
+  }
+
+  /** Notes the engine should auto-play given the current mode / hands / assist. */
+  private engineNotes(): MidiNote[] {
+    if (this.mode !== 'practice') return this.active;
+    if (this.handAssist && this.hands !== 'both') {
+      const other = this.hands === 'right' ? 'left' : 'right';
+      return this.notes.filter((n) => n.hand === other);
+    }
+    return [];
+  }
+
+  /** True when the app is auto-playing the complementary hand in practice. */
+  private get assistActive(): boolean {
+    return this.mode === 'practice' && this.handAssist && this.hands !== 'both';
   }
 
   async play(): Promise<void> {
@@ -527,6 +560,7 @@ export class PianoFlowApp {
   }
   stop(): void {
     this.engine.stop();
+    this.autoPressed.clear();
     this.resultEmitted = false;
     this.score.reset();
     this.judged.fill(false);
@@ -541,6 +575,7 @@ export class PianoFlowApp {
   }
   seek(t: number): void {
     this.engine.seek(t);
+    this.autoPressed.clear();
     this.resetJudgingFrom(t);
     this.onState?.();
     this.emitTransport();
@@ -582,11 +617,29 @@ export class PianoFlowApp {
       this.detectMisses(pos);
       if (this.waitMode) this.maybeWait(pos);
     }
+    // Light up keys the app is auto-playing (listen mode / assisted hand) so the
+    // sound is tied to a visible event, merged with the player's own pressed keys.
+    let pressed = this.pressed;
+    if (this.autoPressed.size > 0) {
+      const merged = new Set(this.pressed);
+      for (const [midi, span] of this.autoPressed) {
+        if (span.end <= pos) {
+          this.autoPressed.delete(midi);
+          continue;
+        }
+        if (span.start <= pos) merged.add(midi);
+      }
+      pressed = merged;
+    }
+    // With hand-assist, show BOTH hands falling: the player's hand bright, the
+    // auto-played hand muted. Otherwise only the active hand is shown.
+    const assist = this.assistActive;
     this.renderer.render({
       position: pos,
-      notes: this.active,
-      pressed: this.pressed,
+      notes: assist ? this.notes : this.active,
+      pressed,
       dt,
+      dimHand: assist ? (this.hands === 'right' ? 'left' : 'right') : undefined,
       loop: {
         enabled: this.engine.loopEnabled,
         start: this.engine.loopStart ?? 0,
@@ -807,6 +860,7 @@ export class PianoFlowApp {
       latencyMs: this.latencyMs,
       instrument: this.instrument,
       fitKeyboard: this.fitKeyboard,
+      handAssist: this.handAssist,
       loopEnabled: this.engine.loopEnabled,
       loopStart: this.engine.loopStart,
       loopEnd: this.engine.loopEnd,

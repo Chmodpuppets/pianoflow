@@ -33,6 +33,11 @@ export interface RenderState {
   loop?: { enabled: boolean; start: number; end: number };
   /** seconds since last frame, for particle integration (default 1/60) */
   dt?: number;
+  /**
+   * When set, notes belonging to this hand are drawn muted (the app auto-plays
+   * them while the player practices the other hand). They get no name labels.
+   */
+  dimHand?: 'left' | 'right';
 }
 
 interface Spark {
@@ -72,6 +77,8 @@ export class Renderer {
   // Reused flat rect buffers ([x,y,w,h,r] per note) to avoid per-frame GC churn.
   private rightBuf: number[] = [];
   private leftBuf: number[] = [];
+  // Muted notes for the auto-played (assisted) hand, drawn without bloom/labels.
+  private dimBuf: number[] = [];
   // Reused [x,y,w,h,midi] tuples for note-name labels (only when enabled).
   private labelBuf: number[] = [];
 
@@ -306,6 +313,7 @@ export class Renderer {
 
     this.rightBuf.length = 0;
     this.leftBuf.length = 0;
+    this.dimBuf.length = 0;
     this.labelBuf.length = 0;
     for (const n of visible) {
       const bottom = this.keyboardTop - (n.time - pos) * pps;
@@ -318,12 +326,20 @@ export class Renderer {
       const y = Math.max(top, -10);
       const h = Math.min(bottom, this.keyboardTop) - y;
       if (h <= 0 || w <= 0) continue;
-      const buf = n.hand === 'left' ? this.leftBuf : this.rightBuf;
+      const dim = state.dimHand != null && n.hand === state.dimHand;
+      const buf = dim ? this.dimBuf : n.hand === 'left' ? this.leftBuf : this.rightBuf;
       buf.push(x, y, w, h, Math.min(4, w / 2));
-      // Only label blocks big enough to hold legible text.
-      if (config.showNoteLabels && h >= 12 && w >= 12) {
+      // Only label blocks big enough to hold legible text (never the muted hand).
+      if (!dim && config.showNoteLabels && h >= 12 && w >= 12) {
         this.labelBuf.push(x, y, w, h, n.midi);
       }
+    }
+    // Auto-played (assisted) hand first: muted flat color, no bloom, so the
+    // player's own hand reads as the bright, actionable layer on top.
+    if (state.dimHand != null && this.dimBuf.length > 0) {
+      const dimColor =
+        state.dimHand === 'left' ? withAlpha(theme.leftNote, 0.3) : withAlpha(theme.rightNote, 0.3);
+      this.fillBatch(this.dimBuf, dimColor);
     }
     // One fill per hand instead of one per note, with a soft luminous bloom.
     ctx.shadowBlur = 12;

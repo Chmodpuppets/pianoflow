@@ -53,6 +53,11 @@ export class AudioEngine {
   onEnded?: () => void;
   /** Fired when playback wraps around the A-B loop region. */
   onLoop?: () => void;
+  /**
+   * Fired for each note the scheduler auto-plays (not live player input). Lets
+   * the UI light up the corresponding key so sound is tied to a visible event.
+   */
+  onScheduledNote?: (note: MidiNote) => void;
 
   // Metronome / count-in
   private metroGain: GainNode;
@@ -302,6 +307,7 @@ export class AudioEngine {
       if (n.time < pos - 0.05) continue;
       const when = Math.max(now, now + (n.time - pos) / this._speed);
       this.trigger(n.midi, when, n.duration / this._speed, n.velocity);
+      this.onScheduledNote?.(n);
     }
 
     if (this.metroEnabled) {

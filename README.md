@@ -63,7 +63,11 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   difficult passages; the region is highlighted on the falling-notes view.
 - **Metronome + count-in** — tempo-synced click track with accented downbeats and an
   optional lead-in (1 / 2 / 4 beats) before playback starts.
-- **Hand filtering** — Both / Right / Left (in Listen mode this mutes the other hand).
+- **Hand filtering + hand assist** — Both / Right / Left. In Listen mode this mutes the
+  other hand. In Practice mode, selecting one hand turns on **hand assist**: PianoFlow
+  auto-plays the *other* hand (its notes fall muted, its keys light up) while you play and
+  are judged on your hand only — the classic "practice one hand at a time" workflow. A
+  stage badge shows `You: Right · App: Left`; toggle assist off for fully silent practice.
 - **Three input methods** — USB MIDI keyboard (Web MIDI), computer keyboard, and
   mouse / multi-touch on the virtual keys.
 - **MIDI device map** — list connected USB MIDI inputs, choose one (or all), and watch a
@@ -133,6 +137,7 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 | Speed | the − / + stepper in the player top bar (or Practice view) |
 | Mode | the 🎧 Listen / 🎹 Play toggle in the player top bar (or ⚙ drawer / Practice view) |
 | Hands / Count-in | player ⚙ drawer, or the Practice view |
+| Hand assist | "App plays the other hand" checkbox (⚙ drawer / Practice view); active when one hand is selected in Practice |
 | Wait / Key labels / Note names / Colorblind | player ⚙ drawer, or the Settings view |
 | A-B loop | player ⚙ drawer: **A** / **B** set the region, **Loop** toggles, **✕** clears |
 | Metronome | the metronome button in the player top bar (or Practice view) |
@@ -228,6 +233,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M22 (done)** — auto-fit keyboard (Synthesia-style zoom to the song's pitch span, white-key snapped, toggleable) + a headless real-canvas render-preview harness (`pnpm render-preview`) that rasterizes the playfield and sheet to PNGs for visual QA.
 - **M23 (done)** — game-feel pass: a headless full-loop integration test drives the real controller (load → practice → hit/miss/wait/transpose/record → result) end-to-end, plus combo-milestone celebrations (golden shockwave + spark burst + chime) and a red miss flash, all verified visually via the render-preview harness.
 - **M24 (done)** — play-along discoverability: a prominent Listen / Play segmented toggle in the player top bar and a one-time, dismissible first-play coaching card (MIDI / computer-keyboard / touch input + Wait-mode tip), making the core game loop one tap away.
+- **M25 (done)** — hand assist: in Practice, select one hand and PianoFlow auto-plays the other (muted falling notes + lit keys via a scheduler callback), judging only your hand; a stage badge shows which hand is yours, with a toggle for silent practice. Verified by renderer dim-hand tests, a headless assisted-run integration test, and the render-preview harness.
 
 ## 📄 License & attribution
 
@@ -268,7 +274,7 @@ pnpm dev       # 启动开发服务器（http://localhost:5173）
 实时音符监视、热插拔检测）；零依赖 MIDI 解析；播放/暂停/停止/拖动/变速（0.25×–2×）；聆听与练习
 两种模式（播放器顶栏 🎧 聆听 / 🎹 演奏 分段开关，核心玩法一键直达；首次进入演奏弹出可关闭的新手引导卡：MIDI/电脑键盘 A–L/触屏三种输入+等待模式提示）；练习模式下的判定（perfect/good）、连击、准确率与评级（S–D）；和弦感知等待模式；
 A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍）；左右手过滤（聆听模式可分手
-静音）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
+静音）；单手辅助练习（练习模式选定一只手后，应用自动演奏另一只手——其音符淡化下落、琴键同步点亮，仅判定你演奏的手；舞台徽章显示「你:右手 · 应用:左手」，可关闭辅助回到全静音练习）；USB MIDI / 电脑键盘 / 鼠标触屏三种输入；下落音符音名标签（C4、D4…）、琴键标签与色盲友好配色；曲库（难度星级、
 时长、音符数）；本地进度持久化（最佳准确率/评级/连击与游玩次数）；练习结束结算画面（评级、
 判定明细、新纪录提示）；练习会话历史与趋势（每首歌首次→最新准确率、进步幅度、近期会话，本地持久化）；练习洞察（当前/最长连续天数与活跃天数、近 7 天活动图、12 枚成就徽章含进度，Progress 视图本地计算）；五线谱视图（播放器 🎼 按钮开启滚动大谱表：高音=右手/低音=左手，矢量谱号、拍号小节线、符头/符干/符尾/升降号/加线与同步播放光标，纯函数记谱核心+无头测试）；自适应键盘（Synthesia 式按曲目音域自动缩放，白键对齐、可切换全 88 键，加载/移调时重新适配）；无头真实 Canvas 渲染预览（pnpm render-preview 将演奏画面与五线谱光栅化为 PNG 供视觉校验）；设置持久化（模式/速度/手/等待/标签/色盲/节拍器/倒数拍/静音刷新后保留）；
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；游戏化奖励（连击里程碑 10/25/50/100 及之后每 50 触发金色冲击波环+放射火花+柔和双音提示音，越高连击音越高；漏音时舞台边缘红光闪烁，仅里程碑发声避免嘈杂，统一受主静音/音量控制）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；音色面板（三角钢琴/电钢琴/八音盒/颤音琴四种内置 FluidR3_GM 音色，播放器与设置中实时切换、离线优先、选择持久化）；

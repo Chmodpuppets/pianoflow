@@ -330,6 +330,15 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 #handLegend .lg.left { color: var(--green); }
 #handLegend .lg.left::before { background: var(--green); box-shadow: 0 0 8px var(--green); }
 
+/* hand-assist badge: which hand you play vs. which the app auto-plays */
+.assist-badge {
+  position: absolute; bottom: calc(18% + 10px); left: 50%; transform: translateX(-50%);
+  font-size: 12px; font-weight: 700; letter-spacing: .3px; padding: 5px 14px; border-radius: 999px;
+  color: var(--text); background: rgba(18,22,43,.78); border: 1px solid var(--border-2);
+  backdrop-filter: blur(6px); box-shadow: 0 2px 12px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap;
+}
+.assist-badge.hidden { display: none; }
+
 /* ---- first-play coaching overlay ---- */
 .coach {
   position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;

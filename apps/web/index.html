@@ -84,6 +84,7 @@
               </label>
               <label class="chk"><input id="pWait" type="checkbox" /> Wait for correct note</label>
               <label class="chk"><input id="pMetro" type="checkbox" /> Metronome</label>
+              <label class="chk"><input id="pHandAssist" type="checkbox" checked /> App plays the other hand</label>
             </div>
           </div>
           <div class="panel">
@@ -206,6 +207,7 @@
           <span class="lg right">Right</span>
           <span class="lg left">Left</span>
         </div>
+        <div id="assistBadge" class="assist-badge hidden" aria-live="polite"></div>
         <div id="coachHint" class="coach hidden" role="dialog" aria-label="How to play">
           <div class="coach-card">
             <h3>🎹 Your turn!</h3>
@@ -253,6 +255,7 @@
           <label>Hands
             <select id="hands"><option value="both">Both</option><option value="right">Right</option><option value="left">Left</option></select>
           </label>
+          <label class="chk"><input id="handAssist" type="checkbox" checked /> App plays the other hand</label>
           <label>Count-in
             <select id="countIn"><option value="0">Off</option><option value="1">1 beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select>
           </label>

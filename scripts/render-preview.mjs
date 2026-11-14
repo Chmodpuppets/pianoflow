@@ -109,6 +109,18 @@ missRenderer.notifyMiss();
 missRenderer.render({ position: 3.0, notes: song.notes, pressed: new Set(), dt: 1 / 60 });
 save(missCanvas, 'playfield-miss.png');
 
+// Hand assist: player practices the RIGHT hand (bright); the LEFT hand is auto-played
+// (muted notes, no labels) and its key still lights up so sound ties to a visible event.
+const assistCanvas = prep(createCanvas(W, H));
+const assistRenderer = new Renderer(assistCanvas, { showNoteLabels: true, ...fitted });
+assistRenderer.resize(W, H);
+assistRenderer.triggerPulse();
+assistRenderer.notifyHit(71, 'right');
+assistRenderer.render({
+  position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60, dimHand: 'left',
+});
+save(assistCanvas, 'playfield-assist.png');
+
 // ---- Sheet-music grand staff -------------------------------------------------------------
 const layout = buildSheet(song, 60);
 const sheetCanvas = prep(createCanvas(1280, 440));

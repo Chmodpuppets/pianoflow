@@ -103,6 +103,7 @@ const pSpeed = $<HTMLSelectElement>('pSpeed');
 const pCountIn = $<HTMLSelectElement>('pCountIn');
 const pWait = $<HTMLInputElement>('pWait');
 const pMetro = $<HTMLInputElement>('pMetro');
+const pHandAssist = $<HTMLInputElement>('pHandAssist');
 const practicePlugins = $<HTMLElement>('practicePlugins');
 const startPracticeBtn = $<HTMLButtonElement>('startPracticeBtn');
 
@@ -180,6 +181,8 @@ const labelsChk = $<HTMLInputElement>('labels');
 const noteLabelsChk = $<HTMLInputElement>('noteLabels');
 const cbChk = $<HTMLInputElement>('colorblind');
 const fitKeysChk = $<HTMLInputElement>('fitKeys');
+const handAssistChk = $<HTMLInputElement>('handAssist');
+const assistBadge = $<HTMLElement>('assistBadge');
 const loopChk = $<HTMLInputElement>('loopEnabled');
 const loopA = $<HTMLButtonElement>('loopA');
 const loopB = $<HTMLButtonElement>('loopB');
@@ -698,6 +701,11 @@ function syncControls(): void {
   sColorblind.checked = s.colorblind;
   fitKeysChk.checked = s.fitKeyboard;
   sFitKeys.checked = s.fitKeyboard;
+  handAssistChk.checked = s.handAssist;
+  pHandAssist.checked = s.handAssist;
+  const assistEnabled = s.hands !== 'both';
+  handAssistChk.disabled = !assistEnabled;
+  pHandAssist.disabled = !assistEnabled;
   pMetro.checked = s.metronome;
   sMute.checked = s.muted;
   const volPct = Math.round(s.volume * 100);
@@ -739,6 +747,13 @@ function refresh(): void {
   judgeEl.textContent = st.lastJudge ? st.lastJudge.toUpperCase() : '';
   judgeEl.className = 'judge ' + (st.lastJudge || '');
   loopReadout.textContent = `A ${st.loopStart !== null ? fmt(st.loopStart) : '–:–'} · B ${st.loopEnd !== null ? fmt(st.loopEnd) : '–:–'}`;
+  const assistOn = st.mode === 'practice' && st.handAssist && st.hands !== 'both';
+  assistBadge.classList.toggle('hidden', !assistOn);
+  if (assistOn) {
+    const you = st.hands === 'right' ? 'Right' : 'Left';
+    const auto = st.hands === 'right' ? 'Left' : 'Right';
+    assistBadge.textContent = `🎹 You: ${you} · App: ${auto}`;
+  }
   midiLastNote.textContent = st.lastMidiNote !== null ? noteName(st.lastMidiNote) : '—';
   const sig = st.midiSelected + '|' + st.midiDevices.map((d) => d.id + d.state).join(',');
   if (sig !== midiSig && !midiPanel.classList.contains('hidden')) { midiSig = sig; buildMidiDevices(); }
@@ -856,6 +871,7 @@ labelsChk.addEventListener('change', () => { app.setLabels(labelsChk.checked); p
 noteLabelsChk.addEventListener('change', () => { app.setNoteLabels(noteLabelsChk.checked); persist(); syncControls(); });
 cbChk.addEventListener('change', () => { app.setColorblind(cbChk.checked); persist(); syncControls(); });
 fitKeysChk.addEventListener('change', () => { app.setFitKeyboard(fitKeysChk.checked); persist(); syncControls(); });
+handAssistChk.addEventListener('change', () => { app.setHandAssist(handAssistChk.checked); persist(); syncControls(); });
 loopChk.addEventListener('change', () => { app.setLoopEnabled(loopChk.checked); syncControls(); });
 loopA.addEventListener('click', () => { app.markLoopStart(); syncControls(); });
 loopB.addEventListener('click', () => { app.markLoopEnd(); syncControls(); });
@@ -867,6 +883,7 @@ pSpeed.addEventListener('change', () => { app.setSpeed(Number(pSpeed.value)); pe
 pCountIn.addEventListener('change', () => { app.setCountIn(Number(pCountIn.value)); persist(); syncControls(); });
 pWait.addEventListener('change', () => { app.setWaitMode(pWait.checked); persist(); syncControls(); });
 pMetro.addEventListener('change', () => { app.setMetronome(pMetro.checked); persist(); syncControls(); });
+pHandAssist.addEventListener('change', () => { app.setHandAssist(pHandAssist.checked); persist(); syncControls(); });
 startPracticeBtn.addEventListener('click', async () => {
   app.setMode('practice');
   persist();
@@ -902,7 +919,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.24.0';
+aboutVersion.textContent = 'v0.25.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {

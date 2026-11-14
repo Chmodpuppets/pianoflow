@@ -399,3 +399,41 @@ describe('Renderer game-feel feedback (combo milestone + miss flash)', () => {
     expect(r.missFlashLevel).toBe(0); // fully settled
   });
 });
+
+describe('Renderer hand-assist (dimmed auto-played hand)', () => {
+  const notes: MidiNote[] = [note(50, 0.5, 60, 'right'), note(50, 0.5, 48, 'left')];
+
+  it('draws the assisted hand muted and the player hand at full color', () => {
+    const r = new Renderer(mockCanvas(mockCtx()));
+    r.resize(1040, 600);
+    const batches = captureBatches(r, { position: 50, notes, pressed: new Set<number>(), dimHand: 'left' });
+    // Left (assisted) note goes to a muted rgba batch, not the full-color one.
+    const dim = batches.find((b) => b.color === 'rgba(89,217,142,0.3)');
+    expect(dim?.rects.length).toBe(1);
+    const fullLeft = batches.find((b) => b.color === '#59d98e');
+    expect(fullLeft?.rects.length ?? 0).toBe(0);
+    // Right (player) note stays bright.
+    const right = batches.find((b) => b.color === '#4ea1ff');
+    expect(right?.rects.length).toBe(1);
+  });
+
+  it('without dimHand both hands render at full color (no muted batch)', () => {
+    const r = new Renderer(mockCanvas(mockCtx()));
+    r.resize(1040, 600);
+    const batches = captureBatches(r, { position: 50, notes, pressed: new Set<number>() });
+    expect(batches.find((b) => b.color === 'rgba(89,217,142,0.3)')).toBeUndefined();
+    expect(batches.find((b) => b.color === '#59d98e')?.rects.length).toBe(1);
+    expect(batches.find((b) => b.color === '#4ea1ff')?.rects.length).toBe(1);
+  });
+
+  it('note-name labels skip the assisted hand', () => {
+    const ctx = mockCtx();
+    const texts: string[] = [];
+    ctx.fillText = (t: string) => { texts.push(t); };
+    const r = new Renderer(mockCanvas(ctx), { showNoteLabels: true });
+    r.resize(1040, 600);
+    r.render({ position: 50, notes, pressed: new Set<number>(), dimHand: 'left' });
+    expect(texts).toContain('C4'); // player (right) hand labeled
+    expect(texts).not.toContain('C3'); // assisted (left) hand not labeled
+  });
+});

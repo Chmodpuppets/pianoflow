@@ -97,6 +97,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   latencyMs: 0,
   instrument: DEFAULT_INSTRUMENT,
   fitKeyboard: true,
+  handAssist: true,
   plugins: {},
 };
 
