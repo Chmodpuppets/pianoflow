@@ -2,7 +2,7 @@
   "name": "PianoFlow — Falling Notes Piano Practice",
   "short_name": "PianoFlow",
   "description": "Open-source falling-notes piano practice app. Learn songs with glowing falling notes, real piano sound, and scoring — fully offline.",
-  "id": "/",
+  "id": ".",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

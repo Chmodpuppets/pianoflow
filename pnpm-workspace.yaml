@@ -2,9 +2,20 @@ packages:
   - "packages/*"
   - "apps/*"
 
-# Allow esbuild's platform-binary postinstall (required by Vite).
+# Allow esbuild's platform-binary postinstall (required by Vite). esbuild also
+# ships its binary as an optional platform dependency, so it works even when the
+# postinstall is skipped on a fresh CI install.
 onlyBuiltDependencies:
   - esbuild
+
+# headless-gl is an optional dev-only renderer test aid; its native build is
+# intentionally skipped (the WebGL pixel test auto-skips when the binary is absent).
+ignoredBuiltDependencies:
+  - gl
+
+# pnpm 11 otherwise fails a fresh `--frozen-lockfile` install with
+# ERR_PNPM_IGNORED_BUILDS for the skipped scripts above; treat them as a notice.
+strictDepBuilds: false
 
 # We install dependencies explicitly; skip the slow pre-run verification install.
 verifyDepsBeforeRun: false

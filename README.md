@@ -3,6 +3,12 @@
 **An open-source, Synthesia-style piano practice app.** Falling notes, real piano
 sound, MIDI keyboard support, and instant scoring — right in your browser.
 
+**▶ Live demo:** <https://chmodpuppets.github.io/pianoflow/> — an installable PWA that
+runs fully offline once loaded.
+
+[![CI](https://github.com/Chmodpuppets/pianoflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Chmodpuppets/pianoflow/actions/workflows/ci.yml)
+[![Deploy Pages](https://github.com/Chmodpuppets/pianoflow/actions/workflows/pages.yml/badge.svg)](https://github.com/Chmodpuppets/pianoflow/actions/workflows/pages.yml)
+
 > PianoFlow is an independent open-source project. It is **not** affiliated with,
 > endorsed by, or connected to Synthesia LLC. "Synthesia" is a trademark of its
 > respective owner; the name is used here only to describe the category of app.
