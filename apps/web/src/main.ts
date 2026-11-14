@@ -23,8 +23,10 @@ import {
   detectLang,
   isLang,
   LANGS,
+  sortLibrary,
+  isLibrarySort,
 } from '@pianoflow/core';
-import type { SessionResult, SongStats, Difficulty, SessionEntry, Lang } from '@pianoflow/core';
+import type { SessionResult, SongStats, Difficulty, SessionEntry, Lang, LibrarySort, LibraryMeta } from '@pianoflow/core';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -116,6 +118,7 @@ const views: Record<string, HTMLElement> = {
   settings: $<HTMLElement>('view-settings'),
 };
 const songSearch = $<HTMLInputElement>('songSearch');
+const sortSel = $<HTMLSelectElement>('sortSel');
 const genreChips = $<HTMLElement>('genreChips');
 const songList = $<HTMLElement>('songList');
 const loadBtn = $<HTMLButtonElement>('loadBtn');
@@ -343,6 +346,18 @@ interface SongEntry { id: string; title: string; composer: string; genre?: strin
 let bundledSongs: SongEntry[] = [];
 let activeGenre = 'All Songs';
 let searchTerm = '';
+const SORT_KEY = 'pianoflow.sort.v1';
+function loadSort(): LibrarySort {
+  try {
+    const raw = localStorage.getItem(SORT_KEY);
+    if (isLibrarySort(raw)) return raw;
+  } catch { /* ignore */ }
+  return 'recommended';
+}
+let sortKey: LibrarySort = loadSort();
+function saveSort(): void {
+  try { localStorage.setItem(SORT_KEY, sortKey); } catch { /* ignore */ }
+}
 const songInfoCache = new Map<string, { stats: SongStats; difficulty: Difficulty; duration: number }>();
 const ART_EMOJI: Record<string, string> = { Classical: '🎼', Traditional: '🎹', Folk: '🪕', Local: '📁', Imported: '📥' };
 
@@ -369,11 +384,28 @@ function buildChips(): void {
 function buildSongList(): void {
   const st = app.getState();
   const q = searchTerm.toLowerCase();
-  const rows = bundledSongs.filter((s) => {
+  const filtered = bundledSongs.filter((s) => {
     const genreOk = activeGenre === 'All Songs' || (s.genre ?? 'Other') === activeGenre;
     const searchOk = !q || s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q);
     return genreOk && searchOk;
   });
+  const libMeta = (id: string): LibraryMeta | undefined => {
+    const info = songInfoCache.get(id);
+    const rec = progress.get(id);
+    const entry = bundledSongs.find((s) => s.id === id);
+    if (!info && !rec && !entry) return undefined;
+    return {
+      title: entry?.title ?? id,
+      difficulty: info?.difficulty.level ?? 99,
+      duration: info?.duration ?? Number.POSITIVE_INFINITY,
+      lastPlayedAt: rec?.lastPlayedAt ?? 0,
+      bestAccuracy: rec?.bestAccuracy ?? -1,
+      favorite: favs.has(id),
+    };
+  };
+  const order = sortLibrary(filtered.map((s) => s.id), sortKey, libMeta);
+  const byId = new Map(filtered.map((s) => [s.id, s]));
+  const rows = order.map((id) => byId.get(id)!).filter(Boolean);
   songList.innerHTML = '';
   if (!rows.length) {
     songList.innerHTML = `<div class="empty-note">${tr('songs.empty')}</div>`;
@@ -434,6 +466,10 @@ async function selectSong(entry: SongEntry, autoplay: boolean): Promise<void> {
   }
 }
 songSearch.addEventListener('input', () => { searchTerm = songSearch.value; buildSongList(); });
+sortSel.value = sortKey;
+sortSel.addEventListener('change', () => {
+  if (isLibrarySort(sortSel.value)) { sortKey = sortSel.value; saveSort(); buildSongList(); }
+});
 loadBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', async () => {
   const f = fileInput.files?.[0];
@@ -1076,7 +1112,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.32.0';
+aboutVersion.textContent = 'v0.33.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {

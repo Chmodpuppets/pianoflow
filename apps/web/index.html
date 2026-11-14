@@ -75,6 +75,16 @@
           </div>
           <div class="search-row">
             <input id="songSearch" type="search" data-i18n-placeholder="songs.search" placeholder="Search songs, artists, or composers…" autocomplete="off" />
+            <select id="sortSel" class="sort-select" data-i18n-title="songs.sort" title="Sort songs" aria-label="Sort songs">
+              <option value="recommended" data-i18n="songs.sort.recommended">Recommended</option>
+              <option value="title" data-i18n="songs.sort.title">Title A–Z</option>
+              <option value="difficulty" data-i18n="songs.sort.difficulty">Easiest first</option>
+              <option value="difficulty-desc" data-i18n="songs.sort.difficultyDesc">Hardest first</option>
+              <option value="duration" data-i18n="songs.sort.duration">Shortest first</option>
+              <option value="recent" data-i18n="songs.sort.recent">Recently played</option>
+              <option value="grade" data-i18n="songs.sort.grade">Best grade</option>
+              <option value="favorites" data-i18n="songs.sort.favorites">Favorites first</option>
+            </select>
           </div>
           <div id="genreChips" class="chips" role="tablist"></div>
           <div id="songList" class="song-list"></div>

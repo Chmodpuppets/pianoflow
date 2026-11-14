@@ -4,6 +4,7 @@ export * from './midi/parse';
 export * from './midi/write';
 export * from './record';
 export * from './song';
+export * from './library';
 export * from './scoring';
 export * from './review';
 export * from './transport';
