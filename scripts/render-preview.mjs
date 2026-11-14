@@ -415,5 +415,76 @@ save(mock, 'hero-mockup.png');
 fs.copyFileSync(path.join(outDir, 'hero-mockup.png'), path.join(root, 'docs/img/hero-mockup.png'));
 console.log('copied hero-mockup.png -> docs/img/hero-mockup.png');
 
+// ---- Mobile PWA mockup (installable, portrait) -------------------------------------------
+// Shows the installable-PWA story on a phone: portrait playfield inside a device frame with
+// status bar, dynamic island and home indicator.
+const SW = 372, SH = 892;              // screen size
+const SX = 44, SY = 34;                // screen origin
+const PW = SW + SX * 2, PH = SH + SY * 2 + 20;
+const phone = prep(createCanvas(PW, PH));
+const qx = phone.getContext('2d');
+const pbg = qx.createLinearGradient(0, 0, PW, PH);
+pbg.addColorStop(0, '#0b0e1a');
+pbg.addColorStop(1, '#141b30');
+qx.fillStyle = pbg;
+qx.fillRect(0, 0, PW, PH);
+// Device body.
+qx.save();
+qx.shadowColor = 'rgba(0,0,0,0.6)';
+qx.shadowBlur = 40;
+qx.shadowOffsetY = 14;
+qx.fillStyle = '#0f1220';
+qx.beginPath();
+qx.roundRect(SX - 14, SY - 14, SW + 28, SH + 28, 56);
+qx.fill();
+qx.restore();
+// Screen clip.
+qx.save();
+qx.beginPath();
+qx.roundRect(SX, SY, SW, SH, 40);
+qx.clip();
+// Portrait playfield.
+const pcontent = prep(createCanvas(SW, SH));
+const pRenderer = new Renderer(pcontent, { showNoteLabels: false, showBeatGrid: true, ...fitted });
+pRenderer.resize(SW, SH);
+pRenderer.triggerPulse();
+pRenderer.notifyHit(71, 'right');
+const pState = { position: 3.0, notes: song.notes, pressed: new Set([71, 64]), dt: 1 / 60, grid };
+for (let i = 0; i < 6; i++) pRenderer.render(pState);
+qx.drawImage(pcontent, SX, SY);
+// Status bar.
+const sb = qx.createLinearGradient(0, SY, 0, SY + 60);
+sb.addColorStop(0, 'rgba(8,10,20,0.9)');
+sb.addColorStop(1, 'rgba(8,10,20,0)');
+qx.fillStyle = sb;
+qx.fillRect(SX, SY, SW, 60);
+qx.fillStyle = '#eef1fb';
+qx.font = '600 17px system-ui, sans-serif';
+qx.textAlign = 'left';
+qx.textBaseline = 'middle';
+qx.fillText('9:41', SX + 26, SY + 26);
+qx.textAlign = 'right';
+qx.fillText('🔋', SX + SW - 24, SY + 26);
+// Dynamic island.
+qx.fillStyle = '#000';
+qx.beginPath();
+qx.roundRect(SX + SW / 2 - 55, SY + 12, 110, 26, 13);
+qx.fill();
+// Home indicator.
+qx.fillStyle = 'rgba(238,241,251,0.8)';
+qx.beginPath();
+qx.roundRect(SX + SW / 2 - 60, SY + SH - 16, 120, 5, 3);
+qx.fill();
+qx.restore();
+// Device border.
+qx.strokeStyle = 'rgba(120,140,200,0.3)';
+qx.lineWidth = 1.5;
+qx.beginPath();
+qx.roundRect(SX - 14, SY - 14, SW + 28, SH + 28, 56);
+qx.stroke();
+save(phone, 'mobile-mockup.png');
+fs.copyFileSync(path.join(outDir, 'mobile-mockup.png'), path.join(root, 'docs/img/mobile-mockup.png'));
+console.log('copied mobile-mockup.png -> docs/img/mobile-mockup.png');
+
 fs.rmSync(bundlePath, { force: true });
 console.log('done');

@@ -35,6 +35,17 @@
 | 📊 Practice review · 练习复盘 | ⏱ Visual count-in · 视觉倒数 |
 | [![review](docs/img/review.png)](docs/img/review.png) | [![countin](docs/img/playfield-countin.png)](docs/img/playfield-countin.png) |
 
+<div align="center">
+
+### 📱 Installable PWA · 可安装到手机
+
+<img src="docs/img/mobile-mockup.png" alt="PianoFlow running as an installed PWA on a phone" width="300">
+
+Add to Home Screen for a full-screen, offline practice app.
+添加到主屏幕，即可全屏离线练习。
+
+</div>
+
 ---
 
 ## 中文
