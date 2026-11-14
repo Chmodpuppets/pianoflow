@@ -360,3 +360,71 @@ describe('PianoFlowApp hand assist (practice one hand, app plays the other)', ()
     expect(r.grade).toBe('S');
   });
 });
+
+describe('PianoFlowApp practice review (per-measure accuracy + focus areas)', () => {
+  /** Play a full practice run, hitting only notes whose time <= duration * fraction. */
+  async function runPractice(fraction: number): Promise<void> {
+    await load();
+    app.setMode('practice');
+    const notes = activeNotes();
+    const judged = judgedFlags();
+    const hitUntil = app.getState().duration * fraction;
+    await app.play();
+    let ptr = 0;
+    let guard = 0;
+    while (app.engine.position < app.getState().duration && guard++ < 20000) {
+      const pos = app.engine.position;
+      while (ptr < notes.length && notes[ptr].time <= pos + 0.03) {
+        if (!judged[ptr] && notes[ptr].time <= hitUntil) hit(notes[ptr].midi);
+        ptr++;
+      }
+      step(0.02);
+    }
+    step(0.05);
+  }
+
+  it('returns null in listen mode and before any note is judged', async () => {
+    await load();
+    app.setMode('listen');
+    expect(app.getReview()).toBeNull();
+    app.setMode('practice');
+    expect(app.getReview()).toBeNull();
+  });
+
+  it('a perfect run reviews every measure at 100% with no focus areas', async () => {
+    await runPractice(1);
+    const review = app.getReview();
+    expect(review).not.toBeNull();
+    expect(review!.total).toBe(activeNotes().length);
+    expect(review!.accuracy).toBeCloseTo(1, 5);
+    expect(review!.measures.length).toBeGreaterThan(0);
+    expect(review!.measures.every((m) => m.accuracy === 1)).toBe(true);
+    expect(review!.weakest).toHaveLength(0);
+  });
+
+  it('a silent run reviews every measure at 0% and flags up to 3 weakest', async () => {
+    await runPractice(-1);
+    const review = app.getReview();
+    expect(review).not.toBeNull();
+    expect(review!.accuracy).toBe(0);
+    expect(review!.miss).toBe(review!.total);
+    expect(review!.measures.every((m) => m.accuracy === 0)).toBe(true);
+    expect(review!.weakest.length).toBeGreaterThan(0);
+    expect(review!.weakest.length).toBeLessThanOrEqual(3);
+  });
+
+  it('a half-played run points focus areas at the unplayed later measures', async () => {
+    await runPractice(0.5);
+    const review = app.getReview();
+    expect(review).not.toBeNull();
+    expect(review!.accuracy).toBeGreaterThan(0);
+    expect(review!.accuracy).toBeLessThan(1);
+    const measures = review!.measures;
+    expect(measures[0].accuracy).toBe(1); // early measure fully played
+    expect(measures[measures.length - 1].accuracy).toBe(0); // late measure fully missed
+    expect(review!.weakest.length).toBeGreaterThan(0);
+    expect(review!.weakest.every((m) => m.accuracy < 1)).toBe(true);
+    // the weakest measures are the later (unplayed) ones
+    expect(review!.weakest[0].measure).toBeGreaterThan(measures.length / 2);
+  });
+});

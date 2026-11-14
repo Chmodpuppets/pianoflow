@@ -17,6 +17,7 @@ import {
   computeStreaks,
   recentActivity,
   computeAchievements,
+  accuracyColor,
 } from '@pianoflow/core';
 import type { SessionResult, SongStats, Difficulty, SessionEntry } from '@pianoflow/core';
 
@@ -210,6 +211,9 @@ const resultGrade = $<HTMLElement>('resultGrade');
 const resultTitle = $<HTMLElement>('resultTitle');
 const resultBest = $<HTMLElement>('resultBest');
 const resultStats = $<HTMLElement>('resultStats');
+const resultReview = $<HTMLElement>('resultReview');
+const reviewTimeline = $<HTMLElement>('reviewTimeline');
+const reviewFocus = $<HTMLElement>('reviewFocus');
 const resultRetry = $<HTMLButtonElement>('resultRetry');
 const resultExport = $<HTMLButtonElement>('resultExport');
 const resultClose = $<HTMLButtonElement>('resultClose');
@@ -595,6 +599,52 @@ clearProgressBtn.addEventListener('click', () => {
 });
 
 // ---------- result ----------
+function renderReview(): void {
+  const review = app.getReview();
+  if (!review || review.measures.length === 0) {
+    resultReview.classList.add('hidden');
+    return;
+  }
+  resultReview.classList.remove('hidden');
+  reviewTimeline.replaceChildren();
+  for (const m of review.measures) {
+    const cell = document.createElement('div');
+    cell.className = 'review-cell';
+    cell.style.background = accuracyColor(m.accuracy);
+    cell.style.flexGrow = String(Math.max(1, m.total));
+    const label = `Measure ${m.measure}: ${Math.round(m.accuracy * 100)}% (${m.perfect + m.good}/${m.total})`;
+    cell.title = label;
+    cell.setAttribute('role', 'img');
+    cell.setAttribute('aria-label', label);
+    reviewTimeline.appendChild(cell);
+  }
+  reviewFocus.replaceChildren();
+  if (review.weakest.length === 0) {
+    const clean = document.createElement('span');
+    clean.className = 'review-clean';
+    clean.textContent = '🎉 Flawless — every measure clean!';
+    reviewFocus.appendChild(clean);
+    return;
+  }
+  const lbl = document.createElement('span');
+  lbl.className = 'review-focus-label';
+  lbl.textContent = 'Practice these:';
+  reviewFocus.appendChild(lbl);
+  for (const m of review.weakest) {
+    const chip = document.createElement('button');
+    chip.className = 'focus-chip';
+    chip.style.setProperty('--fc', accuracyColor(m.accuracy));
+    chip.textContent = `▶ Measure ${m.measure} · ${Math.round(m.accuracy * 100)}%`;
+    chip.title = `Jump to measure ${m.measure} and practice it`;
+    chip.addEventListener('click', () => {
+      resultOverlay.classList.add('hidden');
+      app.seek(m.start);
+      void app.play();
+    });
+    reviewFocus.appendChild(chip);
+  }
+}
+
 function showResult(result: SessionResult, songId: string): void {
   const rec = progress.get(songId);
   resultGrade.textContent = result.grade;
@@ -605,6 +655,7 @@ function showResult(result: SessionResult, songId: string): void {
     `Accuracy ${Math.round(result.accuracy * 100)}% · ${result.hits}/${result.total} hits<br>` +
     `Perfect ${result.perfect} · Good ${result.good} · Miss ${result.miss} · Wrong ${result.wrong}<br>` +
     `Max combo ${result.maxCombo}`;
+  renderReview();
   hidePause();
   resultOverlay.classList.remove('hidden');
 }
@@ -933,7 +984,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.28.0';
+aboutVersion.textContent = 'v0.29.0';
 for (const sel of [sInstrument, instrumentSel]) {
   sel.innerHTML = '';
   for (const inst of INSTRUMENTS) {

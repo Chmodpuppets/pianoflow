@@ -5,6 +5,7 @@ export * from './midi/write';
 export * from './record';
 export * from './song';
 export * from './scoring';
+export * from './review';
 export * from './transport';
 export * from './meter';
 export * from './grid';

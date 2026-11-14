@@ -17,8 +17,8 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const entry = `
 import { Renderer, SheetRenderer, defaultTheme } from './packages/render/src/index.ts';
-import { parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid } from './packages/core/src/index.ts';
-export { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid };
+import { parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor } from './packages/core/src/index.ts';
+export { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor };
 `;
 
 const result = await build({
@@ -36,7 +36,7 @@ const result = await build({
 
 const bundlePath = path.join(root, 'exports', '.preview-bundle.mjs');
 fs.writeFileSync(bundlePath, result.outputFiles[0].text);
-const { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid } =
+const { Renderer, SheetRenderer, defaultTheme, parseMidi, assignHands, buildSheet, fitKeyboardRange, FULL_KEYBOARD, buildTimeGrid, accuracyColor } =
   await import(bundlePath);
 
 // The renderers read window.devicePixelRatio; pin it to 1 for deterministic previews.
@@ -155,6 +155,95 @@ sheet.render({ layout, position: 3.0, theme: defaultTheme });
 save(sheetCanvas, 'sheet.png');
 sheet.render({ layout, position: 0.0, theme: defaultTheme });
 save(sheetCanvas, 'sheet-start.png');
+
+// ---- Practice-review timeline (results screen) -------------------------------------------
+// Mirrors the DOM result-review layout using the SAME accuracyColor scale the app uses,
+// so the green/blue/gold/red mapping and proportional cell widths can be inspected.
+const measures = [
+  { measure: 1, total: 4, accuracy: 1 },
+  { measure: 2, total: 4, accuracy: 1 },
+  { measure: 3, total: 6, accuracy: 0.83 },
+  { measure: 4, total: 4, accuracy: 0.5 },
+  { measure: 5, total: 4, accuracy: 0.25 },
+  { measure: 6, total: 6, accuracy: 0 },
+  { measure: 7, total: 4, accuracy: 0.67 },
+  { measure: 8, total: 4, accuracy: 1 },
+  { measure: 9, total: 4, accuracy: 0.33 },
+  { measure: 10, total: 4, accuracy: 0.9 },
+];
+const RW = 760;
+const RH = 300;
+const rc = prep(createCanvas(RW, RH));
+const rx = rc.getContext('2d');
+rx.fillStyle = '#0a0d18';
+rx.fillRect(0, 0, RW, RH);
+rx.fillStyle = '#12162b';
+rx.fillRect(20, 20, RW - 40, RH - 40);
+rx.strokeStyle = '#262c4d';
+rx.lineWidth = 1;
+rx.strokeRect(20.5, 20.5, RW - 41, RH - 41);
+rx.fillStyle = '#eef1fb';
+rx.font = 'bold 18px system-ui, sans-serif';
+rx.textAlign = 'left';
+rx.textBaseline = 'alphabetic';
+rx.fillText('Where to focus', 44, 62);
+// legend
+const legend = [['#59d98e', '90%+'], ['#4ea1ff', '70%+'], ['#ffd166', '50%+'], ['#ff6b6b', '<50%']];
+let lx = RW - 44;
+rx.font = '12px system-ui, sans-serif';
+rx.textAlign = 'right';
+for (let i = legend.length - 1; i >= 0; i--) {
+  const [color, label] = legend[i];
+  rx.fillStyle = '#9aa3c0';
+  rx.fillText(label, lx, 60);
+  lx -= rx.measureText(label).width + 8;
+  rx.fillStyle = color;
+  rx.fillRect(lx - 10, 51, 10, 10);
+  lx -= 22;
+}
+// timeline strip
+const stripX = 44;
+const stripW = RW - 88;
+const stripY = 84;
+const stripH = 34;
+rx.fillStyle = '#0a0d18';
+rx.fillRect(stripX - 3, stripY - 3, stripW + 6, stripH + 6);
+const totalNotes = measures.reduce((s, m) => s + m.total, 0);
+let cx = stripX;
+for (const m of measures) {
+  const w = (m.total / totalNotes) * stripW - 2;
+  rx.fillStyle = accuracyColor(m.accuracy);
+  rx.fillRect(cx, stripY, Math.max(3, w), stripH);
+  cx += (m.total / totalNotes) * stripW;
+}
+// focus chips (the weakest measures)
+const weakest = [...measures].filter((m) => m.accuracy < 1).sort((a, b) => a.accuracy - b.accuracy).slice(0, 3);
+rx.font = '13px system-ui, sans-serif';
+rx.textAlign = 'left';
+rx.fillStyle = '#9aa3c0';
+rx.fillText('Practice these:', 44, 168);
+let chipX = 44;
+const chipY = 184;
+for (const m of weakest) {
+  const label = `▶ Measure ${m.measure} · ${Math.round(m.accuracy * 100)}%`;
+  const w = rx.measureText(label).width + 24;
+  const color = accuracyColor(m.accuracy);
+  rx.fillStyle = '#1a1f3a';
+  rx.fillRect(chipX, chipY, w, 32);
+  rx.fillStyle = color;
+  rx.fillRect(chipX, chipY, 3, 32);
+  rx.strokeStyle = color;
+  rx.lineWidth = 1;
+  rx.strokeRect(chipX + 0.5, chipY + 0.5, w - 1, 31);
+  rx.fillStyle = '#eef1fb';
+  rx.font = '600 13px system-ui, sans-serif';
+  rx.fillText(label, chipX + 12, chipY + 21);
+  chipX += w + 10;
+}
+rx.fillStyle = '#9aa3c0';
+rx.font = '12px system-ui, sans-serif';
+rx.fillText('Cell width ∝ notes in measure · click a chip to jump to that measure and practice it.', 44, 252);
+save(rc, 'review.png');
 
 fs.rmSync(bundlePath, { force: true });
 console.log('done');

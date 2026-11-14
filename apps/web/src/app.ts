@@ -33,6 +33,10 @@ import {
   FULL_KEYBOARD,
   buildTimeGrid,
   type GridLine,
+  buildReviewNotes,
+  summarizeReview,
+  type NoteJudgement,
+  type ReviewSummary,
 } from '@pianoflow/core';
 import { AudioEngine } from '@pianoflow/audio';
 import { Renderer, defaultTheme, colorblindTheme } from '@pianoflow/render';
@@ -159,6 +163,7 @@ export class PianoFlowApp {
   private timeGrid: GridLine[] = [];
   private active: MidiNote[] = [];
   private judged: boolean[] = [];
+  private noteJudgements: (NoteJudgement | null)[] = [];
   private missPtr = 0;
   private pressed = new Set<number>();
   // Keys the app auto-plays (listen mode, or the assisted hand in practice):
@@ -540,6 +545,7 @@ export class PianoFlowApp {
     this.active =
       this.hands === 'both' ? this.notes : this.notes.filter((n) => n.hand === this.hands);
     this.judged = new Array(this.active.length).fill(false);
+    this.noteJudgements = new Array(this.active.length).fill(null);
     this.missPtr = 0;
     this.waiting = false;
     this.waitIndex = -1;
@@ -624,6 +630,7 @@ export class PianoFlowApp {
   /** Mark notes before `t` as judged so they are not counted as missed. */
   private resetJudgingFrom(t: number): void {
     this.judged.fill(false);
+    this.noteJudgements.fill(null);
     this.missPtr = 0;
     while (this.missPtr < this.active.length && this.active[this.missPtr].time < t - GOOD_WINDOW) {
       this.judged[this.missPtr] = true;
@@ -698,6 +705,7 @@ export class PianoFlowApp {
       const i = this.missPtr++;
       if (!this.judged[i]) {
         this.judged[i] = true;
+        this.noteJudgements[i] = 'miss';
         this.score.registerMiss();
         this.lastJudge = 'miss';
         this.renderer.notifyMiss();
@@ -763,6 +771,7 @@ export class PianoFlowApp {
       if (idx >= 0) {
         const grade = judgeHit(this.active[idx].time, pos) ?? 'good';
         this.judged[idx] = true;
+        this.noteJudgements[idx] = grade;
         this.score.registerHit(grade);
         this.lastJudge = grade;
         this.renderer.triggerPulse();
@@ -836,6 +845,18 @@ export class PianoFlowApp {
       this.sheetCacheNotes = this.notes;
     }
     return this.sheetCache;
+  }
+
+  /**
+   * Spatial review of the current/last practice run: per-measure accuracy and the
+   * weakest measures to focus on. Null outside practice or before any note is judged.
+   */
+  getReview(): ReviewSummary | null {
+    if (this.mode !== 'practice' || this.active.length === 0) return null;
+    const reviewNotes = buildReviewNotes(this.active, this.noteJudgements);
+    if (reviewNotes.length === 0) return null;
+    const measureStarts = this.timeGrid.filter((l) => l.kind === 'measure').map((l) => l.time);
+    return summarizeReview(reviewNotes, measureStarts);
   }
 
   // ---------- performance recording ----------
