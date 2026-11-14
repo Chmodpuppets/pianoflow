@@ -132,6 +132,10 @@ sound, MIDI keyboard support, and instant scoring — right in your browser.
   error-isolated API (lifecycle events + a draw surface). Six plugins ship built in
   (combo overlay, session stats, auto-pause on mistakes, practice HUD, tempo trainer,
   loop trainer); toggle them in the **🧩 Plugins** panel and your choices are saved. See [PLUGINS.md](PLUGINS.md) to write your own.
+- **Native desktop app** — a [Tauri v2](https://v2.tauri.app) shell (`src-tauri/`) embeds the
+  same web UI in a native WebView window: a real macOS `.app` with native window controls,
+  fully offline, no browser chrome. The platform-agnostic core means web and desktop share
+  one codebase.
 
 ## 🚀 Quick start
 
@@ -154,6 +158,24 @@ pnpm test           # run the core unit tests (vitest)
 pnpm typecheck      # TypeScript type-check
 pnpm soundfont      # re-download the bundled offline piano samples (optional)
 ```
+
+### Desktop app (Tauri)
+
+Requires the web prerequisites above **plus a [Rust toolchain](https://www.rust-lang.org/tools/install)**
+(stable, ≥ 1.77.2) and the platform WebView deps (macOS: Xcode Command Line Tools).
+
+```bash
+pnpm tauri:dev      # run the desktop app against the Vite dev server (hot reload)
+pnpm tauri:build    # build a native release bundle (macOS .app under src-tauri/target/release/bundle)
+```
+
+The shell lives in `src-tauri/` and loads `apps/web` — in dev from `http://localhost:5173`,
+in release from the baked `apps/web/dist`. No web code changes are needed; the same UI runs
+in the browser, as a PWA, and in the desktop window.
+
+> **Slow crates.io?** If cargo downloads crawl, point it at a regional mirror via
+> `~/.cargo/config.toml` (e.g. `[source.crates-io] replace-with = 'rsproxy-sparse'` +
+> `[source.rsproxy-sparse] registry = "sparse+https://rsproxy.cn/index/"` for China).
 
 ## 🎮 Controls
 
@@ -186,8 +208,8 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 
 ## 🧱 Architecture
 
-A pnpm monorepo with a **platform-agnostic TypeScript core** so the same logic can
-later power a desktop (Tauri) or mobile shell.
+A pnpm monorepo with a **platform-agnostic TypeScript core** shared by the web app and a
+native Tauri desktop shell.
 
 ```
 packages/
@@ -197,6 +219,7 @@ packages/
   input/     Web MIDI, computer keyboard, pointer/touch adapters
 apps/
   web/       Vite app wiring everything together (3-screen UI + controls + PWA)
+src-tauri/   Tauri v2 desktop shell (Rust): native WebView window embedding apps/web, bundle config + icons
 scripts/
   generate-songs.mjs   zero-dependency MIDI writer for the bundled PD songs
   fetch-soundfont.mjs  downloads the bundled offline instrument SoundFonts
@@ -242,7 +265,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M0 (done)** — vertical slice: parse → render → sound → transport → basic scoring.
 - **M1 (done)** — A-B loop regions, metronome + count-in, chord-aware wait mode, listen-mode hand mute.
 - **M2 (done)** — song library with difficulty, localStorage progress persistence, end-of-song results.
-- **M3 (partial)** — offline SoundFont bundling and MIDI device mapping UI (done); desktop shell (Tauri) pending — requires a Rust toolchain.
+- **M3 (done)** — offline SoundFont bundling and MIDI device mapping UI; native desktop shell (Tauri v2) embedding the web UI in a macOS `.app`, built and bundled from `src-tauri/`.
 - **M4 (done)** — expanded public-domain song library (7 tracks) and settings persistence.
 - **M5 (done)** — black-MIDI rendering optimizations: time-bucket note index, viewport culling and batched draws; completed by the M26 WebGL renderer.
 - **M6 (done)** — extensible plugin system (lifecycle events + draw surface, error-isolated) with bundled plugins and a toggle panel.
@@ -318,10 +341,10 @@ A-B 循环区间（在落键视图高亮）；节拍器与倒数拍（1/2/4 拍�
 舞台质感（分层渐变背景 + 判定线氛围光晕、命中脉冲发光判定线、渐变琴键与按下辉光、统一深色舞台 UI）；演奏反馈（音符临近时琴键按手色预发光提示指位、命中时判定线火花粒子）；游戏化奖励（连击里程碑 10/25/50/100 及之后每 50 触发金色冲击波环+放射火花+柔和双音提示音，越高连击音越高；漏音时舞台边缘红光闪烁，仅里程碑发声避免嘈杂，统一受主静音/音量控制）；主静音（顶栏 🔊 一键静音钢琴+节拍器，默认开启声音）；音量滑杆（持久化、静音优先）；暂停覆盖层（继续/重开/返回）；手色图例（蓝=右手、绿=左手）；校准与调性（输入延迟补偿 ±250ms、顶栏实时移调 ±12 半音、单轨手动分手音高滑杆，均持久化）；演奏录制与导出（⏺ 录制实时演奏，⤓ 下载为标准 .mid，可再导入/分享）；可安装 PWA（manifest + 生成图标 + 离线 service worker，首载后断网可练）；音色面板（三角钢琴/电钢琴/八音盒/颤音琴四种内置 FluidR3_GM 音色，播放器与设置中实时切换、离线优先、选择持久化）；
 插件系统（生命周期事件 + 绘制表面 API，错误隔离，内置连击叠加/会话统计/失误自动暂停/练习 HUD/速度训练器/循环训练器六个插件，
 开关持久化，详见 PLUGINS.md）；
-内置 12 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝、卡农、C 大调前奏曲 BWV 846、奇异恩典、圣徒进行曲、斯卡布罗集市，均为双手编配）；自动曲库索引（把任意 .mid/.midi 放入 public/songs/ 即自动出现在歌单，开发环境实时刷新、构建时烘焙索引，未知文件归入 Imported 并按音高自动拆手）；双语界面（English/中文全界面本地化，纯核心 i18n 词典约 210 条 {en,zh} 词条+占位符插值+英文回退，静态文案用 data-i18n 属性、动态视图经 t() 重渲染，欢迎页/侧栏/设置/播放器 ⚙ 均可切换并持久化、首次按浏览器语言自动检测，经词条奇偶校验+UI 键覆盖测试与真实 DOM jsdom 运行时测试验证）。
+内置 12 首公版曲目（小星星、欢乐颂、伦敦桥、生日快乐、G 大调小步舞曲、绿袖子、致爱丽丝、卡农、C 大调前奏曲 BWV 846、奇异恩典、圣徒进行曲、斯卡布罗集市，均为双手编配）；自动曲库索引（把任意 .mid/.midi 放入 public/songs/ 即自动出现在歌单，开发环境实时刷新、构建时烘焙索引，未知文件归入 Imported 并按音高自动拆手）；双语界面（English/中文全界面本地化，纯核心 i18n 词典约 210 条 {en,zh} 词条+占位符插值+英文回退，静态文案用 data-i18n 属性、动态视图经 t() 重渲染，欢迎页/侧栏/设置/播放器 ⚙ 均可切换并持久化、首次按浏览器语言自动检测，经词条奇偶校验+UI 键覆盖测试与真实 DOM jsdom 运行时测试验证）；原生桌面端（Tauri v2 壳 `src-tauri/` 把同一套 Web UI 嵌入原生 WebView 窗口，构建为 macOS `.app`，完全离线、无浏览器外壳，`pnpm tauri:dev` 热重载开发 / `pnpm tauri:build` 出原生安装包，Web/PWA/桌面共用一套代码）。
 
 **架构**：pnpm monorepo，平台无关的 TypeScript 核心（`core`/`audio`/`render`/`input`），
-便于后续扩展到 Tauri 桌面端与移动端。
+由 Web 应用与 Tauri v2 原生桌面壳（`src-tauri/`）共享同一套代码。
 
 **浏览器**：Chrome/Edge/Opera 完整支持 Web MIDI；Firefox 部分支持；Safari 不支持 Web MIDI
 （可用电脑键盘或触屏）。

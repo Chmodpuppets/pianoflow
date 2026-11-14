@@ -10,3 +10,9 @@ coverage/
 .env
 .env.*
 exports/
+
+# Rust toolchain (relocated into the workspace) + Tauri build artifacts
+.cargo/
+.rustup/
+src-tauri/target/
+src-tauri/gen/schemas/
