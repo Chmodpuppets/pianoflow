@@ -7,6 +7,7 @@
 //
 import { chromium } from 'playwright-core';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { build } from 'esbuild';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -62,7 +63,13 @@ function check(name, fn) {
     .catch((e) => { results.push(['FAIL', name, e.message]); console.log('FAIL', name, '::', e.message); return false; });
 }
 
-const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--no-sandbox', '--mute-audio'] });
+const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: [
+  '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--no-sandbox', '--mute-audio',
+  // Headless CI otherwise throttles/suspends requestAnimationFrame for "hidden" pages,
+  // which stalls the rAF-driven transport (Wait-mode pauses never engage). Keep it live.
+  '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+] });
 
 async function newPage(opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'en-US', acceptDownloads: true, ...opts });
@@ -109,6 +116,24 @@ async function shot(page, name) {
   for (let i = 0; i < d.length; i += 400) { const v = d[i]; if (v < min) min = v; if (v > max) max = v; }
   assert(max - min > 30, `${name} looks blank (range ${max - min})`);
 }
+
+// Parse a bundled song in Node (same core parser the app uses) so the practice
+// test can seek to exact note times — fully deterministic, no transport/rAF timing.
+async function loadSongRightHand(file, splitMidi = 60) {
+  const r = await build({
+    stdin: { contents: `export { parseMidi, assignHands } from '@pianoflow/core';`, resolveDir: root, loader: 'ts' },
+    bundle: true, format: 'esm', platform: 'node', write: false,
+    alias: { '@pianoflow/core': path.join(root, 'packages/core/src/index.ts') },
+  });
+  const mod = await import('data:text/javascript;base64,' + Buffer.from(r.outputFiles[0].text).toString('base64'));
+  const buf = fs.readFileSync(path.join(root, 'apps/web/public/songs', file));
+  const song = mod.parseMidi(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+  const notes = mod.assignHands(song.notes, { splitMidi });
+  const right = notes.filter((n) => n.hand === 'right').sort((a, b) => a.time - b.time);
+  return { duration: song.duration, right };
+}
+// computer-keyboard offset (baseMidi 60) -> key, mirroring packages/input/src/keyboard.ts
+const OFFSET_KEY = { 0: 'a', 1: 'w', 2: 's', 3: 'e', 4: 'd', 5: 'f', 6: 't', 7: 'g', 8: 'y', 9: 'h', 10: 'u', 11: 'j', 12: 'k', 13: 'o', 14: 'l', 15: 'p', 16: ';' };
 
 // ================= DESKTOP =================
 const d = await newPage();
@@ -194,59 +219,52 @@ await check('desktop: transport pause overlay + resume', async () => {
   await hidden(page, '#pauseOverlay');
 });
 await check('desktop: practice mode + coach card + keyboard input judged', async () => {
+  // Read the song's actual right-hand notes in Node so we can seek to each note's
+  // exact time. Judging a paused transport at a known position is deterministic and
+  // independent of rAF / audio-clock timing (which headless CI throttles).
+  const { duration, right } = await loadSongRightHand('twinkle.mid');
+  const targets = right.slice(0, 7);
+  assert(targets.length >= 5, 'twinkle right-hand notes=' + targets.length);
   await page.click('#modePlay');
   await page.waitForTimeout(300);
   if (await visible(page, '#coachHint')) await page.click('#coachGotIt');
   await hidden(page, '#coachHint');
-  // Judge the RIGHT hand (melody) only: with Both hands the chord-aware Wait mode
-  // would also require the bass notes, which the melody key sequence doesn't play.
+  // Judge the RIGHT hand (melody) only; Wait mode off (we drive position ourselves).
   await page.evaluate(() => {
     const h = document.querySelector('#hands');
-    h.value = 'right';
-    h.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  // Deterministic judging: enable Wait mode so the transport pauses at each note
-  // until the correct key is played. Input-driven (not wall-clock) => CI-safe.
-  await page.evaluate(() => {
+    h.value = 'right'; h.dispatchEvent(new Event('change', { bubbles: true }));
     const w = document.querySelector('#waitMode');
-    w.checked = true;
-    w.dispatchEvent(new Event('change', { bubbles: true }));
+    w.checked = false; w.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  // mode switch restarts the run paused at 0; start it.
-  const playTxt = await page.evaluate(() => document.querySelector('#playBtn').textContent.trim());
-  if (playTxt === '▶') await page.click('#playBtn');
-  // keyboard input ignores events targeted at INPUT/SELECT/TEXTAREA — drop focus.
-  await page.evaluate(() => { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); });
   const hitsNow = () => page.evaluate(() => {
     const s = document.querySelector('#score').textContent;
     return Number((s.match(/Hits (\d+)/) || s.match(/命中 (\d+)/) || [])[1] || 0);
   });
-  const btnIs = (t) => page.waitForFunction(
-    (want) => document.querySelector('#playBtn').textContent.trim() === want, t, { timeout: 20000 });
-  // confirm the run actually started, then let it pause at the first note.
-  await btnIs('⏸');
-  // Twinkle opening C C G G A A G -> a a g g h h g (computer-keyboard baseMidi 60).
-  for (const k of ['a', 'a', 'g', 'g', 'h', 'h', 'g']) {
-    await btnIs('▶'); // paused, waiting at the current note
+  // mode switch restarts paused at 0; seek to each note and play its key.
+  for (const n of targets) {
+    await page.evaluate((frac) => {
+      const s = document.querySelector('#seek');
+      s.value = String(Math.round(frac * 1000));
+      s.dispatchEvent(new Event('input', { bubbles: true }));
+      s.dispatchEvent(new Event('change', { bubbles: true }));
+      const ae = document.activeElement; if (ae && ae.blur) ae.blur();
+    }, duration > 0 ? n.time / duration : 0);
     const before = await hitsNow();
-    await page.keyboard.press(k);
+    const key = OFFSET_KEY[n.midi - 60];
+    assert(key, 'no computer-keyboard key for midi ' + n.midi);
+    await page.keyboard.press(key);
     await page.waitForFunction((prev) => {
       const s = document.querySelector('#score').textContent;
-      const n = Number((s.match(/Hits (\d+)/) || s.match(/命中 (\d+)/) || [])[1] || 0);
-      return n > prev;
-    }, before, { timeout: 8000 });
-    await btnIs('⏸'); // resumed -> the next '▶' is the NEXT note, not a stale pause
+      const h = Number((s.match(/Hits (\d+)/) || s.match(/命中 (\d+)/) || [])[1] || 0);
+      return h > prev;
+    }, before, { timeout: 5000 });
   }
   const hits = await hitsNow();
   assert(hits >= 5, 'too few hits: ' + hits);
-  // restore Both hands + Wait mode off so the following tests run freely.
+  // restore Both hands so the following tests run freely.
   await page.evaluate(() => {
-    const w = document.querySelector('#waitMode');
-    w.checked = false;
-    w.dispatchEvent(new Event('change', { bubbles: true }));
     const h = document.querySelector('#hands');
-    h.value = 'both';
-    h.dispatchEvent(new Event('change', { bubbles: true }));
+    h.value = 'both'; h.dispatchEvent(new Event('change', { bubbles: true }));
   });
 });
 await check('desktop: seek to end -> results overlay with review', async () => {
