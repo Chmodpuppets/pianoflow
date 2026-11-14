@@ -198,14 +198,56 @@ await check('desktop: practice mode + coach card + keyboard input judged', async
   await page.waitForTimeout(300);
   if (await visible(page, '#coachHint')) await page.click('#coachGotIt');
   await hidden(page, '#coachHint');
-  // mode switch restarts the run paused at 0; start it and play Twinkle's opening C C G G A A G
+  // Judge the RIGHT hand (melody) only: with Both hands the chord-aware Wait mode
+  // would also require the bass notes, which the melody key sequence doesn't play.
+  await page.evaluate(() => {
+    const h = document.querySelector('#hands');
+    h.value = 'right';
+    h.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  // Deterministic judging: enable Wait mode so the transport pauses at each note
+  // until the correct key is played. Input-driven (not wall-clock) => CI-safe.
+  await page.evaluate(() => {
+    const w = document.querySelector('#waitMode');
+    w.checked = true;
+    w.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  // mode switch restarts the run paused at 0; start it.
   const playTxt = await page.evaluate(() => document.querySelector('#playBtn').textContent.trim());
   if (playTxt === '▶') await page.click('#playBtn');
-  await page.waitForTimeout(600);
-  for (const k of ['a', 'a', 'g', 'g', 'h', 'h', 'g']) { await page.keyboard.press(k); await page.waitForTimeout(480); }
-  const score = await page.evaluate(() => document.querySelector('#score').textContent);
-  const hits = Number((score.match(/Hits (\d+)/) || score.match(/命中 (\d+)/) || [])[1] || 0);
-  assert(hits >= 3, 'too few hits: ' + score);
+  // keyboard input ignores events targeted at INPUT/SELECT/TEXTAREA — drop focus.
+  await page.evaluate(() => { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); });
+  const hitsNow = () => page.evaluate(() => {
+    const s = document.querySelector('#score').textContent;
+    return Number((s.match(/Hits (\d+)/) || s.match(/命中 (\d+)/) || [])[1] || 0);
+  });
+  const btnIs = (t) => page.waitForFunction(
+    (want) => document.querySelector('#playBtn').textContent.trim() === want, t, { timeout: 20000 });
+  // confirm the run actually started, then let it pause at the first note.
+  await btnIs('⏸');
+  // Twinkle opening C C G G A A G -> a a g g h h g (computer-keyboard baseMidi 60).
+  for (const k of ['a', 'a', 'g', 'g', 'h', 'h', 'g']) {
+    await btnIs('▶'); // paused, waiting at the current note
+    const before = await hitsNow();
+    await page.keyboard.press(k);
+    await page.waitForFunction((prev) => {
+      const s = document.querySelector('#score').textContent;
+      const n = Number((s.match(/Hits (\d+)/) || s.match(/命中 (\d+)/) || [])[1] || 0);
+      return n > prev;
+    }, before, { timeout: 8000 });
+    await btnIs('⏸'); // resumed -> the next '▶' is the NEXT note, not a stale pause
+  }
+  const hits = await hitsNow();
+  assert(hits >= 5, 'too few hits: ' + hits);
+  // restore Both hands + Wait mode off so the following tests run freely.
+  await page.evaluate(() => {
+    const w = document.querySelector('#waitMode');
+    w.checked = false;
+    w.dispatchEvent(new Event('change', { bubbles: true }));
+    const h = document.querySelector('#hands');
+    h.value = 'both';
+    h.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 });
 await check('desktop: seek to end -> results overlay with review', async () => {
   // 80% leaves Twinkle's final phrase ahead of the cursor: those notes get missed,

@@ -652,8 +652,15 @@ export class PianoFlowApp {
     }
     const pos = this.engine.position;
     if (this.mode === 'practice' && this.engine.playing) {
-      this.detectMisses(pos);
-      if (this.waitMode) this.maybeWait(pos);
+      if (this.waitMode) {
+        // Wait mode pauses at every note until the player hits it, so notes must
+        // never be auto-missed here. Running detectMisses alongside maybeWait let
+        // a slow animation frame overshoot a note's hit window and mark it missed
+        // before the pause engaged (then the player's key registered as "wrong").
+        this.maybeWait(pos);
+      } else {
+        this.detectMisses(pos);
+      }
     }
     // Light up keys the app is auto-playing (listen mode / assisted hand) so the
     // sound is tied to a visible event, merged with the player's own pressed keys.
@@ -732,6 +739,10 @@ export class PianoFlowApp {
       this.waitIndex = i;
       this.waitEnd = this.chordEnd(i);
       this.engine.pause();
+      // Snap the transport exactly onto the note. A slow animation frame can
+      // overshoot the pause point by more than the hit window; clamping here keeps
+      // the waited note hittable (and resting on the strike line) regardless of jitter.
+      this.engine.seek(this.active[i].time);
       this.onState?.();
       this.emitTransport();
     }
