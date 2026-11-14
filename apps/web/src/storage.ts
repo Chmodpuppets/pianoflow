@@ -76,6 +76,12 @@ export class ProgressStore {
     this.cache = {};
     this.write();
   }
+
+  /** Restore a previously captured snapshot (used by undo after a clear). */
+  restore(snapshot: Record<string, SongRecord>): void {
+    this.cache = { ...snapshot };
+    this.write();
+  }
 }
 
 const SETTINGS_KEY = 'pianoflow.settings.v1';
@@ -194,6 +200,12 @@ export class HistoryStore {
 
   clear(): void {
     this.cache = [];
+    this.write();
+  }
+
+  /** Restore a previously captured snapshot (used by undo after a clear). */
+  restore(entries: SessionEntry[]): void {
+    this.cache = entries.filter(isSessionEntry).slice(-this.maxEntries);
     this.write();
   }
 }

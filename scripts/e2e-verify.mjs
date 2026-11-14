@@ -284,6 +284,20 @@ await check('desktop: back to library, zero console errors overall', async () =>
   await page.waitForSelector('#screen-library:not(.hidden)');
   assert.strictEqual(d.errors.length, 0, 'console errors: ' + d.errors.join(' | '));
 });
+await check('desktop: clear history is undoable via toast', async () => {
+  await page.click('#navProgress');
+  await page.waitForSelector('#view-progress:not(.hidden)');
+  const before = await page.evaluate(() => document.querySelectorAll('#progressList .hist-row').length);
+  assert(before > 0, 'expected recorded history rows, got ' + before);
+  await page.click('#progressClear');
+  await page.waitForSelector('#toast:not(.hidden)');
+  const cleared = await page.evaluate(() => document.querySelectorAll('#progressList .hist-row').length);
+  assert.strictEqual(cleared, 0, 'history not cleared: ' + cleared);
+  await page.click('#toastUndo');
+  await hidden(page, '#toast');
+  const restored = await page.evaluate(() => document.querySelectorAll('#progressList .hist-row').length);
+  assert.strictEqual(restored, before, 'undo did not restore history: ' + restored + ' != ' + before);
+});
 await d.ctx.close();
 
 // ================= LOCALE AUTO-DETECT (zh-CN browser) =================
@@ -299,6 +313,8 @@ await check('locale: zh-CN browser auto-detects Chinese UI', async () => {
   await z.page.waitForSelector('#screen-library:not(.hidden)');
   const nav = await z.page.evaluate(() => document.querySelector('#navSongs').textContent);
   assert(nav.includes('曲库'), 'nav=' + nav);
+  const listTxt = await z.page.evaluate(() => document.querySelector('#songList').textContent);
+  assert(listTxt.includes('小星星') && listTxt.includes('致爱丽丝'), 'song titles not localized: ' + listTxt.slice(0, 80));
   assert.strictEqual(z.errors.length, 0, 'console errors: ' + z.errors.join(' | '));
 });
 await z.ctx.close();

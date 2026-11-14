@@ -391,6 +391,13 @@
       </div>
     </div>
 
+    <!-- Undo toast (destructive actions are reversible for a few seconds) -->
+    <div id="toast" class="toast hidden" role="status" aria-live="polite">
+      <span id="toastMsg" class="toast-msg"></span>
+      <button id="toastUndo" class="toast-undo" data-i18n="toast.undo">Undo</button>
+      <button id="toastClose" class="toast-close" data-i18n-title="toast.dismiss" title="Dismiss" aria-label="Dismiss">✕</button>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

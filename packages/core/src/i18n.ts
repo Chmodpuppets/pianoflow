@@ -155,6 +155,10 @@ export const MESSAGES: Record<string, Entry> = {
   'hist.dow.6': { en: 'Sat', zh: '周六' },
   'confirm.clearHistory': { en: 'Delete all recorded practice sessions?', zh: '删除所有练习记录？' },
   'confirm.clearScores': { en: 'Delete all best scores?', zh: '删除所有最佳成绩？' },
+  'toast.clearedHistory': { en: 'Practice history cleared', zh: '练习历史已清空' },
+  'toast.clearedScores': { en: 'Best scores cleared', zh: '最佳成绩已清空' },
+  'toast.undo': { en: 'Undo', zh: '撤销' },
+  'toast.dismiss': { en: 'Dismiss', zh: '关闭' },
 
   // ---- settings view ----
   'settings.title': { en: 'Settings', zh: '设置' },

@@ -1,4 +1,4 @@
-import type { SheetNote } from '@pianoflow/core';
+import type { SheetNote, NoteValue } from '@pianoflow/core';
 import type { Theme } from './theme';
 
 /**
@@ -27,6 +27,12 @@ function ledger(ctx: CanvasRenderingContext2D, x: number, y: number, gap: number
  * Draw a single note (ledger lines, accidental, stem, flags, notehead) centred at
  * (x, y). `near` adds a glow when the note is at the play cursor (live view only).
  */
+export interface BeamInfo {
+  dir: 'up' | 'down';
+  /** y the stem must reach (the interpolated primary-beam line at this x) */
+  stemEndY: number;
+}
+
 export function drawSheetNote(
   ctx: CanvasRenderingContext2D,
   n: SheetNote,
@@ -35,6 +41,7 @@ export function drawSheetNote(
   gap: number,
   theme: Theme,
   near = false,
+  beam?: BeamInfo,
 ): void {
   const color = n.hand === 'left' ? theme.leftNote : theme.rightNote;
   const rx = gap * 0.62;
@@ -58,20 +65,22 @@ export function drawSheetNote(
     ctx.textBaseline = 'alphabetic';
   }
 
-  // Stem (whole notes have none). Direction: down when high on the staff.
+  // Stem (whole notes have none). Beamed notes follow the group direction and
+  // reach the beam line instead of carrying individual flags.
   if (n.value !== 'whole') {
-    const down = n.steps >= 4;
+    const down = beam ? beam.dir === 'down' : n.steps >= 4;
     const sx = down ? x - rx * 0.9 : x + rx * 0.9;
     const len = gap * 3.2;
+    const endY = beam ? beam.stemEndY : down ? y + len : y - len;
     ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(1.2, gap * 0.16);
     ctx.beginPath();
     ctx.moveTo(sx, y);
-    ctx.lineTo(sx, down ? y + len : y - len);
+    ctx.lineTo(sx, endY);
     ctx.stroke();
-    const flags = n.value === 'eighth' ? 1 : n.value === 'sixteenth' ? 2 : 0;
+    const flags = beam ? 0 : n.value === 'eighth' ? 1 : n.value === 'sixteenth' ? 2 : 0;
     for (let f = 0; f < flags; f++) {
-      const fy = (down ? y + len : y - len) + (down ? -1 : 1) * f * gap * 0.7;
+      const fy = endY + (down ? -1 : 1) * f * gap * 0.7;
       ctx.beginPath();
       ctx.moveTo(sx, fy);
       ctx.quadraticCurveTo(sx + gap * 1.1, fy + (down ? -1 : 1) * gap * 0.5, sx + gap * 0.7, fy + (down ? -1 : 1) * gap * 1.2);
@@ -146,4 +155,91 @@ export function drawBassClef(ctx: CanvasRenderingContext2D, x: number, bottom: n
     ctx.fill();
   }
   ctx.restore();
+}
+
+/** A note's position within a beam group (notehead centre + rhythmic value). */
+export interface BeamPoint {
+  x: number;
+  y: number;
+  value: NoteValue;
+}
+
+export interface BeamGeometry {
+  dir: 'up' | 'down';
+  /** stem end y for each point (on the primary beam line) */
+  ends: number[];
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  /** +1 when stems point down (beam below heads), -1 when up */
+  sy: number;
+  beamSep: number;
+}
+
+/**
+ * Compute a (near-horizontal) primary beam through a group's stem ends. The slope
+ * is clamped so beams stay readable; every stem is extended to the beam line.
+ */
+export function beamGeometry(points: BeamPoint[], gap: number, dir: 'up' | 'down'): BeamGeometry | null {
+  if (points.length < 2) return null;
+  const stemLen = gap * 3.2;
+  const sy = dir === 'down' ? 1 : -1;
+  const first = points[0];
+  const last = points[points.length - 1];
+  const y0 = first.y + sy * stemLen;
+  const rawDy = last.y + sy * stemLen - y0;
+  const maxDy = gap * 2;
+  const dy = Math.max(-maxDy, Math.min(maxDy, rawDy));
+  const span = last.x - first.x;
+  const ends = points.map((p) => (span > 1e-6 ? y0 + dy * ((p.x - first.x) / span) : y0));
+  return { dir, ends, x0: first.x, y0, x1: last.x, y1: y0 + dy, sy, beamSep: gap * 0.7 };
+}
+
+/** Draw the primary beam plus secondary beams/stubs for sixteenth notes. */
+export function drawBeamLines(
+  ctx: CanvasRenderingContext2D,
+  points: BeamPoint[],
+  geom: BeamGeometry,
+  color: string,
+  gap: number,
+): void {
+  const primaryY = (x: number): number => {
+    const span = geom.x1 - geom.x0;
+    return span > 1e-6 ? geom.y0 + (geom.y1 - geom.y0) * ((x - geom.x0) / span) : geom.y0;
+  };
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'butt';
+  // Primary beam.
+  ctx.lineWidth = Math.max(2, gap * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(geom.x0, geom.y0);
+  ctx.lineTo(geom.x1, geom.y1);
+  ctx.stroke();
+  // Secondary beam (sixteenths), offset toward the noteheads.
+  const off = -geom.sy * geom.beamSep;
+  ctx.lineWidth = Math.max(1.6, gap * 0.34);
+  let i = 0;
+  while (i < points.length) {
+    if (points[i].value !== 'sixteenth') { i++; continue; }
+    let j = i;
+    while (j + 1 < points.length && points[j + 1].value === 'sixteenth') j++;
+    if (j > i) {
+      ctx.beginPath();
+      ctx.moveTo(points[i].x, primaryY(points[i].x) + off);
+      ctx.lineTo(points[j].x, primaryY(points[j].x) + off);
+      ctx.stroke();
+    } else {
+      // Isolated sixteenth: a short stub toward its neighbour.
+      const nx = i + 1 < points.length ? points[i + 1].x : points[i - 1].x;
+      const dirSign = nx >= points[i].x ? 1 : -1;
+      const sx = points[i].x;
+      const ex = sx + dirSign * gap * 0.9;
+      ctx.beginPath();
+      ctx.moveTo(sx, primaryY(sx) + off);
+      ctx.lineTo(ex, primaryY(ex) + off);
+      ctx.stroke();
+    }
+    i = j + 1;
+  }
 }

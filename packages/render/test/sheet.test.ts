@@ -3,7 +3,7 @@ import { SheetRenderer } from '../src/sheet';
 import type { SheetLayout, SheetNote } from '@pianoflow/core';
 
 function mockCtx() {
-  const rec = { ellipses: 0, strokes: 0, fillRects: 0, texts: [] as string[], saves: 0, restores: 0 };
+  const rec = { ellipses: 0, strokes: 0, fillRects: 0, texts: [] as string[], saves: 0, restores: 0, quads: 0 };
   const noop = () => {};
   const ctx = {
     fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 1, lineCap: 'butt',
@@ -16,7 +16,7 @@ function mockCtx() {
     ellipse: () => { rec.ellipses++; },
     rotate: noop, translate: noop,
     save: () => { rec.saves++; }, restore: () => { rec.restores++; },
-    bezierCurveTo: noop, quadraticCurveTo: noop,
+    bezierCurveTo: noop, quadraticCurveTo: () => { rec.quads++; },
     setTransform: noop,
     measureText: () => ({ width: 0 }),
     fillText: (t: string) => { rec.texts.push(t); },
@@ -94,5 +94,24 @@ describe('SheetRenderer', () => {
     r.render({ layout: layout([note(0, 64)]), position: 0 });
     expect(rec.fillRects).toBe(0);
     expect(rec.ellipses).toBe(0);
+  });
+
+  it('suppresses individual flags when eighths are beamed together', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetRenderer(mockCanvas(ctx));
+    r.resize(800, 400);
+    // Two eighths in the same beat (beatDur 0.5s) → one beam, no flags.
+    r.render({ layout: layout([note(0, 64, { value: 'eighth' }), note(0.25, 67, { value: 'eighth' })]), position: 0 });
+    expect(rec.ellipses).toBe(2);
+    expect(rec.quads).toBe(0); // flags are quadratic curves; beamed notes have none
+    expect(rec.strokes).toBeGreaterThan(0); // the beam itself is stroked
+  });
+
+  it('keeps flags for eighths in different beats (not beamed)', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetRenderer(mockCanvas(ctx));
+    r.resize(800, 400);
+    r.render({ layout: layout([note(0, 64, { value: 'eighth' }), note(0.5, 67, { value: 'eighth' })]), position: 0 });
+    expect(rec.quads).toBe(2); // one flag per un-beamed eighth
   });
 });

@@ -342,8 +342,21 @@ guestBtn.addEventListener('click', () => { profiles.active = null; saveProfiles(
 switchProfileBtn.addEventListener('click', () => openProfileModal('login'));
 
 // ---------- song library ----------
-interface SongEntry { id: string; title: string; composer: string; genre?: string; file: string }
+interface SongEntry { id: string; title: string; titleZh?: string; composer: string; composerZh?: string; genre?: string; file: string }
 let bundledSongs: SongEntry[] = [];
+/** Localized display title/composer (zh falls back to the original when absent). */
+function locTitle(s: SongEntry | undefined): string {
+  if (!s) return '';
+  return lang === 'zh' && s.titleZh ? s.titleZh : s.title;
+}
+function locComposer(s: SongEntry | undefined): string {
+  if (!s) return '';
+  if (s.composer === 'Imported') return tr('songs.importedComposer');
+  return lang === 'zh' && s.composerZh ? s.composerZh : s.composer;
+}
+function songById(id: string): SongEntry | undefined {
+  return bundledSongs.find((s) => s.id === id);
+}
 let activeGenre = 'All Songs';
 let searchTerm = '';
 const SORT_KEY = 'pianoflow.sort.v1';
@@ -386,7 +399,8 @@ function buildSongList(): void {
   const q = searchTerm.toLowerCase();
   const filtered = bundledSongs.filter((s) => {
     const genreOk = activeGenre === 'All Songs' || (s.genre ?? 'Other') === activeGenre;
-    const searchOk = !q || s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q);
+    const hay = `${s.title} ${s.titleZh ?? ''} ${s.composer} ${s.composerZh ?? ''}`.toLowerCase();
+    const searchOk = !q || hay.includes(q);
     return genreOk && searchOk;
   });
   const libMeta = (id: string): LibraryMeta | undefined => {
@@ -395,7 +409,7 @@ function buildSongList(): void {
     const entry = bundledSongs.find((s) => s.id === id);
     if (!info && !rec && !entry) return undefined;
     return {
-      title: entry?.title ?? id,
+      title: locTitle(entry) || id,
       difficulty: info?.difficulty.level ?? 99,
       duration: info?.duration ?? Number.POSITIVE_INFINITY,
       lastPlayedAt: rec?.lastPlayedAt ?? 0,
@@ -417,12 +431,12 @@ function buildSongList(): void {
     const row = document.createElement('div');
     row.className = 'song-row' + (st.songId === s.id ? ' playing' : '');
     const genre = s.genre ?? 'Local';
-    const composer = s.composer === 'Imported' ? tr('songs.importedComposer') : s.composer;
+    const composer = locComposer(s);
     const sub = info ? `${composer} · ${tr('songs.notes', { n: info.stats.noteCount })} · ${fmt(info.duration)}` : composer;
     row.innerHTML = `
       <div class="song-art art-${genre}">${ART_EMOJI[genre] ?? '🎵'}</div>
       <div class="song-meta">
-        <div class="song-title">${s.title}</div>
+        <div class="song-title">${locTitle(s)}</div>
         <div class="song-sub">${sub}</div>
       </div>
       ${info ? diffBars(info.difficulty.level) : '<span class="song-diff"></span>'}
@@ -456,8 +470,8 @@ async function selectSong(entry: SongEntry, autoplay: boolean): Promise<void> {
     const res = await fetch(`songs/${entry.file}`);
     const buf = await res.arrayBuffer();
     app.loadBuffer(buf, entry.title, entry.id);
-    playerTitle.textContent = entry.title;
-    playerComposer.textContent = entry.composer;
+    playerTitle.textContent = locTitle(entry);
+    playerComposer.textContent = locComposer(entry);
     showScreen('player');
     buildSongList();
     if (autoplay) await app.play();
@@ -637,7 +651,7 @@ function buildHistory(): void {
   practicedSongIds(log).forEach((id) => {
     const trend = songTrend(log, id);
     if (!trend) return;
-    const title = log.find((e) => e.songId === id)?.songTitle ?? id;
+    const title = locTitle(songById(id)) || log.find((e) => e.songId === id)?.songTitle || id;
     const card = document.createElement('div');
     card.className = 'hist-song';
     card.innerHTML = `
@@ -653,20 +667,57 @@ function buildHistory(): void {
     const row = document.createElement('div');
     row.className = 'hist-row';
     row.innerHTML = `
-      <div class="hist-row-main"><div class="hist-row-title">${e.songTitle}</div><div class="hist-row-when">${fmtWhen(e.at)}</div></div>
+      <div class="hist-row-main"><div class="hist-row-title">${locTitle(songById(e.songId)) || e.songTitle}</div><div class="hist-row-when">${fmtWhen(e.at)}</div></div>
       <div class="hist-row-score"><span class="hist-grade grade-${e.grade}">${e.grade}</span><span class="hist-acc">${Math.round(e.accuracy * 100)}%</span></div>`;
     progressList.appendChild(row);
   });
 }
-progressClear.addEventListener('click', () => {
-  if (window.confirm(tr('confirm.clearHistory'))) { history.clear(); buildHistory(); }
+// ---------- undo toast (destructive clears are reversible) ----------
+const toast = $<HTMLElement>('toast');
+const toastMsg = $<HTMLElement>('toastMsg');
+const toastUndo = $<HTMLButtonElement>('toastUndo');
+const toastClose = $<HTMLButtonElement>('toastClose');
+let toastTimer: number | null = null;
+let toastUndoFn: (() => void) | null = null;
+function hideToast(): void {
+  toast.classList.add('hidden');
+  if (toastTimer !== null) { window.clearTimeout(toastTimer); toastTimer = null; }
+  toastUndoFn = null;
+}
+function showUndoToast(message: string, onUndo: () => void): void {
+  toastMsg.textContent = message;
+  toastUndoFn = onUndo;
+  toast.classList.remove('hidden');
+  if (toastTimer !== null) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(hideToast, 8000);
+}
+toastUndo.addEventListener('click', () => {
+  const fn = toastUndoFn;
+  hideToast();
+  fn?.();
 });
-clearHistoryBtn.addEventListener('click', () => {
-  if (window.confirm(tr('confirm.clearHistory'))) { history.clear(); buildHistory(); }
-});
-clearProgressBtn.addEventListener('click', () => {
-  if (window.confirm(tr('confirm.clearScores'))) { progress.clear(); buildSongList(); }
-});
+toastClose.addEventListener('click', hideToast);
+
+function clearHistoryWithUndo(): void {
+  const snapshot = [...history.getAll()];
+  history.clear();
+  buildHistory();
+  showUndoToast(tr('toast.clearedHistory'), () => { history.restore(snapshot); buildHistory(); });
+}
+function clearScoresWithUndo(): void {
+  const snapshot = { ...progress.getAll() };
+  progress.clear();
+  buildSongList();
+  if (!views.progress.classList.contains('hidden')) buildHistory();
+  showUndoToast(tr('toast.clearedScores'), () => {
+    progress.restore(snapshot);
+    buildSongList();
+    if (!views.progress.classList.contains('hidden')) buildHistory();
+  });
+}
+progressClear.addEventListener('click', clearHistoryWithUndo);
+clearHistoryBtn.addEventListener('click', clearHistoryWithUndo);
+clearProgressBtn.addEventListener('click', clearScoresWithUndo);
 
 // ---------- result ----------
 function renderReview(): void {
@@ -721,7 +772,7 @@ function showResult(result: SessionResult, songId: string): void {
   const rec = progress.get(songId);
   resultGrade.textContent = result.grade;
   resultGrade.className = 'result-grade grade-' + result.grade;
-  resultTitle.textContent = app.currentSongInfo().title || tr('result.complete');
+  resultTitle.textContent = locTitle(songById(songId)) || app.currentSongInfo().title || tr('result.complete');
   resultBest.textContent = rec ? tr('result.best', { grade: rec.bestGrade, pct: Math.round(rec.bestAccuracy * 100) }) : '';
   resultStats.innerHTML =
     tr('result.stats1', { pct: Math.round(result.accuracy * 100), hits: result.hits, total: result.total }) + '<br>' +
@@ -733,7 +784,7 @@ function showResult(result: SessionResult, songId: string): void {
 }
 app.onResult = (result, songId) => {
   progress.recordResult(songId, result);
-  history.record(makeSession(songId, app.currentSongInfo().title || 'Song', result, Date.now()));
+  history.record(makeSession(songId, locTitle(songById(songId)) || app.currentSongInfo().title || 'Song', result, Date.now()));
   showResult(result, songId);
   buildSongList();
   if (!views.progress.classList.contains('hidden')) buildHistory();
@@ -807,9 +858,11 @@ sheetClose.addEventListener('click', closeSheet);
 /** Render the full printable score to an offscreen canvas and download it as PNG. */
 function exportSheetPng(): void {
   const info = app.currentSongInfo();
-  const composer = bundledSongs.find((s) => s.id === info.id)?.composer ?? '';
+  const entry = songById(info.id);
+  const title = locTitle(entry) || info.title;
+  const composer = locComposer(entry);
   const off = document.createElement('canvas');
-  if (!app.exportSheetTo(off, { title: info.title, composer, scale: 2 })) return;
+  if (!app.exportSheetTo(off, { title, composer, scale: 2 })) return;
   off.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -1092,6 +1145,11 @@ function applyLanguage(): void {
   refreshProfileChip();
   buildChips();
   buildSongList();
+  const cur = songById(app.getState().songId);
+  if (cur) {
+    playerTitle.textContent = locTitle(cur);
+    playerComposer.textContent = locComposer(cur);
+  }
   buildPluginList(practicePlugins);
   buildPluginList(pluginsList);
   if (!midiPanel.classList.contains('hidden')) buildMidiDevices();
@@ -1112,7 +1170,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.33.0';
+aboutVersion.textContent = 'v0.34.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {

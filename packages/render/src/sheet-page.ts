@@ -1,6 +1,6 @@
-import { buildSheetSystems, type SheetLayout, type SheetNote } from '@pianoflow/core';
+import { buildSheetSystems, buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { paperTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Static, printable full-score renderer. Unlike the scrolling SheetRenderer (a
@@ -94,6 +94,8 @@ export class SheetPageRenderer {
     const hasTitle = !!(state.title || state.composer);
     const systems = buildSheetSystems(state.layout, this.config.measuresPerSystem);
     const height = this.pageHeight(Math.max(1, systems.length), hasTitle);
+    const beamOf = new Map<number, BeamGroup>();
+    for (const g of buildBeamGroups(state.layout)) for (const i of g.indices) beamOf.set(i, g);
 
     // Size the canvas to the full page (high-res for export).
     const dpr = Math.min(window.devicePixelRatio || 1, 2) * this.config.scale;
@@ -161,14 +163,45 @@ export class SheetPageRenderer {
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(String(sys.startMeasure), CLEF_WIDTH - 10, trebleTop - gap * 0.6);
 
-      // Notes belonging to this system.
-      for (const n of state.layout.notes) {
+      // Notes belonging to this system (beamed runs share a beam instead of flags).
+      const notes = state.layout.notes;
+      const geomCache = new Map<BeamGroup, { pts: BeamPoint[]; geom: ReturnType<typeof beamGeometry> }>();
+      const ensureGeom = (g: BeamGroup) => {
+        let e = geomCache.get(g);
+        if (!e) {
+          const pts: BeamPoint[] = g.indices.map((i) => {
+            const nn = notes[i];
+            return { x: xFor(nn.time), y: nn.staff === 'treble' ? yTreble(nn.steps) : yBass(nn.steps), value: nn.value };
+          });
+          e = { pts, geom: beamGeometry(pts, gap, g.direction) };
+          geomCache.set(g, e);
+        }
+        return e;
+      };
+      const drawnGroups = new Set<BeamGroup>();
+      for (let i = 0; i < notes.length; i++) {
+        const n = notes[i];
         if (n.time < sys.startTime) continue;
         if (n.time >= sys.endTime && si !== last) continue;
         const x = xFor(n.time);
         if (x < CLEF_WIDTH - 6 || x > width - RIGHT_PAD + 6) continue;
         const y = n.staff === 'treble' ? yTreble(n.steps) : yBass(n.steps);
-        drawSheetNote(ctx, n, x, y, gap, theme, false);
+        const g = beamOf.get(i);
+        let beam: { dir: 'up' | 'down'; stemEndY: number } | undefined;
+        if (g) {
+          const { geom } = ensureGeom(g);
+          if (geom) {
+            beam = { dir: g.direction, stemEndY: geom.ends[g.indices.indexOf(i)] };
+            drawnGroups.add(g);
+          }
+        }
+        drawSheetNote(ctx, n, x, y, gap, theme, false, beam);
+      }
+      for (const g of drawnGroups) {
+        const { pts, geom } = ensureGeom(g);
+        if (!geom) continue;
+        const color = notes[g.indices[0]].hand === 'left' ? theme.leftNote : theme.rightNote;
+        drawBeamLines(ctx, pts, geom, color, gap);
       }
     });
 

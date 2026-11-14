@@ -55,11 +55,11 @@ Add to Home Screen for a full-screen, offline practice app.
 ### 亮点
 - 🎮 **下落音符舞台** — 双手分色、键盘自动适配音域、节奏网格、视觉倒数。
 - ⚡ **WebGL GPU 渲染** — 实例化单次绘制数千音符，无 WebGL 时自动回退 Canvas2D。
-- 🎹 **练习模式** — 单手辅助（另一只手自动弹奏）、逐小节复盘 + 弱项跳转、评分与成就。
-- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出。
+- 🎹 **练习模式** — 单手辅助（另一只手自动弹奏）、逐小节复盘 + 弱项跳转、评分与成就、清空可撤销。
+- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，八分/十六分音符自动符杠。
 - 🎵 **12 首内置公版曲目** — 致爱丽丝、卡农、巴赫前奏曲、奇异恩典等。
 - 🎤 **真实音色** — 4 种离线 SoundFont（钢琴/电钢/音乐盒/颤音琴）。
-- 🌐 **双语界面** —  English / 中文 一键切换。
+- 🌐 **双语界面** — English / 中文 一键切换，曲目名与作者也本地化。
 - 📦 **PWA + 桌面** — 可安装、离线可用；Tauri 原生 macOS 应用。
 
 ### 快速开始
@@ -81,11 +81,11 @@ macOS desktop build.
 ### Highlights
 - 🎮 **Falling-notes stage** — color-coded hands, auto-fit keyboard, rhythm grid, visual count-in.
 - ⚡ **WebGL GPU rendering** — one instanced draw call for thousands of notes; Canvas2D fallback.
-- 🎹 **Practice mode** — hand assist (app plays the other hand), per-measure review + focus chips, scoring & achievements.
-- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export.
+- 🎹 **Practice mode** — hand assist (app plays the other hand), per-measure review + focus chips, scoring & achievements, undoable clears.
+- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with beamed eighth/sixteenth notes.
 - 🎵 **12 bundled public-domain songs** — Für Elise, Canon in D, Bach Prelude, Amazing Grace…
 - 🎤 **Real sound** — 4 offline SoundFonts (piano / e-piano / music box / vibraphone).
-- 🌐 **Bilingual UI** — English / 中文, one tap.
+- 🌐 **Bilingual UI** — English / 中文, one tap; song titles & composers localized too.
 - 📦 **PWA + desktop** — installable & offline; native Tauri macOS app.
 
 ### Quick start

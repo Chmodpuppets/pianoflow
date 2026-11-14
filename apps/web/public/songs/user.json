@@ -1,9 +1,1 @@
-[
-  {
-    "id": "la-la-land",
-    "title": "La La Land",
-    "composer": "Justin Hurwitz",
-    "genre": "Movie & TV",
-    "file": "la-la-land.mid"
-  }
-]
+[{"id": "la-la-land", "title": "La La Land", "titleZh": "爱乐之城", "composer": "Justin Hurwitz", "composerZh": "贾斯汀·赫尔维茨", "genre": "Movie & TV", "file": "la-la-land.mid"}]

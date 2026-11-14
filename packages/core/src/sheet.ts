@@ -133,6 +133,71 @@ export interface SheetSystem {
   endTime: number; // seconds (exclusive; start of next system or piece end)
 }
 
+/** A run of consecutive eighth/sixteenth notes joined by a beam instead of flags. */
+export interface BeamGroup {
+  staff: Staff;
+  /** indices into layout.notes (time order) */
+  indices: number[];
+  direction: 'up' | 'down';
+}
+
+/**
+ * Group beamed notes: consecutive eighth/sixteenth notes on the same staff within
+ * the same beat (beat length derived from the first bar span / beatsPerMeasure).
+ * Chords share a group, but a group needs >= 2 distinct onsets to carry a beam.
+ * Pure + headless-testable; renderers draw the beam and suppress individual flags.
+ */
+export function buildBeamGroups(layout: SheetLayout): BeamGroup[] {
+  const notes = layout.notes;
+  const bars = layout.barTimes.length ? layout.barTimes : [0];
+  const beats = Math.max(1, layout.beatsPerMeasure);
+  const beatDur = bars.length >= 2 ? (bars[1] - bars[0]) / beats : 0.5;
+  if (!(beatDur > 0)) return [];
+  const barStartFor = (t: number): number => {
+    let b = bars[0];
+    for (const bt of bars) {
+      if (bt <= t + 1e-9) b = bt;
+      else break;
+    }
+    return b;
+  };
+  const beatKey = (t: number): string => {
+    const b = barStartFor(t);
+    return `${b}:${Math.floor((t - b) / beatDur + 1e-6)}`;
+  };
+  const beamed = (v: NoteValue): boolean => v === 'eighth' || v === 'sixteenth';
+  const groups: BeamGroup[] = [];
+  let run: number[] = [];
+  let runStaff: Staff | null = null;
+  let runKey = '';
+  let lastTime = 0;
+  const flush = (): void => {
+    if (run.length >= 2 && new Set(run.map((i) => notes[i].time)).size >= 2) {
+      const avg = run.reduce((s, i) => s + notes[i].steps, 0) / run.length;
+      groups.push({ staff: runStaff as Staff, indices: [...run], direction: avg >= 4 ? 'down' : 'up' });
+    }
+    run = [];
+  };
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    if (!beamed(n.value)) {
+      flush();
+      runStaff = null;
+      continue;
+    }
+    const key = beatKey(n.time);
+    if (run.length && (n.staff !== runStaff || key !== runKey || n.time - lastTime > beatDur * 0.75)) flush();
+    if (!run.length) {
+      runStaff = n.staff;
+      runKey = key;
+    }
+    run.push(i);
+    lastTime = n.time;
+  }
+  flush();
+  return groups;
+}
+
 /**
  * Paginate a grand-staff layout into systems of `measuresPerSystem` measures for
  * a static, printable full-score page. Pure: each `barTimes` entry is a measure

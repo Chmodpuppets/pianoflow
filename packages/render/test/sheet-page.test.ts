@@ -6,7 +6,7 @@ import type { SheetLayout, SheetNote } from '@pianoflow/core';
 function mockCtx() {
   const rec = {
     ellipses: 0, strokes: 0, fillRects: 0, texts: [] as string[],
-    saves: 0, restores: 0, fillStyles: [] as string[],
+    saves: 0, restores: 0, fillStyles: [] as string[], quads: 0,
   };
   const noop = () => {};
   const ctx = {
@@ -19,7 +19,7 @@ function mockCtx() {
     ellipse: () => { rec.ellipses++; },
     rotate: noop, translate: noop,
     save: () => { rec.saves++; }, restore: () => { rec.restores++; },
-    bezierCurveTo: noop, quadraticCurveTo: noop,
+    bezierCurveTo: noop, quadraticCurveTo: () => { rec.quads++; },
     setTransform: noop,
     measureText: () => ({ width: 0 }),
     fillText: (t: string) => { rec.texts.push(t); },
@@ -121,5 +121,14 @@ describe('SheetPageRenderer', () => {
     r.render({ layout: layout([note(0, 64)]), title: 'T' });
     expect(predicted).toBe(r.viewHeight);
     expect(predicted).toBeGreaterThan(0);
+  });
+
+  it('beams same-beat eighths on the printed page (no individual flags)', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetPageRenderer(mockCanvas(ctx));
+    r.render({ layout: layout([note(0, 64, { value: 'eighth' }), note(0.25, 67, { value: 'eighth' })]) });
+    expect(rec.ellipses).toBe(2);
+    expect(rec.quads).toBe(0); // beamed → flags suppressed
+    expect(rec.strokes).toBeGreaterThan(0);
   });
 });

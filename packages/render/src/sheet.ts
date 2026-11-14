@@ -1,6 +1,6 @@
-import type { SheetLayout, SheetNote } from '@pianoflow/core';
+import { buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { defaultTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Scrolling grand-staff sheet-music renderer. Draws two staves (treble + bass)
@@ -37,6 +37,8 @@ export class SheetRenderer {
   private cssH = 0;
   private dpr = 1;
   config: SheetConfig;
+  private beamLayout: SheetLayout | null = null;
+  private beamOf = new Map<number, BeamGroup>();
 
   constructor(canvas: HTMLCanvasElement, config: Partial<SheetConfig> = {}) {
     this.canvas = canvas;
@@ -100,15 +102,53 @@ export class SheetRenderer {
     this.drawTrebleClef(trebleBottom, lineGap, theme);
     this.drawBassClef(bassBottom, lineGap, theme);
 
+    // Beam groups (cached per layout): consecutive eighths/sixteenths share a beam.
+    if (this.beamLayout !== state.layout) {
+      this.beamLayout = state.layout;
+      this.beamOf = new Map();
+      for (const g of buildBeamGroups(state.layout)) for (const i of g.indices) this.beamOf.set(i, g);
+    }
+    const notes = state.layout.notes;
+    const geomCache = new Map<BeamGroup, { pts: BeamPoint[]; geom: ReturnType<typeof beamGeometry> }>();
+    const ensureGeom = (g: BeamGroup) => {
+      let e = geomCache.get(g);
+      if (!e) {
+        const pts: BeamPoint[] = g.indices.map((i) => {
+          const nn = notes[i];
+          return { x: xFor(nn.time), y: nn.staff === 'treble' ? yTreble(nn.steps) : yBass(nn.steps), value: nn.value };
+        });
+        e = { pts, geom: beamGeometry(pts, lineGap, g.direction) };
+        geomCache.set(g, e);
+      }
+      return e;
+    };
+    const drawnGroups = new Set<BeamGroup>();
+
     // Notes within the visible time window (1s pad; exact pixel cull below).
     const t0 = state.position - this.config.behind - 1;
     const t1 = state.position + this.config.ahead + 1;
-    for (const n of state.layout.notes) {
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
       if (n.time < t0 || n.time > t1) continue;
       const x = xFor(n.time);
       if (x < CLEF_WIDTH - 20 || x > cssW + 20) continue;
       const y = n.staff === 'treble' ? yTreble(n.steps) : yBass(n.steps);
-      this.drawNote(n, x, y, lineGap, theme, state.position);
+      const g = this.beamOf.get(i);
+      let beam: { dir: 'up' | 'down'; stemEndY: number } | undefined;
+      if (g) {
+        const { geom } = ensureGeom(g);
+        if (geom) {
+          beam = { dir: g.direction, stemEndY: geom.ends[g.indices.indexOf(i)] };
+          drawnGroups.add(g);
+        }
+      }
+      this.drawNote(n, x, y, lineGap, theme, state.position, beam);
+    }
+    for (const g of drawnGroups) {
+      const { pts, geom } = ensureGeom(g);
+      if (!geom) continue;
+      const color = notes[g.indices[0]].hand === 'left' ? theme.leftNote : theme.rightNote;
+      drawBeamLines(this.ctx, pts, geom, color, lineGap);
     }
 
     this.drawCursor(cursorX, trebleBottom, bassBottom, staffH, theme);
@@ -150,8 +190,8 @@ export class SheetRenderer {
     }
   }
 
-  private drawNote(n: SheetNote, x: number, y: number, gap: number, theme: Theme, pos: number): void {
-    drawSheetNote(this.ctx, n, x, y, gap, theme, Math.abs(n.time - pos) < 0.12);
+  private drawNote(n: SheetNote, x: number, y: number, gap: number, theme: Theme, pos: number, beam?: { dir: 'up' | 'down'; stemEndY: number }): void {
+    drawSheetNote(this.ctx, n, x, y, gap, theme, Math.abs(n.time - pos) < 0.12, beam);
   }
 
   private drawCursor(x: number, tb: number, bb: number, staffH: number, theme: Theme): void {

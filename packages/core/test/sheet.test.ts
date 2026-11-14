@@ -6,10 +6,12 @@ import {
   noteValue,
   buildSheet,
   buildSheetSystems,
+  buildBeamGroups,
   TREBLE_BOTTOM,
   BASS_BOTTOM,
 } from '../src/sheet';
 import type { MidiSong, MidiNote } from '../src/types';
+import type { SheetLayout, SheetNote } from '../src/sheet';
 
 describe('midiToDiatonic', () => {
   it('spells C4 as step 0, no accidental, octave 4', () => {
@@ -163,5 +165,50 @@ describe('buildSheetSystems', () => {
     expect(systems).toHaveLength(2);
     expect(systems[0]).toMatchObject({ startMeasure: 1, measureCount: 2 });
     expect(systems[1]).toMatchObject({ startMeasure: 3, measureCount: 1 });
+  });
+});
+
+describe('buildBeamGroups', () => {
+  const sn = (time: number, value: SheetNote['value'], over: Partial<SheetNote> = {}): SheetNote => ({
+    midi: 64, time, duration: 0.2, hand: 'right', staff: 'treble', steps: 0, accidental: 0, value, ...over,
+  });
+  // barTimes [0,2], 4 beats → beatDur 0.5s (a quarter = 0.5s, an eighth = 0.25s).
+  const lay = (notes: SheetNote[]): SheetLayout => ({ notes, barTimes: [0, 2], beatsPerMeasure: 4 });
+
+  it('beams consecutive eighths within the same beat and staff', () => {
+    const groups = buildBeamGroups(lay([sn(0, 'eighth'), sn(0.25, 'eighth')]));
+    expect(groups).toHaveLength(1);
+    expect(groups[0].indices).toEqual([0, 1]);
+    expect(groups[0].staff).toBe('treble');
+  });
+  it('does not beam across a beat boundary', () => {
+    const groups = buildBeamGroups(lay([sn(0, 'eighth'), sn(0.5, 'eighth')]));
+    expect(groups).toHaveLength(0);
+  });
+  it('ignores quarter and whole notes', () => {
+    expect(buildBeamGroups(lay([sn(0, 'quarter'), sn(0.25, 'quarter')]))).toHaveLength(0);
+    expect(buildBeamGroups(lay([sn(0, 'whole')]))).toHaveLength(0);
+  });
+  it('keeps staves separate', () => {
+    const groups = buildBeamGroups(lay([
+      sn(0, 'eighth'), sn(0.25, 'eighth', { staff: 'bass', hand: 'left' }),
+    ]));
+    expect(groups).toHaveLength(0);
+  });
+  it('requires at least two distinct onsets (a lone chord is not beamed)', () => {
+    const groups = buildBeamGroups(lay([sn(0, 'eighth'), sn(0, 'eighth', { midi: 67 })]));
+    expect(groups).toHaveLength(0);
+  });
+  it('beams a sixteenth run and picks stem direction from average height', () => {
+    const low = buildBeamGroups(lay([sn(0, 'sixteenth'), sn(0.125, 'sixteenth'), sn(0.25, 'sixteenth')]));
+    expect(low).toHaveLength(1);
+    expect(low[0].direction).toBe('up'); // steps 0 (low on staff) → stems up
+    const high = buildBeamGroups(lay([
+      sn(0, 'eighth', { steps: 6 }), sn(0.25, 'eighth', { steps: 6 }),
+    ]));
+    expect(high[0].direction).toBe('down');
+  });
+  it('returns no groups for an empty layout', () => {
+    expect(buildBeamGroups(lay([]))).toHaveLength(0);
   });
 });
