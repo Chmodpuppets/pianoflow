@@ -198,6 +198,47 @@ await check('desktop: language switch EN->zh->EN', async () => {
   const nav2 = await page.evaluate(() => document.querySelector('#navSongs').textContent);
   assert(nav2.includes('Songs'), 'nav2=' + nav2);
 });
+await check('desktop: learn curriculum path + continue opens lesson in practice', async () => {
+  await page.click('#navLearn');
+  await page.waitForSelector('#view-learn:not(.hidden)');
+  const stages = await page.evaluate(() => document.querySelectorAll('#learnPath .learn-stage').length);
+  assert.strictEqual(stages, 4, 'stages=' + stages);
+  const cards = await page.evaluate(() => document.querySelectorAll('#learnPath .lesson-card').length);
+  assert.strictEqual(cards, 12, 'lesson cards=' + cards);
+  const firstStatus = await page.evaluate(() => document.querySelector('#learnPath .lesson-card').className);
+  assert(firstStatus.includes('status-available'), 'first lesson not available: ' + firstStatus);
+  const lastDisabled = await page.evaluate(() => {
+    const all = document.querySelectorAll('#learnPath .lesson-card');
+    const last = all[all.length - 1];
+    return last.className.includes('status-locked') && last.querySelector('.lesson-practice').disabled;
+  });
+  assert(lastDisabled, 'last lesson should be locked + disabled');
+  assert(await visible(page, '#learnContinue'), 'continue card visible');
+  const contTitle = await page.evaluate(() => document.querySelector('#learnContinueTitle').textContent);
+  assert(contTitle.includes('Twinkle'), 'continue title=' + contTitle);
+  const label = await page.evaluate(() => document.querySelector('#learnProgressLabel').textContent);
+  assert(label.includes('0 of 12'), 'progress label=' + label);
+  // Continue opens the first lesson (Twinkle, right hand) in practice mode.
+  await page.click('#learnContinueBtn');
+  await page.waitForSelector('#screen-player:not(.hidden)');
+  const title = await page.evaluate(() => document.querySelector('#playerTitle').textContent);
+  assert(title.includes('Twinkle'), 'lesson title=' + title);
+  const practice = await page.evaluate(() => document.querySelector('#modePlay').getAttribute('aria-pressed'));
+  assert.strictEqual(practice, 'true', 'not practice mode: ' + practice);
+  const hands = await page.evaluate(() => document.querySelector('#hands').value);
+  assert.strictEqual(hands, 'right', 'hands=' + hands);
+  // restore listen mode + default hands/speed (the lesson set right hand + 0.75x)
+  // and return to the library SONGS view so later tests run from a clean state.
+  await page.click('#modeListen');
+  await page.evaluate(() => {
+    const h = document.querySelector('#hands'); h.value = 'both'; h.dispatchEvent(new Event('change', { bubbles: true }));
+    const sp = document.querySelector('#pSpeed'); sp.value = '1'; sp.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.click('#backBtn');
+  await page.waitForSelector('#screen-library:not(.hidden)');
+  await page.click('#navSongs');
+  await page.waitForSelector('#view-songs:not(.hidden)');
+});
 await check('desktop: open shortest song -> player renders', async () => {
   await page.fill('#songSearch', 'twinkle');
   await page.waitForFunction(() => document.querySelectorAll('.song-row').length === 1);
@@ -270,20 +311,27 @@ await check('desktop: practice mode + coach card + keyboard input judged', async
 await check('desktop: seek to end -> results overlay with review', async () => {
   // 80% leaves Twinkle's final phrase ahead of the cursor: those notes get missed,
   // so the results screen must show both a grade and a per-measure review.
+  // Play the tail at 2x so it finishes quickly even on a throttled CI runner. The
+  // end-of-song result is emitted by the audio scheduler (ctx.resume + setInterval),
+  // not rAF; the anti-throttle launch flags keep that clock running. A single seek
+  // (no re-seeking) preserves the missed-tail judgements that feed the review.
   await page.evaluate(() => {
+    const sp = document.querySelector('#pSpeed'); sp.value = '2'; sp.dispatchEvent(new Event('change', { bubbles: true }));
     const s = document.querySelector('#seek');
     s.value = '800'; s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true }));
   });
   // seeking while paused freezes the transport; make sure it is playing so the run can finish
   const playTxt = await page.evaluate(() => document.querySelector('#playBtn').textContent.trim());
   if (playTxt === '▶') await page.click('#playBtn');
-  await page.waitForSelector('#resultOverlay:not(.hidden)', { timeout: 30000 });
+  await page.waitForSelector('#resultOverlay:not(.hidden)', { timeout: 45000 });
   const grade = await page.evaluate(() => document.querySelector('#resultGrade').textContent);
   assert(/^[SABCD]$/.test(grade), 'grade=' + grade);
   assert(await visible(page, '#resultReview'), 'review visible');
   const cells = await page.evaluate(() => document.querySelectorAll('#reviewTimeline .review-cell').length);
   assert(cells > 0, 'review cells=' + cells);
   await shot(page, 'desktop-result.png');
+  // restore default speed for the remaining checks
+  await page.evaluate(() => { const sp = document.querySelector('#pSpeed'); sp.value = '1'; sp.dispatchEvent(new Event('change', { bubbles: true })); });
 });
 await check('desktop: result retry restarts run', async () => {
   assert(await visible(page, '#resultOverlay'), 'result overlay must be open before retry');
@@ -373,8 +421,14 @@ await check('locale: zh-CN browser auto-detects Chinese UI', async () => {
   await z.page.waitForSelector('#screen-library:not(.hidden)');
   const nav = await z.page.evaluate(() => document.querySelector('#navSongs').textContent);
   assert(nav.includes('曲库'), 'nav=' + nav);
+  const navLearn = await z.page.evaluate(() => document.querySelector('#navLearn').textContent);
+  assert(navLearn.includes('课程'), 'navLearn=' + navLearn);
   const listTxt = await z.page.evaluate(() => document.querySelector('#songList').textContent);
   assert(listTxt.includes('小星星') && listTxt.includes('致爱丽丝'), 'song titles not localized: ' + listTxt.slice(0, 80));
+  await z.page.click('#navLearn');
+  await z.page.waitForSelector('#view-learn:not(.hidden)');
+  const learnTxt = await z.page.evaluate(() => document.querySelector('#learnPath').textContent);
+  assert(learnTxt.includes('第一步') && learnTxt.includes('小星星'), 'curriculum not localized: ' + learnTxt.slice(0, 80));
   assert.strictEqual(z.errors.length, 0, 'console errors: ' + z.errors.join(' | '));
 });
 await z.ctx.close();

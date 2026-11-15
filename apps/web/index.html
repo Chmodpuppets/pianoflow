@@ -53,6 +53,7 @@
         <nav class="side-nav">
           <button id="navSongs" class="side-item active" data-view="songs" data-i18n="nav.songs">🎵 Songs</button>
           <button id="navPractice" class="side-item" data-view="practice" data-i18n="nav.practice">🎯 Practice</button>
+          <button id="navLearn" class="side-item" data-view="learn" data-i18n="nav.learn">🎓 Learn</button>
           <button id="navProgress" class="side-item" data-view="progress" data-i18n="nav.progress">📈 Progress</button>
           <button id="navSettings" class="side-item" data-view="settings" data-i18n="nav.settings">⚙️ Settings</button>
         </nav>
@@ -117,6 +118,27 @@
             <div id="practicePlugins" class="plugin-list"></div>
           </div>
           <button id="startPracticeBtn" class="btn btn-primary" data-i18n="practice.start">▶ Start practicing</button>
+        </div>
+
+        <!-- Learn / curriculum view -->
+        <div id="view-learn" class="view hidden">
+          <div class="view-head"><h2 data-i18n="learn.title">Learn</h2></div>
+          <p class="view-sub" data-i18n="learn.sub">A guided path from your first melody to classical mastery.</p>
+          <div class="panel learn-overview">
+            <div class="learn-progress-row">
+              <span id="learnProgressLabel" class="learn-progress-label"></span>
+              <div class="learn-bar"><div id="learnBarFill" class="learn-bar-fill"></div></div>
+            </div>
+            <div id="learnContinue" class="learn-continue hidden">
+              <div class="learn-continue-text">
+                <div class="learn-continue-kicker" data-i18n="learn.current">Up next</div>
+                <div id="learnContinueTitle" class="learn-continue-title"></div>
+              </div>
+              <button id="learnContinueBtn" class="btn btn-primary" data-i18n="learn.continue">Continue</button>
+            </div>
+            <div id="learnAllDone" class="learn-alldone hidden" data-i18n="learn.allDone">🎉 Curriculum complete — you mastered every lesson!</div>
+          </div>
+          <div id="learnPath" class="learn-path"></div>
         </div>
 
         <!-- Progress view -->

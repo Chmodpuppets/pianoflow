@@ -11,6 +11,7 @@ export * from './transport';
 export * from './meter';
 export * from './grid';
 export * from './progress';
+export * from './curriculum';
 export * from './history';
 export * from './insights';
 export * from './sheet';

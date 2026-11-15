@@ -25,8 +25,11 @@ import {
   LANGS,
   sortLibrary,
   isLibrarySort,
+  CURRICULUM,
+  buildStageProgress,
+  curriculumSummary,
 } from '@pianoflow/core';
-import type { SessionResult, SongStats, Difficulty, SessionEntry, Lang, LibrarySort, LibraryMeta } from '@pianoflow/core';
+import type { SessionResult, SongStats, Difficulty, SessionEntry, Lang, LibrarySort, LibraryMeta, Lesson, LessonProgress, CurriculumRecord } from '@pianoflow/core';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -114,6 +117,7 @@ const navButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.sid
 const views: Record<string, HTMLElement> = {
   songs: $<HTMLElement>('view-songs'),
   practice: $<HTMLElement>('view-practice'),
+  learn: $<HTMLElement>('view-learn'),
   progress: $<HTMLElement>('view-progress'),
   settings: $<HTMLElement>('view-settings'),
 };
@@ -132,6 +136,14 @@ const pMetro = $<HTMLInputElement>('pMetro');
 const pHandAssist = $<HTMLInputElement>('pHandAssist');
 const practicePlugins = $<HTMLElement>('practicePlugins');
 const startPracticeBtn = $<HTMLButtonElement>('startPracticeBtn');
+
+const learnProgressLabel = $<HTMLElement>('learnProgressLabel');
+const learnBarFill = $<HTMLElement>('learnBarFill');
+const learnContinue = $<HTMLElement>('learnContinue');
+const learnContinueTitle = $<HTMLElement>('learnContinueTitle');
+const learnContinueBtn = $<HTMLButtonElement>('learnContinueBtn');
+const learnAllDone = $<HTMLElement>('learnAllDone');
+const learnPath = $<HTMLElement>('learnPath');
 
 const progressSummary = $<HTMLElement>('progressSummary');
 const progressList = $<HTMLElement>('progressList');
@@ -293,6 +305,7 @@ function showView(name: string): void {
   navButtons.forEach((b) => b.classList.toggle('active', b.dataset.view === name));
   if (name === 'progress') buildHistory();
   if (name === 'practice') buildPluginList(practicePlugins);
+  if (name === 'learn') buildLearn();
   if (name === 'settings') syncControls();
 }
 
@@ -479,6 +492,93 @@ async function selectSong(entry: SongEntry, autoplay: boolean): Promise<void> {
     console.error('Failed to load song', err);
   }
 }
+// ---------- learn / curriculum ----------
+function curriculumRecords(): Record<string, CurriculumRecord> {
+  const out: Record<string, CurriculumRecord> = {};
+  for (const s of bundledSongs) {
+    const rec = progress.get(s.id);
+    if (rec) out[s.id] = { bestGrade: rec.bestGrade, bestAccuracy: rec.bestAccuracy, plays: rec.plays };
+  }
+  return out;
+}
+function openLesson(lesson: Lesson): void {
+  const entry = songById(lesson.songId);
+  if (!entry) return;
+  app.setMode('practice');
+  app.setHands(lesson.hands);
+  app.setSpeed(lesson.speed);
+  persist();
+  syncControls();
+  void selectSong(entry, true);
+}
+function lessonCard(p: LessonProgress): HTMLElement {
+  const { lesson } = p;
+  const entry = songById(lesson.songId);
+  const card = document.createElement('div');
+  card.className = 'lesson-card status-' + p.status;
+  const icon = p.status === 'completed' ? '✓' : p.status === 'locked' ? '🔒' : '▶';
+  const best = p.bestGrade ? tr('learn.best', { grade: p.bestGrade }) : tr('learn.notPlayed');
+  const goalLabel = tr('learn.goalGrade', { grade: lesson.goal.grade });
+  card.innerHTML = `
+    <div class="lesson-icon">${icon}</div>
+    <div class="lesson-body">
+      <div class="lesson-title">${locTitle(entry) || lesson.songId}</div>
+      <div class="lesson-tags">
+        <span class="lesson-tag">${tr('hands.' + lesson.hands)}</span>
+        <span class="lesson-tag">${lesson.speed}×</span>
+        <span class="lesson-tag goal">${tr('learn.goal')}: ${goalLabel}</span>
+      </div>
+      <div class="lesson-tip">${tr(lesson.tipKey)}</div>
+    </div>
+    <div class="lesson-side">
+      <div class="lesson-best">${best}</div>
+      <button class="btn btn-primary lesson-practice"${p.status === 'locked' ? ' disabled' : ''}>${tr('learn.practice')}</button>
+    </div>`;
+  if (p.status !== 'locked') {
+    (card.querySelector('.lesson-practice') as HTMLButtonElement).addEventListener('click', () => openLesson(lesson));
+  }
+  return card;
+}
+function buildLearn(): void {
+  const records = curriculumRecords();
+  const stages = buildStageProgress(CURRICULUM, records);
+  const sum = curriculumSummary(CURRICULUM, records);
+  learnProgressLabel.textContent = tr('learn.progress', { done: sum.completed, total: sum.total });
+  learnBarFill.style.width = `${Math.round(sum.pct * 100)}%`;
+  const all = stages.flatMap((sp) => sp.lessons);
+  const current = all.find((p) => p.lesson.id === sum.currentId) ?? null;
+  if (current) {
+    learnContinue.classList.remove('hidden');
+    learnAllDone.classList.add('hidden');
+    learnContinueTitle.textContent = locTitle(songById(current.lesson.songId)) || current.lesson.songId;
+    learnContinueBtn.onclick = () => openLesson(current.lesson);
+  } else {
+    learnContinue.classList.add('hidden');
+    learnAllDone.classList.remove('hidden');
+  }
+  learnPath.innerHTML = '';
+  stages.forEach((sp, si) => {
+    const stageEl = document.createElement('div');
+    stageEl.className = 'learn-stage status-' + sp.status;
+    const badge = sp.status === 'complete' ? '✓' : sp.status === 'locked' ? '🔒' : String(si + 1);
+    const head = document.createElement('div');
+    head.className = 'learn-stage-head';
+    head.innerHTML = `
+      <div class="learn-stage-badge">${badge}</div>
+      <div class="learn-stage-meta">
+        <div class="learn-stage-title">${tr(sp.stage.titleKey)}</div>
+        <div class="learn-stage-desc">${tr(sp.stage.descKey)}</div>
+      </div>
+      <div class="learn-stage-count">${sp.completed}/${sp.total}</div>`;
+    stageEl.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'learn-lessons';
+    sp.lessons.forEach((p) => list.appendChild(lessonCard(p)));
+    stageEl.appendChild(list);
+    learnPath.appendChild(stageEl);
+  });
+}
+
 songSearch.addEventListener('input', () => { searchTerm = songSearch.value; buildSongList(); });
 sortSel.value = sortKey;
 sortSel.addEventListener('change', () => {
@@ -788,6 +888,7 @@ app.onResult = (result, songId) => {
   showResult(result, songId);
   buildSongList();
   if (!views.progress.classList.contains('hidden')) buildHistory();
+  if (!views.learn.classList.contains('hidden')) buildLearn();
 };
 resultRetry.addEventListener('click', () => { resultOverlay.classList.add('hidden'); app.seek(0); void app.play(); });
 resultClose.addEventListener('click', () => resultOverlay.classList.add('hidden'));
@@ -1154,6 +1255,7 @@ function applyLanguage(): void {
   buildPluginList(pluginsList);
   if (!midiPanel.classList.contains('hidden')) buildMidiDevices();
   if (!views.progress.classList.contains('hidden')) buildHistory();
+  if (!views.learn.classList.contains('hidden')) buildLearn();
   if (lastResult && !resultOverlay.classList.contains('hidden')) showResult(lastResult.result, lastResult.songId);
   syncControls();
   refresh();
@@ -1170,7 +1272,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.34.0';
+aboutVersion.textContent = 'v0.35.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {

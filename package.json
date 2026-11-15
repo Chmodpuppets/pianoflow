@@ -1,6 +1,6 @@
 {
   "name": "pianoflow",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "private": true,
   "description": "Open-source falling-notes piano practice app — a libre Synthesia alternative.",
   "license": "GPL-3.0-or-later",

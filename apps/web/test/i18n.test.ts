@@ -7,6 +7,8 @@ import {
   INSTRUMENTS,
   createBuiltinPlugins,
   computeAchievements,
+  CURRICULUM,
+  flattenLessons,
 } from '@pianoflow/core';
 
 /**
@@ -75,6 +77,18 @@ describe('i18n UI coverage', () => {
       assertKey('ach.' + a.id + '.title');
       assertKey('ach.' + a.id + '.desc');
     }
+  });
+
+  it('covers every curriculum stage title/description and lesson tip', () => {
+    expect(CURRICULUM.length).toBeGreaterThanOrEqual(4);
+    for (const stage of CURRICULUM) {
+      assertKey(stage.titleKey);
+      assertKey(stage.descKey);
+    }
+    const lessons = flattenLessons(CURRICULUM);
+    expect(lessons.length).toBeGreaterThanOrEqual(12);
+    for (const l of lessons) assertKey(l.tipKey);
+    for (const k of ['learn.title', 'learn.sub', 'learn.progress', 'learn.continue', 'learn.current', 'learn.allDone', 'learn.goal', 'learn.goalGrade', 'learn.best', 'learn.notPlayed', 'learn.practice']) assertKey(k);
   });
 
   it('covers every genre used by the bundled songs (+ fallbacks)', () => {
