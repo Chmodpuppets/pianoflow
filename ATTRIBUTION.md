@@ -10,6 +10,12 @@
   本地采样以完全离线运行，失败时回退到 CDN，再回退到内置合成器。FluidR3_GM 遵循其原始许可（见该仓库）。
 - 离线回退音色为 PianoFlow 内置的 Web Audio 合成钢琴（本项目代码，GPL-3.0）。
 
+- **Salamander Grand Piano（Yamaha C5）**：Alexander Holm 录制，遵循
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)。本项目使用
+  [Tone.js 提供的 MP3 采样](https://github.com/Tonejs/audio/tree/master/salamander)，
+  将 30 个采样打包成 MIDI.js SoundFont。原始采样见
+  [Salamander Grand Piano](https://sfzinstruments.github.io/pianos/salamander/)。
+
 ## 曲目 Songs
 - 内置曲目均为**公有领域（Public Domain）**旋律的简化练习编曲，由本项目脚本
   `scripts/generate-songs.mjs` 生成：

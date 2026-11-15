@@ -91,6 +91,8 @@ export interface AppState {
   midiConnected: boolean;
   midiDevices: MidiDeviceInfo[];
   midiSelected: string | null;
+  midiOutputs: MidiDeviceInfo[];
+  midiOutputSelected: string | null;
   lastMidiNote: number | null;
   lastJudge: string;
   metronome: boolean;
@@ -228,6 +230,7 @@ export class PianoFlowApp {
     };
     this.webmidi = new WebMidiInput(handlers);
     this.webmidi.onDevicesChange = (devices) => {
+      this.engine.setMidiOutput(this.webmidi.output);
       this.midiDevices = devices;
       this.midiConnected = devices.length > 0;
       this.onState?.();
@@ -509,6 +512,12 @@ export class PianoFlowApp {
   /** Listen to a single MIDI input device by id, or `null` for all devices. */
   selectMidiDevice(id: string | null): void {
     this.webmidi.select(id);
+    this.onState?.();
+  }
+
+  selectMidiOutput(id: string | null): void {
+    this.webmidi.selectOutput(id);
+    this.engine.setMidiOutput(this.webmidi.output);
     this.onState?.();
   }
 
@@ -937,6 +946,8 @@ export class PianoFlowApp {
       midiConnected: this.midiConnected,
       midiDevices: this.midiDevices,
       midiSelected: this.webmidi.selected,
+      midiOutputs: this.webmidi.outputs(),
+      midiOutputSelected: this.webmidi.selectedOutput,
       lastMidiNote: this.lastMidiNote,
       lastJudge: this.lastJudge,
       metronome: this.engine.metronome,

@@ -206,6 +206,7 @@ export interface SheetNote {
 /** A silence on one staff, quantised to a rhythmic value and placed at the gap start. */
 export interface Rest {
   time: number; // seconds (start of the silent gap)
+  measureEnd?: number; // full-measure rests are centered between these boundaries
   staff: Staff;
   value: NoteValue;
 }
@@ -418,39 +419,54 @@ function beatDuration(layout: SheetLayout): number {
   return bars.length >= 2 ? (bars[1] - bars[0]) / beats : 0.5;
 }
 
-/**
- * Detect per-staff silences and quantise each to a single rest value. Sounding
- * intervals (note onset → onset+duration) are merged so chords/sustained notes do
- * not produce spurious rests; a rest is emitted for the leading gap (staff enters
- * late) and every inter-note gap of at least `minBeats` beats. The rest sits at the
- * gap start and takes the largest standard value that fits (whole/half/quarter).
- * Pure + headless-testable; trailing silence after a staff's last note is omitted.
- */
+/** Merge sounding intervals per staff, then write a centered rest for each empty measure. */
 export function buildRests(layout: SheetLayout, minBeats = 1): Rest[] {
   const beatDur = beatDuration(layout);
-  if (!(beatDur > 0)) return [];
+  if (!(beatDur > 0) || layout.notes.length === 0) return [];
+  const lastOnset = layout.notes.reduce((last, note) => Math.max(last, note.time), 0);
+  const bars = (layout.barTimes.length ? layout.barTimes : [0]).filter((time) => time <= lastOnset + 1e-9);
+  const lastBar = bars[bars.length - 1] ?? 0;
+  const nextBar = layout.barTimes[bars.length];
+  bars.push(nextBar ?? lastBar + beatDur * layout.beatsPerMeasure);
+
   const rests: Rest[] = [];
   for (const staff of ['treble', 'bass'] as Staff[]) {
     const intervals = layout.notes
       .filter((n) => n.staff === staff)
       .map((n) => [n.time, n.time + n.duration] as [number, number])
       .sort((a, b) => a[0] - b[0]);
-    if (!intervals.length) continue;
-    // Merge overlapping/contiguous sounding intervals.
     const merged: Array<[number, number]> = [];
     for (const [s, e] of intervals) {
       const last = merged[merged.length - 1];
       if (last && s <= last[1] + 1e-3) last[1] = Math.max(last[1], e);
       else merged.push([s, e]);
     }
-    const gaps: Array<[number, number]> = [];
-    if (merged[0][0] > 1e-6) gaps.push([0, merged[0][0]]); // leading rest
-    for (let i = 1; i < merged.length; i++) gaps.push([merged[i - 1][1], merged[i][0]]);
-    for (const [gs, ge] of gaps) {
-      const beats = (ge - gs) / beatDur;
-      if (beats < minBeats - 1e-6) continue;
+
+    const addPartialRest = (start: number, end: number) => {
+      const beats = (end - start) / beatDur;
+      if (beats < minBeats - 1e-6) return;
       const value: NoteValue = beats >= 3.5 ? 'whole' : beats >= 1.5 ? 'half' : 'quarter';
-      rests.push({ time: gs, staff, value });
+      rests.push({ time: start, staff, value });
+    };
+
+    let i = 0;
+    for (let m = 0; m < bars.length - 1; m++) {
+      const start = bars[m];
+      const end = bars[m + 1];
+      while (i < merged.length && merged[i][1] <= start + 1e-6) i++;
+      if (i === merged.length || merged[i][0] >= end - 1e-6) {
+        rests.push({ time: start, staff, value: 'whole', measureEnd: end });
+        continue;
+      }
+
+      let cursor = start;
+      for (; i < merged.length && merged[i][0] < end - 1e-6; i++) {
+        const [onset, release] = merged[i];
+        addPartialRest(cursor, onset);
+        cursor = release;
+        if (release > end) break;
+      }
+      if (i < merged.length) addPartialRest(cursor, end);
     }
   }
   return rests.sort((a, b) => a.time - b.time || (a.staff < b.staff ? -1 : 1));

@@ -35,6 +35,7 @@ export interface SheetConfig {
 
 export const defaultSheetConfig: SheetConfig = { ahead: 6, behind: 2, theme: defaultTheme };
 
+const STAFF_START = 12;
 const CLEF_WIDTH = 64;
 const RIGHT_PAD = 24;
 
@@ -187,7 +188,7 @@ export class SheetRenderer {
     const middleTreble = trebleBottom - 2 * lineGap;
     const middleBass = bassBottom - 2 * lineGap;
     for (const r of state.layout.rests ?? []) {
-      const x = xFor(r.time);
+      const x = xFor(r.measureEnd === undefined ? r.time : (r.time + r.measureEnd) / 2);
       if (x < leftPad - 20 || x > cssW + 20) continue;
       drawRest(this.ctx, r.value, x, r.staff === 'treble' ? middleTreble : middleBass, lineGap, theme);
     }
@@ -276,10 +277,10 @@ export class SheetRenderer {
     target.fillStyle = theme.background;
     target.fillRect(0, 0, cssW, cssH);
     this.drawStaves(target, trebleBottom, bassBottom, lineGap, theme);
-    drawTrebleClef(target, CLEF_WIDTH * 0.42, trebleBottom, lineGap, theme);
-    drawBassClef(target, CLEF_WIDTH * 0.4, bassBottom, lineGap, theme);
-    drawKeySignature(target, keySig, 'treble', CLEF_WIDTH * 0.72, trebleBottom, lineGap, theme);
-    drawKeySignature(target, keySig, 'bass', CLEF_WIDTH * 0.72, bassBottom, lineGap, theme);
+    drawTrebleClef(target, 28, trebleBottom, lineGap, theme);
+    drawBassClef(target, 28, bassBottom, lineGap, theme);
+    drawKeySignature(target, keySig, 'treble', 52, trebleBottom, lineGap, theme);
+    drawKeySignature(target, keySig, 'bass', 52, bassBottom, lineGap, theme);
   }
 
   private drawStaves(target: CanvasRenderingContext2D, tb: number, bb: number, gap: number, theme: Theme): void {
@@ -290,7 +291,7 @@ export class SheetRenderer {
       for (let i = 0; i < 5; i++) {
         const y = bottom - i * gap;
         target.beginPath();
-        target.moveTo(CLEF_WIDTH - 12, y);
+        target.moveTo(STAFF_START, y);
         target.lineTo(cssW, y);
         target.stroke();
       }

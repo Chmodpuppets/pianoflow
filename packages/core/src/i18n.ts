@@ -217,7 +217,7 @@ export const MESSAGES: Record<string, Entry> = {
   'settings.beatGrid': { en: 'Measure & beat grid', zh: '小节与拍子网格' },
   'settings.mute': { en: 'Mute all sound', zh: '静音' },
   'settings.sound': { en: 'Sound', zh: '声音' },
-  'settings.soundHint': { en: 'Bundled FluidR3_GM timbres play fully offline; switching reloads samples.', zh: '内置 FluidR3_GM 音色完全离线播放；切换音色会重新加载采样。' },
+  'settings.soundHint': { en: 'Bundled instruments work offline. Switching instruments loads their samples.', zh: '内置音色支持离线播放。切换音色时会加载对应的采样。' },
   'settings.devices': { en: 'Devices & extensions', zh: '设备与扩展' },
   'settings.midi': { en: '🎛 MIDI devices', zh: '🎛 MIDI 设备' },
   'settings.plugins': { en: '🧩 Plugins', zh: '🧩 插件' },
@@ -228,7 +228,8 @@ export const MESSAGES: Record<string, Entry> = {
   'settings.about.pre': { en: 'PianoFlow ', zh: 'PianoFlow ' },
   'settings.about.post': { en: ' · open-source falling-notes piano practice. GPL-3.0. SoundFont: FluidR3_GM (offline). Songs: public-domain arrangements.', zh: ' · 开源下落音符钢琴练习。GPL-3.0。音色：FluidR3_GM（离线）。曲目：公有领域编曲。' },
   'settings.language': { en: 'Language', zh: '语言' },
-  'settings.sound.local': { en: 'Sound: FluidR3_GM piano (bundled, offline).', zh: '声音：FluidR3_GM 钢琴（内置，离线）。' },
+  'settings.sound.external': { en: 'Sound: external MIDI only ({name}).', zh: '音源：仅外部 MIDI（{name}）。' },
+  'settings.sound.local': { en: 'Sound: bundled samples (offline).', zh: '音源：内置采样（离线）。' },
   'settings.sound.cdn': { en: 'Sound: FluidR3_GM piano (streamed).', zh: '声音：FluidR3_GM 钢琴（在线流式）。' },
   'settings.sound.synth': { en: 'Sound: built-in synth fallback.', zh: '声音：内置合成器（回退）。' },
 
@@ -318,6 +319,8 @@ export const MESSAGES: Record<string, Entry> = {
   'midi.title': { en: '🎛 MIDI devices', zh: '🎛 MIDI 设备' },
   'midi.supported': { en: 'WebMIDI supported. Select a device or use all.', zh: '支持 WebMIDI。选择一个设备或使用全部。' },
   'midi.unsupported': { en: 'WebMIDI not supported in this browser. Use Chrome/Edge, or play with keyboard/touch.', zh: '此浏览器不支持 WebMIDI。请使用 Chrome/Edge，或用键盘/触摸弹奏。' },
+  'midi.output': { en: 'Sound output', zh: '声音输出' },
+  'midi.outputInternal': { en: 'PianoFlow built-in audio', zh: 'PianoFlow 内置音源' },
   'midi.all': { en: 'All devices', zh: '全部设备' },
   'midi.allSub': { en: 'Listen to every connected input', zh: '监听所有已连接的输入' },
   'midi.last': { en: 'Last note:', zh: '最近音符：' },
@@ -347,6 +350,7 @@ export const MESSAGES: Record<string, Entry> = {
   'review.chipTitle': { en: 'Jump to measure {n} and practice it', zh: '跳转到第 {n} 小节并练习' },
 
   // ---- instruments (id-keyed) ----
+  'instrument.salamander_grand_piano': { en: 'Salamander Grand (Yamaha C5)', zh: 'Salamander 三角钢琴（雅马哈 C5）' },
   'instrument.acoustic_grand_piano': { en: 'Grand Piano', zh: '大钢琴' },
   'instrument.electric_piano_1': { en: 'Electric Piano', zh: '电钢琴' },
   'instrument.music_box': { en: 'Music Box', zh: '八音盒' },

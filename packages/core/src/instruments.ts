@@ -8,6 +8,7 @@ export interface InstrumentDef {
 
 export const INSTRUMENTS: InstrumentDef[] = [
   { id: 'acoustic_grand_piano', label: 'Grand Piano', desc: 'Warm concert grand (default)' },
+  { id: 'salamander_grand_piano', label: 'Salamander Grand (Yamaha C5)', desc: 'Sampled Yamaha C5 grand' },
   { id: 'electric_piano_1', label: 'Electric Piano', desc: 'Soft Rhodes-style e-piano' },
   { id: 'music_box', label: 'Music Box', desc: 'Bright, bell-like plucks' },
   { id: 'vibraphone', label: 'Vibraphone', desc: 'Mellow metal bars with shimmer' },

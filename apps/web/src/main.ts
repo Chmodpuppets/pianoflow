@@ -246,6 +246,13 @@ const psMidiBtn = $<HTMLButtonElement>('psMidiBtn');
 const psPluginsBtn = $<HTMLButtonElement>('psPluginsBtn');
 
 const midiPanel = $<HTMLElement>('midiPanel');
+const midiOutput = $<HTMLSelectElement>('midiOutput');
+const MIDI_OUTPUT_KEY = 'pianoflow.midiOutput';
+midiOutput.addEventListener('change', () => {
+  const id = midiOutput.value;
+  try { if (id) localStorage.setItem(MIDI_OUTPUT_KEY, id); else localStorage.removeItem(MIDI_OUTPUT_KEY); } catch { /* optional storage */ }
+  app.selectMidiOutput(id || null);
+});
 const midiClose = $<HTMLButtonElement>('midiClose');
 const midiSupport = $<HTMLElement>('midiSupport');
 const midiDeviceList = $<HTMLElement>('midiDeviceList');
@@ -742,6 +749,12 @@ let midiSig = '';
 function buildMidiDevices(): void {
   const st = app.getState();
   midiSupport.textContent = st.midiSupported ? tr('midi.supported') : tr('midi.unsupported');
+  midiOutput.replaceChildren(new Option(tr('midi.outputInternal'), ''));
+  for (const output of st.midiOutputs) {
+    if (output.state === 'connected') midiOutput.add(new Option(output.name, output.id));
+  }
+  midiOutput.value = st.midiOutputs.some((port) => port.id === st.midiOutputSelected && port.state === 'connected')
+    ? st.midiOutputSelected ?? '' : '';
   midiDeviceList.innerHTML = '';
   const all = document.createElement('div');
   all.className = 'midi-item' + (st.midiSelected === null ? ' active' : '');
@@ -1100,15 +1113,17 @@ function syncControls(): void {
   muteBtn.textContent = s.muted ? '🔇' : '🔊';
   muteBtn.setAttribute('aria-pressed', String(s.muted));
   muteBtn.classList.toggle('muted', s.muted);
-  settingsSound.textContent =
-    st.soundfontSource === 'local' ? tr('settings.sound.local') :
-    st.soundfontSource === 'cdn' ? tr('settings.sound.cdn') : tr('settings.sound.synth');
 }
 
 // ---------- player wiring ----------
 let seeking = false;
 function refresh(): void {
   const st = app.getState();
+  const external = st.midiOutputs.find((port) => port.id === st.midiOutputSelected && port.state === 'connected');
+  const soundLabel = external ? tr('settings.sound.external', { name: external.name }) :
+    st.soundfontSource === 'local' ? tr('settings.sound.local') :
+    st.soundfontSource === 'cdn' ? tr('settings.sound.cdn') : tr('settings.sound.synth');
+  if (settingsSound.textContent !== soundLabel) settingsSound.textContent = soundLabel;
   playBtn.textContent = st.playing ? '⏸' : '▶';
   recBtn.textContent = st.recording ? '⏹' : '⏺';
   recBtn.classList.toggle('recording', st.recording);
@@ -1135,7 +1150,8 @@ function refresh(): void {
   }
   gpuBadge.classList.toggle('hidden', !st.gpuActive);
   midiLastNote.textContent = st.lastMidiNote !== null ? noteName(st.lastMidiNote) : '—';
-  const sig = st.midiSelected + '|' + st.midiDevices.map((d) => d.id + d.state).join(',');
+  const sig = [st.midiSelected, st.midiOutputSelected, ...st.midiDevices, ...st.midiOutputs]
+    .map((item) => typeof item === 'object' && item ? item.id + item.state : item).join('|');
   if (sig !== midiSig && !midiPanel.classList.contains('hidden')) { midiSig = sig; buildMidiDevices(); }
 }
 app.onState = refresh;
@@ -1370,7 +1386,13 @@ app.applySettings(saved);
 applyLanguage();
 showView('songs');
 showScreen('welcome');
-void app.init().then(() => { refresh(); });
+void app.init().then(() => {
+  let output: string | null = null;
+  try { output = localStorage.getItem(MIDI_OUTPUT_KEY); } catch { /* optional storage */ }
+  if (output) app.selectMidiOutput(output);
+  refresh();
+});
+window.addEventListener('pagehide', () => app.selectMidiOutput(null));
 void loadSongs();
 
 // Live-refresh the library when the songs folder changes (dev only).

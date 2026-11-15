@@ -1,5 +1,5 @@
 import { Soundfont } from 'smplr';
-import { buildBeatGrid, type Beat, type MeterInput, type MidiNote } from '@pianoflow/core';
+import { DEFAULT_INSTRUMENT, buildBeatGrid, type Beat, type MeterInput, type MidiNote } from '@pianoflow/core';
 import { PianoSynth } from './synth';
 import { masterGainValue } from './volume';
 
@@ -48,6 +48,8 @@ export class AudioEngine {
   private soundfontUrl: string | null;
   private soundfontUrlFor: ((id: string) => string | null) | null;
   private _soundfontSource: 'local' | 'cdn' | 'synth' = 'synth';
+  private midiOutput: MIDIOutput | null = null;
+  private midiTimers = new Set<ReturnType<typeof setTimeout>>();
   private live = new Map<number, () => void>();
   readonly ready: Promise<void>;
   onEnded?: () => void;
@@ -99,17 +101,21 @@ export class AudioEngine {
     // Try the bundled local samples first (offline), then the CDN instrument,
     // and finally fall back to the built-in synth if neither can load.
     const attempts: { options: { instrumentUrl?: string; instrument?: string; destination?: AudioNode }; source: 'local' | 'cdn' }[] = [];
-    const local = this.localUrlFor(this.instrument);
+    const instrument = this.instrument;
+    const local = this.localUrlFor(instrument);
     if (local) attempts.push({ options: { instrumentUrl: local, destination: this.masterGain }, source: 'local' });
-    attempts.push({ options: { instrument: this.instrument, destination: this.masterGain }, source: 'cdn' });
+    const cdnInstrument = instrument === 'salamander_grand_piano' ? DEFAULT_INSTRUMENT : instrument;
+    attempts.push({ options: { instrument: cdnInstrument, destination: this.masterGain }, source: 'cdn' });
     for (const { options, source } of attempts) {
       try {
         const sf = new Soundfont(this.ctx, options);
         await sf.ready;
+        if (instrument !== this.instrument) return;
         this.sf = sf;
         this._soundfontSource = source;
         return;
       } catch (e) {
+        if (instrument !== this.instrument) return;
         console.warn(`[pianoflow] SoundFont (${source}) unavailable, trying next source.`, e);
       }
     }
@@ -159,17 +165,56 @@ export class AudioEngine {
   get beatDuration(): number {
     return this.beatDur0;
   }
-  /** Mute/unmute all audio (synth, soundfont, metronome) via the master gain. */
+  setMidiOutput(output: MIDIOutput | null): void {
+    if (this.midiOutput === output) return;
+    this.stopScheduled();
+    this.live.clear();
+    this.midiOutput = output;
+    this.updateMasterGain();
+    this.anchorPos = this.position;
+    this.anchorTime = this.ctx.currentTime;
+    this.reindex();
+    this.reindexBeats();
+  }
+
+  private resetMidiOutput(): void {
+    for (const timer of this.midiTimers) clearTimeout(timer);
+    this.midiTimers.clear();
+    const port = this.midiOutput;
+    if (!port || port.state !== 'connected') return;
+    for (const channel of [0, 1]) {
+      port.send([0xb0 | channel, 64, 0]);
+      port.send([0xb0 | channel, 123, 0]);
+    }
+  }
+
+  private scheduleMidi(data: number[], delayMs: number): void {
+    const port = this.midiOutput;
+    const timer = setTimeout(() => {
+      this.midiTimers.delete(timer);
+      if (port?.state === 'connected') port.send(data);
+    }, delayMs);
+    this.midiTimers.add(timer);
+  }
+
+  private updateMasterGain(): void {
+    // Selecting an external instrument makes it the only audible output.
+    // This also silences browser-generated count-ins, metronome and chimes.
+    this.masterGain.gain.value = masterGainValue(this._muted || this.midiOutput !== null, this._volume);
+  }
+
+  /** Mute/unmute the active sound output. */
   setMuted(muted: boolean): void {
+    if (muted && !this._muted) this.resetMidiOutput();
     this._muted = muted;
-    this.masterGain.gain.value = masterGainValue(this._muted, this._volume);
+    this.updateMasterGain();
   }
   get muted(): boolean {
     return this._muted;
   }
   setVolume(volume: number): void {
     this._volume = Math.min(1, Math.max(0, isFinite(volume) ? volume : 0));
-    this.masterGain.gain.value = masterGainValue(this._muted, this._volume);
+    this.updateMasterGain();
   }
   get volume(): number {
     return this._volume;
@@ -280,6 +325,7 @@ export class AudioEngine {
 
   setSpeed(s: number): void {
     const pos = this.position;
+    this.resetMidiOutput();
     this._speed = Math.max(0.1, Math.min(4, s));
     this.anchorPos = pos;
     this.anchorTime = this.ctx.currentTime;
@@ -331,7 +377,12 @@ export class AudioEngine {
   }
 
   private trigger(midi: number, when: number, duration: number, velocity: number): void {
-    if (this.sf) {
+    if (this.midiOutput?.state === 'connected') {
+      if (this._muted) return;
+      const delay = Math.max(0, when - this.ctx.currentTime) * 1000;
+      this.scheduleMidi([0x90, midi, Math.max(1, Math.round(velocity * 127))], delay);
+      this.scheduleMidi([0x80, midi, 0], delay + Math.max(0.05, duration) * 1000);
+    } else if (this.sf) {
       this.sf.start({
         note: midi,
         time: when,
@@ -359,6 +410,7 @@ export class AudioEngine {
   }
 
   private stopScheduled(): void {
+    this.resetMidiOutput();
     if (this.sf) {
       try {
         this.sf.stop();
@@ -371,6 +423,10 @@ export class AudioEngine {
 
   noteOn(midi: number, velocity = 0.8): void {
     void this.ctx.resume();
+    if (this.midiOutput?.state === 'connected') {
+      if (!this._muted) this.midiOutput.send([0x91, midi, Math.max(1, Math.round(velocity * 127))]);
+      return;
+    }
     if (this.sf) {
       const handle = this.sf.start({
         note: midi,
@@ -384,6 +440,7 @@ export class AudioEngine {
   }
 
   noteOff(midi: number): void {
+    if (this.midiOutput?.state === 'connected') this.midiOutput.send([0x81, midi, 0]);
     const h = this.live.get(midi);
     if (h) {
       h();
@@ -417,6 +474,7 @@ export class AudioEngine {
 
   dispose(): void {
     this.pause();
+    this.resetMidiOutput();
     void this.ctx.close();
   }
 }

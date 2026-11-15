@@ -21,6 +21,7 @@ export interface MidiDeviceInfo {
  */
 export class WebMidiInput {
   private access: any = null;
+  private outputId: string | null = null;
   private handlers: NoteHandlers;
   private selectedId: string | null = null;
 
@@ -78,11 +79,36 @@ export class WebMidiInput {
     return this.selectedId;
   }
 
+  outputs(): MidiDeviceInfo[] {
+    return Array.from(this.access?.outputs?.values() ?? [], (port: MIDIOutput) => ({
+      id: port.id,
+      name: port.name ?? 'MIDI output',
+      manufacturer: port.manufacturer ?? '',
+      state: port.state,
+    }));
+  }
+
+  get selectedOutput(): string | null {
+    return this.outputId;
+  }
+
+  get output(): MIDIOutput | null {
+    const port = this.outputId ? this.access?.outputs?.get(this.outputId) as MIDIOutput | undefined : undefined;
+    return port?.state === 'connected' ? port : null;
+  }
+
+  selectOutput(id: string | null): void {
+    this.outputId = id;
+    this.attach();
+  }
+
   private attach(): void {
     if (!this.access) return;
+    const output = this.output;
     this.access.inputs.forEach((inp: any) => {
+      const loopback = output && inp.name === output.name && inp.manufacturer === output.manufacturer;
       const active = this.selectedId == null || String(inp.id) === this.selectedId;
-      inp.onmidimessage = active ? (e: any) => this.onMessage(e) : null;
+      inp.onmidimessage = active && !loopback ? (e: any) => this.onMessage(e) : null;
     });
   }
 

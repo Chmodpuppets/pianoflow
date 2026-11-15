@@ -199,7 +199,7 @@
                 <select id="sInstrument"></select>
               </label>
             </div>
-            <p class="muted-line" data-i18n="settings.soundHint">Bundled FluidR3_GM timbres play fully offline; switching reloads samples.</p>
+            <p class="muted-line" data-i18n="settings.soundHint">Bundled instruments work offline. Switching instruments loads their samples.</p>
           </div>
           <div class="panel">
             <h3 data-i18n="settings.devices">Devices &amp; extensions</h3>
@@ -368,6 +368,9 @@
       <div class="drawer-head"><span data-i18n="midi.title">🎛 MIDI devices</span><button id="midiClose" data-i18n-title="ps.close" title="Close">✕</button></div>
       <div class="drawer-body">
         <div id="midiSupport" class="midi-support"></div>
+        <label><span data-i18n="midi.output">Sound output</span>
+          <select id="midiOutput"></select>
+        </label>
         <div id="midiDeviceList"></div>
         <div class="midi-monitor"><span data-i18n="midi.last">Last note:</span> <span id="midiLastNote">—</span></div>
       </div>

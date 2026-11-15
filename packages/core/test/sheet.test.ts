@@ -322,23 +322,27 @@ function mkLayout(notes: SheetNote[]): SheetLayout {
 
 describe('buildRests', () => {
   it('no rests when a staff is fully covered (no leading/inter-note gap)', () => {
-    expect(buildRests(mkLayout([sn(0, 2, 60)]))).toEqual([]);
+    expect(buildRests(mkLayout([sn(0, 2, 60), sn(0, 2, 48, 'bass')]))).toEqual([]);
   });
   it('emits a half rest for a 2-beat inter-note gap, at the gap start', () => {
-    const rests = buildRests(mkLayout([sn(0, 0.5, 60), sn(1.5, 0.5, 62)]));
+    const rests = buildRests(mkLayout([sn(0, 0.5, 60), sn(1.5, 0.5, 62), sn(0, 2, 48, 'bass')]));
     expect(rests).toEqual([{ time: 0.5, staff: 'treble', value: 'half' }]);
   });
   it('emits a leading rest when a staff enters late', () => {
-    const rests = buildRests(mkLayout([sn(1, 0.5, 60)]));
+    const rests = buildRests(mkLayout([sn(1, 0.5, 60), sn(0, 2, 48, 'bass')]));
     expect(rests).toEqual([{ time: 0, staff: 'treble', value: 'half' }]);
   });
-  it('emits a whole rest for a long (>=3.5 beat) gap', () => {
-    const rests = buildRests(mkLayout([sn(0, 0.5, 60), sn(4.5, 0.5, 62)]));
-    expect(rests).toEqual([{ time: 0.5, staff: 'treble', value: 'whole' }]);
+  it('writes one whole rest for each empty 3/4 measure, even on a staff with no notes', () => {
+    const layout = { notes: [sn(1.5, 0.5, 60)], barTimes: [0, 1.5], beatsPerMeasure: 3 };
+    expect(buildRests(layout)).toEqual([
+      { time: 0, staff: 'bass', value: 'whole', measureEnd: 1.5 },
+      { time: 0, staff: 'treble', value: 'whole', measureEnd: 1.5 },
+      { time: 1.5, staff: 'bass', value: 'whole', measureEnd: 3 },
+    ]);
   });
   it('merges sustained/chord intervals so they do not create spurious rests', () => {
     // A long note covers the shorter ones beneath it → no silence.
-    expect(buildRests(mkLayout([sn(0, 2, 60), sn(0.5, 0.5, 64), sn(1, 0.5, 67)]))).toEqual([]);
+    expect(buildRests(mkLayout([sn(0, 2, 60), sn(0.5, 0.5, 64), sn(1, 0.5, 67), sn(0, 2, 48, 'bass')]))).toEqual([]);
   });
   it('detects gaps per staff independently', () => {
     const rests = buildRests(mkLayout([sn(0, 2, 60, 'treble'), sn(0, 0.5, 48, 'bass'), sn(1.5, 0.5, 50, 'bass')]));
@@ -346,10 +350,10 @@ describe('buildRests', () => {
   });
   it('ignores gaps shorter than minBeats', () => {
     // 0.25s gap = 0.5 beat < 1 → no rest.
-    expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0.75, 0.5, 62)]))).toEqual([]);
+    expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0.75, 0.5, 62), sn(0, 2, 48, 'bass')]))).toEqual([]);
   });
   it('omits trailing silence after the last note', () => {
-    expect(buildRests(mkLayout([sn(0, 0.5, 60)]))).toEqual([]);
+    expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0, 2, 48, 'bass')]))).toEqual([]);
   });
 });
 
@@ -389,7 +393,9 @@ describe('buildSheet with rests + ties', () => {
     );
     expect(layout.ties).toEqual([{ from: 0, to: 1, staff: 'treble' }]);
     expect(layout.rests).toEqual([
+      { time: 0, staff: 'bass', value: 'whole', measureEnd: 2 },
       { time: 0, staff: 'treble', value: 'half' },
+      { time: 2, staff: 'bass', value: 'whole', measureEnd: 4 },
       { time: 2.5, staff: 'treble', value: 'half' },
     ]);
   });

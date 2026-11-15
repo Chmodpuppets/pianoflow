@@ -109,48 +109,46 @@ export function drawSheetNote(
   }
 }
 
-/** Stylised treble clef: a vertical spiral centred on the G line (steps 2). */
+/** Draw a G clef with its inner curl centered on the G4 line. */
 export function drawTrebleClef(ctx: CanvasRenderingContext2D, x: number, bottom: number, gap: number, theme: Theme): void {
-  const u = gap;
+  const g = bottom - gap;
   ctx.save();
-  ctx.strokeStyle = withAlpha(theme.text, 0.8);
-  ctx.fillStyle = withAlpha(theme.text, 0.8);
-  ctx.lineWidth = Math.max(1.6, u * 0.28);
+  ctx.strokeStyle = theme.text;
+  ctx.lineWidth = gap * 0.19;
   ctx.lineCap = 'round';
-  const gY = bottom - u; // G4 line = bottom - gap
   ctx.beginPath();
-  ctx.moveTo(x + u * 0.2, bottom + u * 1.6);
-  ctx.bezierCurveTo(x - u * 1.3, bottom + u * 0.4, x - u * 0.9, gY - u * 1.6, x + u * 0.1, gY - u * 1.7);
-  ctx.bezierCurveTo(x + u * 1.2, gY - u * 1.6, x + u * 1.2, gY - u * 0.2, x + u * 0.1, gY);
-  ctx.bezierCurveTo(x - u * 0.9, gY + u * 0.2, x - u * 0.9, gY + u * 1.2, x + u * 0.1, gY + u * 1.2);
-  ctx.bezierCurveTo(x + u * 0.8, gY + u * 1.2, x + u * 0.8, gY + u * 0.4, x + u * 0.1, gY + u * 0.4);
+  ctx.moveTo(x - gap * 0.15, g + gap * 0.45);
+  ctx.bezierCurveTo(x - gap * 0.8, g - gap * 0.05, x - gap * 0.2, g - gap * 0.85, x + gap * 0.45, g - gap * 0.73);
+  ctx.bezierCurveTo(x + gap * 1.65, g - gap * 0.6, x + gap * 1.45, g + gap * 1.42, x + gap * 0.1, g + gap * 1.42);
+  ctx.bezierCurveTo(x - gap * 1.65, g + gap * 1.42, x - gap * 1.55, g - gap * 0.25, x - gap * 0.73, g - gap * 1.22);
+  ctx.bezierCurveTo(x + gap * 0.12, g - gap * 2.25, x + gap * 1.28, g - gap * 3.46, x + gap * 0.48, g - gap * 4.65);
+  ctx.bezierCurveTo(x - gap * 1.02, g - gap * 3.82, x - gap * 0.61, g - gap * 2.28, x - gap * 0.38, g - gap * 1.3);
+  ctx.lineTo(x + gap * 0.68, g + gap * 2.72);
+  ctx.bezierCurveTo(x + gap * 0.99, g + gap * 4.14, x - gap * 0.87, g + gap * 4.3, x - gap * 0.78, g + gap * 3.25);
   ctx.stroke();
+  ctx.fillStyle = theme.text;
   ctx.beginPath();
-  ctx.arc(x + u * 0.2, bottom + u * 1.6, u * 0.28, 0, Math.PI * 2);
+  ctx.arc(x - gap * 0.67, g + gap * 3.24, gap * 0.34, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
-/** Stylised bass clef: a curve plus two dots framing the F line (steps 6). */
+/** Draw an F clef with two dots straddling the F3 line. */
 export function drawBassClef(ctx: CanvasRenderingContext2D, x: number, bottom: number, gap: number, theme: Theme): void {
-  const u = gap;
-  const fY = bottom - 3 * u; // F3 line = bottom - 3*gap
+  const f = bottom - 3 * gap;
   ctx.save();
-  ctx.strokeStyle = withAlpha(theme.text, 0.8);
-  ctx.fillStyle = withAlpha(theme.text, 0.8);
-  ctx.lineWidth = Math.max(1.6, u * 0.28);
-  ctx.lineCap = 'round';
+  ctx.fillStyle = theme.text;
   ctx.beginPath();
-  ctx.moveTo(x - u * 0.6, fY + u * 0.2);
-  ctx.bezierCurveTo(x + u * 0.2, fY - u * 1.4, x + u * 1.5, fY - u * 0.6, x + u * 1.1, fY + u * 0.6);
-  ctx.bezierCurveTo(x + u * 0.8, fY + u * 1.6, x - u * 0.2, fY + u * 2.2, x - u * 0.7, fY + u * 2.4);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(x - u * 0.5, fY + u * 0.1, u * 0.3, 0, Math.PI * 2);
+  ctx.moveTo(x - gap * 0.8, f);
+  ctx.bezierCurveTo(x - gap * 0.8, f - gap * 1.32, x + gap * 1.16, f - gap * 1.45, x + gap * 1.17, f);
+  ctx.bezierCurveTo(x + gap * 1.21, f + gap * 1.38, x - gap * 0.1, f + gap * 2.49, x - gap * 1.02, f + gap * 2.67);
+  ctx.bezierCurveTo(x + gap * 0.03, f + gap * 2.03, x + gap * 0.62, f + gap * 0.93, x + gap * 0.57, f - gap * 0.1);
+  ctx.bezierCurveTo(x + gap * 0.51, f - gap * 1.21, x - gap * 0.58, f - gap * 1.04, x - gap * 0.66, f);
+  ctx.closePath();
   ctx.fill();
-  for (const dy of [-0.5, 0.5]) {
+  for (const [dx, dy, radius] of [[-0.55, 0, 0.37], [1.6, -0.5, 0.21], [1.6, 0.5, 0.21]]) {
     ctx.beginPath();
-    ctx.arc(x + u * 1.7, fY + dy * u, u * 0.22, 0, Math.PI * 2);
+    ctx.arc(x + dx * gap, f + dy * gap, radius * gap, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();

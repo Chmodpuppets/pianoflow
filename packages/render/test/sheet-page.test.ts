@@ -188,8 +188,7 @@ describe('SheetPageRenderer', () => {
     lay.timeSig = [3, 4];
     const r = new SheetPageRenderer(mockCanvas(ctx));
     r.render({ layout: lay, title: 'T' });
-    expect(rec.texts).toContain('3');
-    expect(rec.texts).toContain('4');
+    expect(rec.texts.filter((t) => t === '3' || t === '4')).toEqual(['3', '4', '3', '4']);
   });
 
   it('renders staccato dots for flagged notes', () => {

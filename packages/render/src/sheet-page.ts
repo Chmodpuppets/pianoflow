@@ -38,7 +38,8 @@ export interface SheetPageState {
   theme?: Theme;
 }
 
-const CLEF_WIDTH = 56;
+const STAFF_START = 16;
+const CLEF_WIDTH = 64;
 const RIGHT_PAD = 28;
 const PAD_X = 28;
 const PAD_BOTTOM = 30;
@@ -131,10 +132,11 @@ export class SheetPageRenderer {
     ctx.textAlign = 'left';
 
     const keyWidth = keySignatureWidth(state.layout.keySignature, gap);
-    const leftPad = CLEF_WIDTH + keyWidth;
-    const contentW = width - leftPad - RIGHT_PAD;
     const last = systems.length - 1;
     systems.forEach((sys, si) => {
+      const showTimeSignature = si === 0 && state.layout.timeSig;
+      const leftPad = CLEF_WIDTH + keyWidth + gap * (showTimeSignature ? 3.5 : 1);
+      const contentW = width - leftPad - RIGHT_PAD;
       const topY = PAD_X + titleH + si * (systemBlock + systemGap);
       const trebleBottom = topY + staffH;
       const bassBottom = trebleBottom + staffH + gap * 6;
@@ -147,12 +149,24 @@ export class SheetPageRenderer {
       this.drawSystemStaves(trebleBottom, bassBottom, width, theme);
       this.drawSystemBarlines(state.layout, sys.startTime, sys.endTime, xFor, trebleTop, bassBottom, width, theme);
 
-      // Grand-staff brace: a vertical line joining the two staves at the left.
-      ctx.strokeStyle = withAlpha(theme.text, 0.5);
-      ctx.lineWidth = 1.4;
+      // Join the piano staves with an opening barline and a curved brace.
+      const spine = STAFF_START;
+      const middle = (trebleTop + bassBottom) / 2;
+      ctx.strokeStyle = withAlpha(theme.text, 0.85);
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(CLEF_WIDTH - 12, trebleTop);
-      ctx.lineTo(CLEF_WIDTH - 12, bassBottom);
+      ctx.moveTo(spine, trebleTop);
+      ctx.lineTo(spine, bassBottom);
+      ctx.stroke();
+
+      const x = spine - gap * 0.4;
+      const reach = gap * 0.65;
+      const quarter = (bassBottom - trebleTop) / 4;
+      ctx.lineWidth = gap * 0.19;
+      ctx.beginPath();
+      ctx.moveTo(x, trebleTop);
+      ctx.bezierCurveTo(x - 2 * reach, trebleTop + quarter * 0.45, x + reach, middle - quarter * 0.35, x - reach, middle);
+      ctx.bezierCurveTo(x + reach, middle + quarter * 0.35, x - 2 * reach, bassBottom - quarter * 0.45, x, bassBottom);
       ctx.stroke();
 
       drawTrebleClef(ctx, CLEF_WIDTH * 0.42, trebleBottom, gap, theme);
@@ -161,15 +175,17 @@ export class SheetPageRenderer {
       drawKeySignature(ctx, state.layout.keySignature, 'bass', CLEF_WIDTH * 0.72, bassBottom, gap, theme);
 
       // Time signature fraction after the key signature.
-      if (state.layout.timeSig) {
-        const [num, den] = state.layout.timeSig;
-        const tsX = CLEF_WIDTH + keyWidth + gap * 0.5;
+      if (showTimeSignature) {
+        const [num, den] = showTimeSignature;
+        const tsX = CLEF_WIDTH + keyWidth + gap;
         ctx.fillStyle = theme.text;
         ctx.font = `bold ${Math.round(gap * 2.2)}px Georgia, serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(num), tsX, trebleBottom - staffH / 2);
-        ctx.fillText(String(den), tsX, bassBottom - staffH / 2);
+        for (const bottom of [trebleBottom, bassBottom]) {
+          ctx.fillText(String(num), tsX, bottom - 3 * gap);
+          ctx.fillText(String(den), tsX, bottom - gap);
+        }
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
       }
@@ -264,7 +280,7 @@ export class SheetPageRenderer {
       for (const r of state.layout.rests ?? []) {
         if (r.time < sys.startTime) continue;
         if (r.time >= sys.endTime && si !== last) continue;
-        const x = xFor(r.time);
+        const x = xFor(r.measureEnd === undefined ? r.time : (r.time + r.measureEnd) / 2);
         if (x < leftPad - 6 || x > width - RIGHT_PAD + 6) continue;
         drawRest(ctx, r.value, x, r.staff === 'treble' ? middleTreble : middleBass, gap, theme);
       }
@@ -300,7 +316,7 @@ export class SheetPageRenderer {
       for (let i = 0; i < 5; i++) {
         const y = bottom - i * gap;
         ctx.beginPath();
-        ctx.moveTo(CLEF_WIDTH - 12, y);
+        ctx.moveTo(STAFF_START, y);
         ctx.lineTo(width - RIGHT_PAD, y);
         ctx.stroke();
       }
