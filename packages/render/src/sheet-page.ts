@@ -1,4 +1,4 @@
-import { buildSheetSystems, buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
+import { buildSheetSystems, buildBeamGroups, noteValueToBeats, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { paperTheme, type Theme } from './theme';
 import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, drawRest, drawTie, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
@@ -160,6 +160,29 @@ export class SheetPageRenderer {
       drawKeySignature(ctx, state.layout.keySignature, 'treble', CLEF_WIDTH * 0.72, trebleBottom, gap, theme);
       drawKeySignature(ctx, state.layout.keySignature, 'bass', CLEF_WIDTH * 0.72, bassBottom, gap, theme);
 
+      // Time signature fraction after the key signature.
+      if (state.layout.timeSig) {
+        const [num, den] = state.layout.timeSig;
+        const tsX = CLEF_WIDTH + keyWidth + gap * 0.5;
+        ctx.fillStyle = theme.text;
+        ctx.font = `bold ${Math.round(gap * 2.2)}px Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(num), tsX, trebleBottom - staffH / 2);
+        ctx.fillText(String(den), tsX, bassBottom - staffH / 2);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+      }
+
+      // Tempo marking above the first system only.
+      if (si === 0 && state.layout.bpm) {
+        ctx.fillStyle = theme.text;
+        ctx.font = `${Math.round(gap * 1.4)}px Georgia, serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(`♩= ${state.layout.bpm}`, leftPad + gap, trebleTop - gap * 2.2);
+      }
+
       // Measure number at the start of the system.
       ctx.fillStyle = withAlpha(theme.text, 0.55);
       ctx.font = `600 ${Math.round(gap * 1.2)}px Georgia, serif`;
@@ -200,6 +223,33 @@ export class SheetPageRenderer {
           }
         }
         drawSheetNote(ctx, n, x, y, gap, theme, false, beam);
+
+        // Staccato dot above/below the notehead.
+        if (state.layout.staccatoIndices?.has(i)) {
+          const dotR = gap * 0.18;
+          const dotY = n.steps >= 4 ? y + gap * 0.9 : y - gap * 0.9;
+          ctx.fillStyle = n.hand === 'left' ? theme.leftNote : theme.rightNote;
+          ctx.beginPath();
+          ctx.arc(x, dotY, dotR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Dynamic markings at the start of each measure that has one.
+      if (state.layout.dynamics) {
+        const mDur = (sys.endTime - sys.startTime) / Math.max(1, sys.measureCount);
+        for (const [mi, dyn] of state.layout.dynamics) {
+          // mi is 0-based measure index; map to time via barTimes or system-relative offset.
+          const mStart = sys.startTime + (mi - (sys.startMeasure - 1)) * mDur;
+          if (mStart < sys.startTime - 1e-6 || mStart >= sys.endTime - 1e-6) continue;
+          const dx = xFor(mStart);
+          if (dx < leftPad - 6 || dx > width - RIGHT_PAD + 6) continue;
+          ctx.fillStyle = withAlpha(theme.text, 0.75);
+          ctx.font = `italic bold ${Math.round(gap * 1.6)}px Georgia, serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillText(dyn, dx, bassBottom + gap * 2.5);
+        }
       }
       for (const g of drawnGroups) {
         const { pts, geom } = ensureGeom(g);

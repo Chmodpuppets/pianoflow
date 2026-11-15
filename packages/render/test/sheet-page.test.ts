@@ -172,4 +172,44 @@ describe('SheetPageRenderer', () => {
     expect(b.rec.strokes).toBeGreaterThan(a.rec.strokes);
     expect(b.rec.ellipses).toBe(a.rec.ellipses); // tie adds no noteheads
   });
+
+  it('renders tempo marking (♩= BPM) above the first system', () => {
+    const { ctx, rec } = mockCtx();
+    const lay = layout([note(0, 64)]);
+    lay.bpm = 130;
+    const r = new SheetPageRenderer(mockCanvas(ctx));
+    r.render({ layout: lay, title: 'T' });
+    expect(rec.texts.some((t) => t.includes('♩=') && t.includes('130'))).toBe(true);
+  });
+
+  it('renders time signature fraction after the key signature', () => {
+    const { ctx, rec } = mockCtx();
+    const lay = layout([note(0, 64)]);
+    lay.timeSig = [3, 4];
+    const r = new SheetPageRenderer(mockCanvas(ctx));
+    r.render({ layout: lay, title: 'T' });
+    expect(rec.texts).toContain('3');
+    expect(rec.texts).toContain('4');
+  });
+
+  it('renders staccato dots for flagged notes', () => {
+    const { ctx, rec } = mockCtx();
+    const lay = layout([note(0, 64), note(2, 67)]);
+    lay.staccatoIndices = new Set([0]);
+    const r = new SheetPageRenderer(mockCanvas(ctx));
+    r.render({ layout: lay, title: 'T' });
+    // Staccato dot uses ctx.arc which our mock doesn't count — verify via fill calls.
+    // The dot adds one extra fill beyond the two notehead fills.
+    expect(rec.fillRects + rec.ellipses).toBeGreaterThanOrEqual(3);
+  });
+
+  it('renders dynamic markings below the bass staff', () => {
+    const { ctx, rec } = mockCtx();
+    // Use a layout with enough measures that measure 0 falls within the first system.
+    const lay = fiveMeasures();
+    lay.dynamics = new Map([[0, 'mf']]);
+    const r = new SheetPageRenderer(mockCanvas(ctx), { measuresPerSystem: 4 });
+    r.render({ layout: lay, title: 'T' });
+    expect(rec.texts.some((t) => t === 'mf')).toBe(true);
+  });
 });

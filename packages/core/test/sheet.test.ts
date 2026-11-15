@@ -4,6 +4,7 @@ import {
   staffFor,
   stepsAboveBottom,
   noteValue,
+  noteValueToBeats,
   buildSheet,
   buildSheetSystems,
   buildBeamGroups,
@@ -56,6 +57,16 @@ describe('noteValue', () => {
     expect(noteValue(1)).toBe('quarter');
     expect(noteValue(0.5)).toBe('eighth');
     expect(noteValue(0.25)).toBe('sixteenth');
+  });
+});
+
+describe('noteValueToBeats', () => {
+  it('round-trips with noteValue', () => {
+    expect(noteValueToBeats('whole')).toBe(4);
+    expect(noteValueToBeats('half')).toBe(2);
+    expect(noteValueToBeats('quarter')).toBe(1);
+    expect(noteValueToBeats('eighth')).toBe(0.5);
+    expect(noteValueToBeats('sixteenth')).toBe(0.25);
   });
 });
 
@@ -386,5 +397,74 @@ describe('buildSheet with rests + ties', () => {
     const layout = buildSheet(song([note(0, 480, 60)]));
     expect(layout.rests).toBeUndefined();
     expect(layout.ties).toBeUndefined();
+  });
+});
+
+describe('buildSheet metadata (tempo, timeSig, staccato, dynamics)', () => {
+  it('captures bpm and time signature', () => {
+    const layout = buildSheet(song([note(0, 480, 60)]));
+    expect(layout.bpm).toBe(120);
+    expect(layout.timeSig).toEqual([4, 4]);
+  });
+
+  it('detects staccato notes (short sounding vs notated value)', () => {
+    // A quarter note (480 ticks) that sounds for only 0.1s at 120bpm (beat=0.5s)
+    // → duration 0.1 < 0.5 * 1 * 0.5 = 0.25 → staccato.
+    const s: MidiSong = {
+      name: 't', format: 1, ppq: 480, durationTicks: 3840, duration: 8,
+      notes: [{ midi: 60, ticks: 0, durationTicks: 480, time: 0, duration: 0.1, velocity: 0.8, channel: 0, track: 0 }],
+      tempos: [{ ticks: 0, bpm: 120, time: 0 }],
+      timeSignatures: [{ ticks: 0, numerator: 4, denominator: 4 }],
+      tracks: [],
+    };
+    const layout = buildSheet(s);
+    expect(layout.staccatoIndices?.has(0)).toBe(true);
+  });
+
+  it('does not flag legato notes as staccato', () => {
+    // A quarter note sounding for its full 0.5s at 120bpm → not staccato.
+    const s: MidiSong = {
+      name: 't', format: 1, ppq: 480, durationTicks: 3840, duration: 8,
+      notes: [{ midi: 60, ticks: 0, durationTicks: 480, time: 0, duration: 0.5, velocity: 0.8, channel: 0, track: 0 }],
+      tempos: [{ ticks: 0, bpm: 120, time: 0 }],
+      timeSignatures: [{ ticks: 0, numerator: 4, denominator: 4 }],
+      tracks: [],
+    };
+    const layout = buildSheet(s);
+    expect(layout.staccatoIndices).toBeUndefined();
+  });
+
+  it('emits dynamic markings from velocity analysis', () => {
+    // All notes vel=0.8 → avg 101.6 → 'ff' on measure 0.
+    const s: MidiSong = {
+      name: 't', format: 1, ppq: 480, durationTicks: 7680, duration: 16,
+      notes: [
+        { midi: 60, ticks: 0, durationTicks: 480, time: 0, duration: 0.5, velocity: 0.8, channel: 0, track: 0 },
+        { midi: 62, ticks: 480, durationTicks: 480, time: 0.5, duration: 0.5, velocity: 0.8, channel: 0, track: 0 },
+      ],
+      tempos: [{ ticks: 0, bpm: 120, time: 0 }],
+      timeSignatures: [{ ticks: 0, numerator: 4, denominator: 4 }],
+      tracks: [],
+    };
+    const layout = buildSheet(s);
+    expect(layout.dynamics?.get(0)).toBe('ff');
+  });
+
+  it('omits dynamics when velocity is uniform across all measures', () => {
+    // Two measures with same avg velocity → only measure 0 gets a dynamic.
+    const s: MidiSong = {
+      name: 't', format: 1, ppq: 480, durationTicks: 7680, duration: 16,
+      notes: [
+        { midi: 60, ticks: 0, durationTicks: 480, time: 0, duration: 0.5, velocity: 0.5, channel: 0, track: 0 },
+        { midi: 62, ticks: 1920, durationTicks: 480, time: 2, duration: 0.5, velocity: 0.5, channel: 0, track: 0 },
+      ],
+      tempos: [{ ticks: 0, bpm: 120, time: 0 }],
+      timeSignatures: [{ ticks: 0, numerator: 4, denominator: 4 }],
+      tracks: [],
+    };
+    const layout = buildSheet(s);
+    expect(layout.dynamics?.size).toBe(1);
+    expect(layout.dynamics?.get(0)).toBe('mf');
+    expect(layout.dynamics?.has(1)).toBe(false);
   });
 });

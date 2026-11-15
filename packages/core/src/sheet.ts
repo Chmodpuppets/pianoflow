@@ -181,6 +181,17 @@ export function noteValue(beats: number): NoteValue {
   return 'sixteenth';
 }
 
+/** Convert a NoteValue back to its nominal beat duration. */
+export function noteValueToBeats(v: NoteValue): number {
+  switch (v) {
+    case 'whole': return 4;
+    case 'half': return 2;
+    case 'quarter': return 1;
+    case 'eighth': return 0.5;
+    case 'sixteenth': return 0.25;
+  }
+}
+
 export interface SheetNote {
   midi: number;
   time: number; // seconds
@@ -216,6 +227,14 @@ export interface SheetLayout {
   /** Present when built with rest/tie engraving; renderers draw silences + ties. */
   rests?: Rest[];
   ties?: Tie[];
+  /** Tempo in BPM at the start of the piece (for ♩= marking). */
+  bpm?: number;
+  /** Time signature numerator/denominator at the start (for fraction display). */
+  timeSig?: [number, number];
+  /** Indices into layout.notes that should show a staccato dot. */
+  staccatoIndices?: Set<number>;
+  /** Dynamic markings: measure index → dynamic string ('p','mp','mf','f','ff'). */
+  dynamics?: Map<number, string>;
 }
 
 /**
@@ -264,6 +283,53 @@ export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = fal
   const first = sigs[0];
   const layout: SheetLayout = { notes, barTimes, beatsPerMeasure: first.numerator * (4 / first.denominator) };
   if (keySig) layout.keySignature = keySig;
+
+  // Tempo + time signature metadata for engraving.
+  const bpm = song.tempos.length ? Math.round(song.tempos[0].bpm) : 120;
+  layout.bpm = bpm;
+  layout.timeSig = [first.numerator, first.denominator];
+
+  // Staccato detection: notes whose sounding duration is < 50% of their notated beat value.
+  const beatDur = barTimes.length >= 2 ? (barTimes[1] - barTimes[0]) / Math.max(1, layout.beatsPerMeasure) : 0.5;
+  if (beatDur > 0) {
+    const staccatoIndices = new Set<number>();
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
+      // Use the note's rhythmic value (in beats) from the NoteValue enum.
+      const notatedBeats = noteValueToBeats(n.value);
+      // A note is staccato if it sounds for less than half its notated rhythmic slot
+      // AND the notated value is at least an eighth note (avoid flagging sixteenths).
+      if (notatedBeats >= 0.25 && n.duration < beatDur * notatedBeats * 0.5) {
+        staccatoIndices.add(i);
+      }
+    }
+    if (staccatoIndices.size > 0) layout.staccatoIndices = staccatoIndices;
+  }
+
+  // Dynamic markings from velocity analysis per measure.
+  if (song.notes.length > 0 && barTimes.length >= 2) {
+    const dynamics = new Map<number, string>();
+    for (let mi = 0; mi < barTimes.length; mi++) {
+      const mStart = barTimes[mi];
+      const mEnd = mi + 1 < barTimes.length ? barTimes[mi + 1] : Infinity;
+      let sum = 0;
+      let count = 0;
+      for (const sn of song.notes) {
+        if (sn.time >= mStart && sn.time < mEnd) {
+          sum += sn.velocity * 127;
+          count++;
+        }
+      }
+      if (count === 0) continue;
+      const avg = sum / count;
+      // Only emit a dynamic when it changes from the previous measure.
+      const dyn = avg < 40 ? 'p' : avg < 60 ? 'mp' : avg < 80 ? 'mf' : avg < 100 ? 'f' : 'ff';
+      const prevDyn = mi > 0 ? dynamics.get(mi - 1) : undefined;
+      if (dyn !== prevDyn) dynamics.set(mi, dyn);
+    }
+    if (dynamics.size > 0) layout.dynamics = dynamics;
+  }
+
   if (useRestsTies) {
     layout.rests = buildRests(layout);
     layout.ties = buildTies(layout);
