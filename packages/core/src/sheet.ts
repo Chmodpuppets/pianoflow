@@ -45,6 +45,119 @@ export function midiToDiatonic(midi: number): Diatonic {
   return { step, accidental, octave, index: octave * 7 + step };
 }
 
+/**
+ * Key signature engraving. A signature is an ordered list of altered pitch
+ * classes (sharps F–C–G–D–A–E–B, flats B–E–A–D–G–C–F). Notes are respelled to
+ * match the key and only carry an explicit accidental when they deviate from it.
+ */
+export interface KeyMark {
+  pc: number; // pitch class affected (0..11)
+  step: number; // diatonic step (C=0..B=6) the glyph sits on
+  accidental: 1 | -1;
+}
+export interface KeySignature {
+  /** circle-of-fifths position: + sharps, − flats (−7..+7) */
+  fifths: number;
+  marks: KeyMark[];
+}
+
+const SHARP_ORDER: ReadonlyArray<readonly [number, number]> = [
+  [5, 3], [0, 0], [7, 4], [2, 1], [9, 5], [4, 2], [11, 6], // F C G D A E B
+];
+const FLAT_ORDER: ReadonlyArray<readonly [number, number]> = [
+  [10, 6], [3, 2], [8, 5], [1, 1], [6, 4], [11, 0], [4, 3], // B E A D G C F
+];
+
+/** Build the signature for a circle-of-fifths position (clamped to ±7). Pure. */
+export function signatureFor(fifths: number): KeySignature {
+  const f = Math.max(-7, Math.min(7, Math.round(fifths)));
+  const order = f >= 0 ? SHARP_ORDER : FLAT_ORDER;
+  const accidental: 1 | -1 = f >= 0 ? 1 : -1;
+  const marks = order.slice(0, Math.abs(f)).map(([pc, step]) => ({ pc, step, accidental }));
+  return { fifths: f, marks };
+}
+
+/**
+ * Respell a pitch for a key. Flat keys name black keys as flats (one diatonic
+ * step above the sharp spelling); sharp keys / naturals keep the default spelling.
+ */
+export function spellInKey(midi: number, sig: KeySignature): Diatonic {
+  const base = midiToDiatonic(midi);
+  const pc = ((midi % 12) + 12) % 12;
+  const mark = sig.marks.find((m) => m.pc === pc);
+  if (mark && mark.accidental === -1) {
+    const index = base.index + 1; // sharp → flat moves up one diatonic step
+    return { step: index % 7, accidental: -1, octave: Math.floor(index / 7), index };
+  }
+  return base;
+}
+
+/**
+ * The accidental a note must SHOW given the key signature: 0 none (covered by the
+ * signature), 1 sharp, −1 flat, 2 natural (cancels the signature for that step).
+ */
+export function displayAccidental(d: Diatonic, sig: KeySignature): number {
+  const mark = sig.marks.find((m) => m.step === d.step);
+  const def = mark ? mark.accidental : 0;
+  if (d.accidental === def) return 0;
+  if (d.accidental === 0) return 2;
+  return d.accidental;
+}
+
+// Krumhansl–Kessler key profiles (tonic-relative), major then natural minor.
+const KS_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const KS_MINOR = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+// Circle-of-fifths position per tonic pitch class (prefers the simpler enharmonic).
+const MAJOR_FIFTHS = [0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5];
+const MINOR_FIFTHS = [-3, 4, -1, -6, 1, -4, 3, -2, 5, 0, -5, 2];
+
+/**
+ * Infer a key signature from a piece via duration-weighted pitch-class correlation
+ * against the 24 major/minor profiles (Krumhansl–Schmuckler). Empty input → C.
+ * Pure + headless-testable; only the resulting signature (fifths) is used.
+ */
+export function inferKeySignature(notes: ReadonlyArray<{ midi: number; duration?: number }>): KeySignature {
+  if (!notes.length) return signatureFor(0);
+  const hist = new Array<number>(12).fill(0);
+  for (const n of notes) {
+    const pc = ((n.midi % 12) + 12) % 12;
+    hist[pc] += Math.max(0.05, n.duration ?? 1);
+  }
+  const total = hist.reduce((a, b) => a + b, 0);
+  if (total <= 0) return signatureFor(0);
+  const meanH = total / 12;
+  const corr = (profile: number[], tonic: number): number => {
+    const meanP = profile.reduce((a, b) => a + b, 0) / 12;
+    let num = 0;
+    let da = 0;
+    let db = 0;
+    for (let i = 0; i < 12; i++) {
+      const h = hist[i] - meanH;
+      const p = profile[(i - tonic + 12) % 12] - meanP;
+      num += h * p;
+      da += h * h;
+      db += p * p;
+    }
+    const den = Math.sqrt(da * db);
+    return den > 0 ? num / den : 0;
+  };
+  let best = -Infinity;
+  let bestFifths = 0;
+  for (let tonic = 0; tonic < 12; tonic++) {
+    const cm = corr(KS_MAJOR, tonic);
+    if (cm > best) {
+      best = cm;
+      bestFifths = MAJOR_FIFTHS[tonic];
+    }
+    const cn = corr(KS_MINOR, tonic);
+    if (cn > best) {
+      best = cn;
+      bestFifths = MINOR_FIFTHS[tonic];
+    }
+  }
+  return signatureFor(bestFifths);
+}
+
 /** Bottom line of each staff as an absolute diatonic index. */
 export const TREBLE_BOTTOM = midiToDiatonic(64).index; // E4
 export const BASS_BOTTOM = midiToDiatonic(43).index; // G2
@@ -84,10 +197,16 @@ export interface SheetLayout {
   /** Barline times in seconds (ascending, includes 0). */
   barTimes: number[];
   beatsPerMeasure: number;
+  /** Present when built with key-signature engraving; renderers draw it after the clef. */
+  keySignature?: KeySignature;
 }
 
-/** Build the scrolling grand-staff layout for a song. Pure. */
-export function buildSheet(song: MidiSong, splitMidi = 60): SheetLayout {
+/**
+ * Build the scrolling grand-staff layout for a song. Pure. With `useKeySignature`
+ * the piece's key is inferred, notes are respelled into the key and only carry an
+ * accidental when they deviate from the signature (which is attached to the layout).
+ */
+export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = false): SheetLayout {
   const tempo = new TempoMap(song.ppq, song.tempos);
   const sigs = song.timeSignatures.length
     ? [...song.timeSignatures].sort((a, b) => a.ticks - b.ticks)
@@ -105,23 +224,28 @@ export function buildSheet(song: MidiSong, splitMidi = 60): SheetLayout {
   }
   const barTimes = [...new Set(barTicks.map((t) => tempo.ticksToSeconds(t)))].sort((a, b) => a - b);
 
+  const keySig = useKeySignature ? inferKeySignature(song.notes) : null;
   const notes: SheetNote[] = song.notes.map((n: MidiNote) => {
     const staff = staffFor(n.midi, splitMidi);
+    const d = keySig ? spellInKey(n.midi, keySig) : midiToDiatonic(n.midi);
+    const bottom = staff === 'treble' ? TREBLE_BOTTOM : BASS_BOTTOM;
     return {
       midi: n.midi,
       time: n.time,
       duration: n.duration,
       hand: n.hand,
       staff,
-      steps: stepsAboveBottom(n.midi, staff),
-      accidental: midiToDiatonic(n.midi).accidental,
+      steps: d.index - bottom,
+      accidental: keySig ? displayAccidental(d, keySig) : d.accidental,
       value: noteValue(n.durationTicks / song.ppq),
     };
   });
   notes.sort((a, b) => a.time - b.time || a.midi - b.midi);
 
   const first = sigs[0];
-  return { notes, barTimes, beatsPerMeasure: first.numerator * (4 / first.denominator) };
+  const layout: SheetLayout = { notes, barTimes, beatsPerMeasure: first.numerator * (4 / first.denominator) };
+  if (keySig) layout.keySignature = keySig;
+  return layout;
 }
 
 /** One horizontal row ("system") of a printed full-score page. */

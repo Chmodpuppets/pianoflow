@@ -7,6 +7,10 @@ import {
   buildSheet,
   buildSheetSystems,
   buildBeamGroups,
+  signatureFor,
+  spellInKey,
+  displayAccidental,
+  inferKeySignature,
   TREBLE_BOTTOM,
   BASS_BOTTOM,
 } from '../src/sheet';
@@ -210,5 +214,87 @@ describe('buildBeamGroups', () => {
   });
   it('returns no groups for an empty layout', () => {
     expect(buildBeamGroups(lay([]))).toHaveLength(0);
+  });
+});
+
+describe('signatureFor', () => {
+  it('C major (0) has no marks', () => {
+    expect(signatureFor(0)).toEqual({ fifths: 0, marks: [] });
+  });
+  it('G major (+1) is F#; D major (+2) adds C# in order', () => {
+    expect(signatureFor(1).marks).toEqual([{ pc: 5, step: 3, accidental: 1 }]);
+    expect(signatureFor(2).marks.map((m) => m.pc)).toEqual([5, 0]);
+  });
+  it('F major (−1) is B♭ on step B', () => {
+    expect(signatureFor(-1).marks).toEqual([{ pc: 10, step: 6, accidental: -1 }]);
+  });
+  it('clamps to ±7', () => {
+    expect(signatureFor(9).marks).toHaveLength(7);
+    expect(signatureFor(-9).marks).toHaveLength(7);
+    expect(signatureFor(9).fifths).toBe(7);
+  });
+});
+
+describe('spellInKey / displayAccidental', () => {
+  const G = signatureFor(1); // F#
+  const F = signatureFor(-1); // B♭
+  it('respells a flat-key black key as a flat (B♭ sits on the B line)', () => {
+    const bb = spellInKey(70, F); // A#4 → B♭4
+    expect(bb).toMatchObject({ step: 6, accidental: -1 });
+    expect(bb.index).toBe(midiToDiatonic(70).index + 1);
+  });
+  it('keeps sharp spelling in sharp keys', () => {
+    expect(spellInKey(66, G)).toMatchObject({ step: 3, accidental: 1 }); // F#4
+  });
+  it('suppresses an accidental covered by the signature', () => {
+    expect(displayAccidental(spellInKey(66, G), G)).toBe(0); // F# in G major
+    expect(displayAccidental(spellInKey(70, F), F)).toBe(0); // B♭ in F major
+  });
+  it('shows a natural to cancel the signature', () => {
+    expect(displayAccidental(spellInKey(65, G), G)).toBe(2); // F♮ in G major
+    expect(displayAccidental(spellInKey(71, F), F)).toBe(2); // B♮ in F major
+  });
+  it('shows an explicit sharp for a chromatic note outside the signature', () => {
+    expect(displayAccidental(spellInKey(61, G), G)).toBe(1); // C# in G major
+  });
+});
+
+describe('inferKeySignature', () => {
+  const scale = (midis: number[]) => midis.map((midi) => ({ midi, duration: 1 }));
+  it('empty input → C major', () => {
+    expect(inferKeySignature([]).fifths).toBe(0);
+  });
+  it('C major scale → 0', () => {
+    expect(inferKeySignature(scale([60, 62, 64, 65, 67, 69, 71, 72])).fifths).toBe(0);
+  });
+  it('G major scale (F#) → +1', () => {
+    expect(inferKeySignature(scale([67, 69, 71, 72, 74, 76, 78, 79])).fifths).toBe(1);
+  });
+  it('F major scale (B♭) → −1', () => {
+    expect(inferKeySignature(scale([65, 67, 69, 70, 72, 74, 76, 77])).fifths).toBe(-1);
+  });
+  it('D major scale (F#, C#) → +2', () => {
+    expect(inferKeySignature(scale([62, 64, 66, 67, 69, 71, 73, 74])).fifths).toBe(2);
+  });
+  it('A natural minor scale → 0 (relative of C)', () => {
+    expect(inferKeySignature(scale([69, 71, 72, 74, 76, 77, 79, 81])).fifths).toBe(0);
+  });
+});
+
+describe('buildSheet with key signature', () => {
+  it('attaches the inferred signature and suppresses covered accidentals', () => {
+    // A full G-major scale establishes the key; a short chromatic F♮4 forces a natural.
+    const gScale = [67, 69, 71, 72, 74, 76, 78, 79].map((m, i) => note(i * 480, 480, m));
+    const layout = buildSheet(song([...gScale, note(3840, 120, 65)], 4320), 60, true);
+    expect(layout.keySignature?.fifths).toBe(1);
+    const fSharp = layout.notes.find((n) => n.midi === 78)!; // F#5 in the scale
+    const fNatural = layout.notes.find((n) => n.midi === 65)!;
+    expect(fSharp.accidental).toBe(0); // covered by the F# signature
+    expect(fNatural.accidental).toBe(2); // natural cancels the signature
+  });
+  it('default (no key signature) keeps raw sharp accidentals and no signature field', () => {
+    const layout = buildSheet(song([note(0, 480, 66)]));
+    expect(layout.keySignature).toBeUndefined();
+    expect(layout.notes[0].accidental).toBe(1); // F# spelled sharp, shown
   });
 });

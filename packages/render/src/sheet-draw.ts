@@ -1,4 +1,4 @@
-import type { SheetNote, NoteValue } from '@pianoflow/core';
+import { TREBLE_BOTTOM, BASS_BOTTOM, type SheetNote, type NoteValue, type KeySignature, type Staff } from '@pianoflow/core';
 import type { Theme } from './theme';
 
 /**
@@ -54,13 +54,14 @@ export function drawSheetNote(
   for (let s = -2; s >= n.steps; s -= 2) ledger(ctx, x, y, gap, s, n.steps);
   for (let s = 10; s <= n.steps; s += 2) ledger(ctx, x, y, gap, s, n.steps);
 
-  // Accidental.
+  // Accidental (1 sharp, −1 flat, 2 natural cancelling the key signature).
   if (n.accidental !== 0) {
+    const glyph = n.accidental === 2 ? '♮' : n.accidental > 0 ? '♯' : '♭';
     ctx.fillStyle = withAlpha(theme.text, 0.85);
     ctx.font = `${Math.round(gap * 1.7)}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(n.accidental > 0 ? '♯' : '♭', x - rx * 2.1, y);
+    ctx.fillText(glyph, x - rx * 2.1, y);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
   }
@@ -155,6 +156,53 @@ export function drawBassClef(ctx: CanvasRenderingContext2D, x: number, bottom: n
     ctx.fill();
   }
   ctx.restore();
+}
+
+/**
+ * Conventional key-signature glyph positions (absolute diatonic index, C4 = 28),
+ * indexed by mark order. Treble sharps F#5 C#5 G#5 D#5 A#4 E#5 B#4; flats mirror.
+ */
+const TREBLE_SHARP_IDX = [38, 35, 39, 36, 33, 37, 34];
+const TREBLE_FLAT_IDX = [34, 37, 33, 36, 32, 35, 31];
+const BASS_SHARP_IDX = [24, 21, 25, 22, 19, 23, 20];
+const BASS_FLAT_IDX = [20, 23, 19, 22, 18, 21, 17];
+
+/** Horizontal space a key signature occupies after the clef (0 when none). */
+export function keySignatureWidth(sig: KeySignature | undefined, gap: number): number {
+  if (!sig || sig.marks.length === 0) return 0;
+  return sig.marks.length * gap * 0.95 + gap * 0.6;
+}
+
+/**
+ * Draw a key signature's sharps/flats at their conventional staff positions,
+ * starting at x (just right of the clef). `bottom` is the staff's bottom-line y.
+ */
+export function drawKeySignature(
+  ctx: CanvasRenderingContext2D,
+  sig: KeySignature | undefined,
+  staff: Staff,
+  x: number,
+  bottom: number,
+  gap: number,
+  theme: Theme,
+): void {
+  if (!sig || sig.marks.length === 0) return;
+  const idx = staff === 'treble'
+    ? (sig.fifths >= 0 ? TREBLE_SHARP_IDX : TREBLE_FLAT_IDX)
+    : (sig.fifths >= 0 ? BASS_SHARP_IDX : BASS_FLAT_IDX);
+  const staffBottom = staff === 'treble' ? TREBLE_BOTTOM : BASS_BOTTOM;
+  const spacing = gap * 0.95;
+  ctx.fillStyle = withAlpha(theme.text, 0.85);
+  ctx.font = `${Math.round(gap * 1.7)}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  sig.marks.forEach((m, i) => {
+    const di = idx[i] ?? idx[idx.length - 1];
+    const y = bottom - (di - staffBottom) * (gap / 2);
+    ctx.fillText(m.accidental > 0 ? '♯' : '♭', x + i * spacing + spacing / 2, y);
+  });
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 }
 
 /** A note's position within a beam group (notehead centre + rhythmic value). */

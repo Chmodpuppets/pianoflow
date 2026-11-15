@@ -1,6 +1,6 @@
 import { buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { defaultTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Scrolling grand-staff sheet-music renderer. Draws two staves (treble + bass)
@@ -91,8 +91,10 @@ export class SheetRenderer {
     const bassBottom = trebleBottom + staffH + lineGap * 6; // y of bass bottom line (G2)
 
     const span = this.config.ahead + this.config.behind;
-    const pxPerSec = (cssW - CLEF_WIDTH - RIGHT_PAD) / span;
-    const cursorX = CLEF_WIDTH + this.config.behind * pxPerSec;
+    const keyWidth = keySignatureWidth(state.layout.keySignature, lineGap);
+    const leftPad = CLEF_WIDTH + keyWidth;
+    const pxPerSec = (cssW - leftPad - RIGHT_PAD) / span;
+    const cursorX = leftPad + this.config.behind * pxPerSec;
     const xFor = (t: number) => cursorX + (t - state.position) * pxPerSec;
     const yTreble = (steps: number) => trebleBottom - steps * (lineGap / 2);
     const yBass = (steps: number) => bassBottom - steps * (lineGap / 2);
@@ -101,6 +103,8 @@ export class SheetRenderer {
     this.drawBarlines(state.layout, xFor, trebleBottom, bassBottom, staffH, theme);
     this.drawTrebleClef(trebleBottom, lineGap, theme);
     this.drawBassClef(bassBottom, lineGap, theme);
+    drawKeySignature(this.ctx, state.layout.keySignature, 'treble', CLEF_WIDTH * 0.72, trebleBottom, lineGap, theme);
+    drawKeySignature(this.ctx, state.layout.keySignature, 'bass', CLEF_WIDTH * 0.72, bassBottom, lineGap, theme);
 
     // Beam groups (cached per layout): consecutive eighths/sixteenths share a beam.
     if (this.beamLayout !== state.layout) {
@@ -131,7 +135,7 @@ export class SheetRenderer {
       const n = notes[i];
       if (n.time < t0 || n.time > t1) continue;
       const x = xFor(n.time);
-      if (x < CLEF_WIDTH - 20 || x > cssW + 20) continue;
+      if (x < leftPad - 20 || x > cssW + 20) continue;
       const y = n.staff === 'treble' ? yTreble(n.steps) : yBass(n.steps);
       const g = this.beamOf.get(i);
       let beam: { dir: 'up' | 'down'; stemEndY: number } | undefined;

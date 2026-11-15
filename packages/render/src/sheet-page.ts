@@ -1,6 +1,6 @@
 import { buildSheetSystems, buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { paperTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Static, printable full-score renderer. Unlike the scrolling SheetRenderer (a
@@ -130,7 +130,9 @@ export class SheetPageRenderer {
     }
     ctx.textAlign = 'left';
 
-    const contentW = width - CLEF_WIDTH - RIGHT_PAD;
+    const keyWidth = keySignatureWidth(state.layout.keySignature, gap);
+    const leftPad = CLEF_WIDTH + keyWidth;
+    const contentW = width - leftPad - RIGHT_PAD;
     const last = systems.length - 1;
     systems.forEach((sys, si) => {
       const topY = PAD_X + titleH + si * (systemBlock + systemGap);
@@ -138,7 +140,7 @@ export class SheetPageRenderer {
       const bassBottom = trebleBottom + staffH + gap * 6;
       const trebleTop = trebleBottom - staffH;
       const span = Math.max(0.001, sys.endTime - sys.startTime);
-      const xFor = (t: number) => CLEF_WIDTH + ((t - sys.startTime) / span) * contentW;
+      const xFor = (t: number) => leftPad + ((t - sys.startTime) / span) * contentW;
       const yTreble = (steps: number) => trebleBottom - steps * (gap / 2);
       const yBass = (steps: number) => bassBottom - steps * (gap / 2);
 
@@ -155,6 +157,8 @@ export class SheetPageRenderer {
 
       drawTrebleClef(ctx, CLEF_WIDTH * 0.42, trebleBottom, gap, theme);
       drawBassClef(ctx, CLEF_WIDTH * 0.4, bassBottom, gap, theme);
+      drawKeySignature(ctx, state.layout.keySignature, 'treble', CLEF_WIDTH * 0.72, trebleBottom, gap, theme);
+      drawKeySignature(ctx, state.layout.keySignature, 'bass', CLEF_WIDTH * 0.72, bassBottom, gap, theme);
 
       // Measure number at the start of the system.
       ctx.fillStyle = withAlpha(theme.text, 0.55);
@@ -184,7 +188,7 @@ export class SheetPageRenderer {
         if (n.time < sys.startTime) continue;
         if (n.time >= sys.endTime && si !== last) continue;
         const x = xFor(n.time);
-        if (x < CLEF_WIDTH - 6 || x > width - RIGHT_PAD + 6) continue;
+        if (x < leftPad - 6 || x > width - RIGHT_PAD + 6) continue;
         const y = n.staff === 'treble' ? yTreble(n.steps) : yBass(n.steps);
         const g = beamOf.get(i);
         let beam: { dir: 'up' | 'down'; stemEndY: number } | undefined;

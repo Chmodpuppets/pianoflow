@@ -37,6 +37,18 @@
 
 <div align="center">
 
+### 🔑 Auto key signatures · 自动调号
+
+<img src="docs/img/sheet-key.png" alt="Canon in D engraved with an inferred D-major key signature" width="640">
+
+The score infers the key (Krumhansl–Schmuckler), prints the signature after each clef,
+respells notes into the key, and cancels with naturals only where needed.
+自动推断调性、在谱号后打印调号、按调拼写音符，仅在需要处用还原号取消。
+
+</div>
+
+<div align="center">
+
 ### 📱 Installable PWA · 可安装到手机
 
 <img src="docs/img/mobile-mockup.png" alt="PianoFlow running as an installed PWA on a phone" width="300">
@@ -57,7 +69,7 @@ Add to Home Screen for a full-screen, offline practice app.
 - ⚡ **WebGL GPU 渲染** — 实例化单次绘制数千音符，无 WebGL 时自动回退 Canvas2D。
 - 🎹 **练习模式** — 单手辅助（另一只手自动弹奏）、逐小节复盘 + 弱项跳转、评分与成就、清空可撤销。
 - 🎓 **引导式课程** — 4 阶段 12 课循序渐进，按最佳成绩解锁下一课，一键继续练习。
-- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，八分/十六分音符自动符杠。
+- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，自动推断调号、按调拼写音符、八分/十六分音符自动符杠。
 - 🎵 **12 首内置公版曲目** — 致爱丽丝、卡农、巴赫前奏曲、奇异恩典等。
 - 🗂 **曲库管理** — 实时搜索、8 种排序、收藏；多选批量收藏 / 取消收藏，可一键撤销。
 - 🎤 **真实音色** — 4 种离线 SoundFont（钢琴/电钢/音乐盒/颤音琴）。
@@ -85,7 +97,7 @@ macOS / Windows / Linux desktop builds.
 - ⚡ **WebGL GPU rendering** — one instanced draw call for thousands of notes; Canvas2D fallback.
 - 🎹 **Practice mode** — hand assist (app plays the other hand), per-measure review + focus chips, scoring & achievements, undoable clears.
 - 🎓 **Guided curriculum** — 4 stages / 12 lessons, unlock the next by best grade, one-tap continue.
-- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with beamed eighth/sixteenth notes.
+- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with inferred key signatures, key-aware note spelling and beamed eighth/sixteenth notes.
 - 🎵 **12 bundled public-domain songs** — Für Elise, Canon in D, Bach Prelude, Amazing Grace…
 - 🗂 **Library management** — live search, 8 sort orders, favorites; multi-select bulk favorite / unfavorite with one-tap undo.
 - 🎤 **Real sound** — 4 offline SoundFonts (piano / e-piano / music box / vibraphone).

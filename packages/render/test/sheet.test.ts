@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { SheetRenderer } from '../src/sheet';
-import type { SheetLayout, SheetNote } from '@pianoflow/core';
+import { drawKeySignature, keySignatureWidth } from '../src/sheet-draw';
+import { signatureFor, type SheetLayout, type SheetNote } from '@pianoflow/core';
 
 function mockCtx() {
   const rec = { ellipses: 0, strokes: 0, fillRects: 0, texts: [] as string[], saves: 0, restores: 0, quads: 0 };
@@ -113,5 +114,57 @@ describe('SheetRenderer', () => {
     r.resize(800, 400);
     r.render({ layout: layout([note(0, 64, { value: 'eighth' }), note(0.5, 67, { value: 'eighth' })]), position: 0 });
     expect(rec.quads).toBe(2); // one flag per un-beamed eighth
+  });
+
+  it('draws the key signature on both staves (sharp key)', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetRenderer(mockCanvas(ctx));
+    r.resize(800, 400);
+    const lay = layout([]);
+    lay.keySignature = signatureFor(1); // G major: one sharp
+    r.render({ layout: lay, position: 0 });
+    expect(rec.texts.filter((t) => t === '♯')).toHaveLength(2); // treble + bass
+    expect(rec.saves).toBe(rec.restores);
+  });
+
+  it('draws flat glyphs for a flat key signature', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetRenderer(mockCanvas(ctx));
+    r.resize(800, 400);
+    const lay = layout([]);
+    lay.keySignature = signatureFor(-2); // B♭ major: two flats
+    r.render({ layout: lay, position: 0 });
+    expect(rec.texts.filter((t) => t === '♭')).toHaveLength(4); // two per staff
+  });
+
+  it('draws no signature glyphs when the layout has no key signature', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetRenderer(mockCanvas(ctx));
+    r.resize(800, 400);
+    r.render({ layout: layout([]), position: 0 });
+    expect(rec.texts).not.toContain('♯');
+    expect(rec.texts).not.toContain('♭');
+  });
+});
+
+describe('keySignatureWidth / drawKeySignature', () => {
+  it('width is zero without a signature and grows with the mark count', () => {
+    expect(keySignatureWidth(undefined, 9)).toBe(0);
+    expect(keySignatureWidth(signatureFor(0), 9)).toBe(0);
+    expect(keySignatureWidth(signatureFor(2), 9)).toBeCloseTo(2 * 9 * 0.95 + 9 * 0.6);
+    expect(keySignatureWidth(signatureFor(3), 9)).toBeGreaterThan(keySignatureWidth(signatureFor(1), 9));
+  });
+
+  it('draws one glyph per mark and balances save/restore', () => {
+    const { ctx, rec } = mockCtx();
+    drawKeySignature(ctx as unknown as CanvasRenderingContext2D, signatureFor(3), 'treble', 50, 200, 9, { text: '#000' } as never);
+    expect(rec.texts.filter((t) => t === '♯')).toHaveLength(3);
+    expect(rec.saves).toBe(rec.restores);
+  });
+
+  it('is a no-op for an empty signature', () => {
+    const { ctx, rec } = mockCtx();
+    drawKeySignature(ctx as unknown as CanvasRenderingContext2D, signatureFor(0), 'bass', 50, 200, 9, { text: '#000' } as never);
+    expect(rec.texts).toHaveLength(0);
   });
 });

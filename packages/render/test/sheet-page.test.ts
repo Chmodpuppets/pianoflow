@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { SheetPageRenderer } from '../src/sheet-page';
 import { paperTheme } from '../src/theme';
-import type { SheetLayout, SheetNote } from '@pianoflow/core';
+import { signatureFor, type SheetLayout, type SheetNote } from '@pianoflow/core';
 
 function mockCtx() {
   const rec = {
@@ -130,5 +130,23 @@ describe('SheetPageRenderer', () => {
     expect(rec.ellipses).toBe(2);
     expect(rec.quads).toBe(0); // beamed → flags suppressed
     expect(rec.strokes).toBeGreaterThan(0);
+  });
+
+  it('draws the key signature on every system (both staves)', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetPageRenderer(mockCanvas(ctx), { measuresPerSystem: 2 });
+    const lay = fiveMeasures(); // 5 measures / 2 per system → 3 systems
+    lay.keySignature = signatureFor(1); // G major: one sharp
+    r.render({ layout: lay, title: 'T' });
+    expect(rec.texts.filter((t) => t === '♯')).toHaveLength(6); // 3 systems × 2 staves
+    expect(rec.saves).toBe(rec.restores);
+  });
+
+  it('draws no signature glyphs without a key signature', () => {
+    const { ctx, rec } = mockCtx();
+    const r = new SheetPageRenderer(mockCanvas(ctx));
+    r.render({ layout: fiveMeasures() });
+    expect(rec.texts).not.toContain('♯');
+    expect(rec.texts).not.toContain('♭');
   });
 });

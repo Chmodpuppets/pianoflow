@@ -168,7 +168,8 @@ save(canonCanvas, 'playfield-canon.png');
 console.log('canon fitted', canonFit, 'notes', canon.notes.length);
 
 // ---- Sheet-music grand staff -------------------------------------------------------------
-const layout = buildSheet(song, 60);
+const layout = buildSheet(song, 60, true);
+console.log('Für Elise key signature', JSON.stringify(layout.keySignature));
 const sheetCanvas = prep(createCanvas(1280, 440));
 const sheet = new SheetRenderer(sheetCanvas, {});
 sheet.resize(1280, 440);
@@ -183,6 +184,15 @@ const page = new SheetPageRenderer(pageCanvas, { width: 1000, measuresPerSystem:
 page.render({ layout, title: 'Für Elise', composer: 'Ludwig van Beethoven', theme: paperTheme });
 save(pageCanvas, 'sheet-page.png');
 console.log('sheet page css size', page.viewWidth + 'x' + page.viewHeight);
+
+// ---- Key-signature showcase (Canon in D → D major, two sharps) ---------------------------
+const canonLayout = buildSheet(canon, 60, true);
+console.log('Canon key signature', JSON.stringify(canonLayout.keySignature));
+const keyCanvas = prep(createCanvas(1000, 200));
+const keyPage = new SheetPageRenderer(keyCanvas, { width: 1000, measuresPerSystem: 4, scale: 1 });
+keyPage.render({ layout: canonLayout, title: 'Canon in D', composer: 'Johann Pachelbel', theme: paperTheme });
+save(keyCanvas, 'sheet-key.png');
+console.log('sheet-key css size', keyPage.viewWidth + 'x' + keyPage.viewHeight);
 
 // ---- Practice-review timeline (results screen) -------------------------------------------
 // Mirrors the DOM result-review layout using the SAME accuracyColor scale the app uses,

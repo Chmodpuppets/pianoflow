@@ -137,7 +137,11 @@ Tauri builds for macOS (universal), Windows and Linux; no browser required.
 - **Sheet-music view** — a 🎼 toggle in the player opens a scrolling grand staff (treble =
   right hand, bass = left) with vector clefs, barlines from the time signature, noteheads /
   stems / flags / accidentals / ledger lines and a glowing play cursor synced to playback.
-  Notation math is pure and headless-tested; noteheads are tinted by hand to match the falling notes.
+  The key is inferred from the notes (Krumhansl–Schmuckler key-finding), printed as a key
+  signature after each clef, and notes are respelled into the key — covered accidentals are
+  suppressed and a ♮ cancels the signature only where needed. Same-beat eighth/sixteenth notes
+  are beamed. Notation math is pure and headless-tested; noteheads are tinted by hand to match
+  the falling notes.
 - **Printable full-score export** — a ⤓ button in the sheet panel renders the *whole piece* as a
   clean multi-system grand-staff page on white "paper" (title + composer, measure numbers,
   barlines, hand-tinted notes) and downloads it as a high-resolution PNG. Trailing empty measures
@@ -349,6 +353,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M36 (done)** — cross-platform desktop release pipeline: aligned the Tauri shell to the app version (0.34.0), set `bundle.targets: "all"`, and added a `Release` GitHub Actions workflow (`tauri-apps/tauri-action`) that builds **macOS (universal arm64+x64), Windows (.msi/.exe) and Linux (.deb/.rpm/.AppImage)** in a matrix on every `v*` tag / manual dispatch and attaches all installers to a single GitHub Release. macOS `.app` rebuilt and launch-verified locally; the full matrix is built and verified in CI. Also hardened the E2E practice check to be rAF-independent (seek to exact note times + press key) so it is deterministic on throttled CI runners.
 - **M37 (done)** — guided curriculum: a 🎓 **Learn** view with a linear 4-stage / 12-lesson path (one lesson per bundled song), each with a target grade, hand and practice speed; lessons unlock by your saved best grade and a "continue" card opens the next lesson in Practice mode pre-configured. Pure, headless-tested core (`curriculum.ts`, 14 tests) + bilingual UI + a real-browser E2E check (path renders, continue opens the lesson, zh-CN localisation). 27/27 E2E green.
 - **M38 (done)** — bulk library actions: a ☑ **Select** mode with per-row checkboxes, **Select all / Clear**, a live selected-count, and batch **♥ Favorite / ♡ Unfavorite** applied through the undoable toast (exact prior favorites restored on undo). Pure `applyBulkFavorite` / `toggleSelected` core (10 new tests) + bilingual toolbar + responsive layout + a real-browser E2E check (select → batch favorite → undo → select all/clear → done). 28/28 E2E green.
+- **M39 (done)** — sheet key-signature engraving: the notation core infers the key with a duration-weighted Krumhansl–Schmuckler correlation over all 24 major/minor keys (`inferKeySignature`), builds the conventional sharp/flat signature (`signatureFor`), respells each note into the key (`spellInKey`, flat-key black keys become flats) and shows an accidental only when it differs from the signature — a ♮ cancels it (`displayAccidental`). Both the scrolling view and the printable page reserve space after the clef and draw the signature on both staves (`drawKeySignature` / `keySignatureWidth`); opt-in via `buildSheet(song, split, true)` keeps the raw spelling available. Verified by 25 new headless tests (key finding, respelling, accidental suppression, signature drawing on live + page renderers) and a real-canvas pixel check confirming the signature adds visible ink (Canon in D → D major, two sharps).
 
 ## 📄 License & attribution
 
