@@ -1346,7 +1346,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.40.0';
+aboutVersion.textContent = 'v0.41.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {

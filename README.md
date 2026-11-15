@@ -88,7 +88,7 @@ Add to Home Screen for a full-screen, offline practice app.
 
 ### 亮点
 - 🎮 **下落音符舞台** — 双手分色、键盘自动适配音域、节奏网格、视觉倒数。
-- ⚡ **WebGL GPU 渲染** — 实例化单次绘制数千音符，无 WebGL 时自动回退 Canvas2D。
+- ⚡ **WebGL GPU 渲染** — 实例化单次绘制数千音符，无 WebGL 时自动回退 Canvas2D；播放全程流畅 60fps，五线谱静态层离屏缓存、符杠几何按布局缓存，回退路径以廉价光晕替代高开销阴影模糊。
 - 🎹 **练习模式** — 单手辅助（另一只手自动弹奏）、逐小节复盘 + 弱项跳转、评分与成就、清空可撤销。
 - 🎓 **引导式课程** — 4 阶段 12 课循序渐进，按最佳成绩解锁下一课，一键继续练习。
 - 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，自动推断调号、按调拼写音符、八分/十六分音符自动符杠、休止符与跨小节连音线、速度/拍号/断奏点/力度记号；曲库每首歌一键 🎼 打开乐谱，播放器内高亮「五线谱」按钮随时切换。
@@ -116,7 +116,7 @@ macOS / Windows / Linux desktop builds.
 
 ### Highlights
 - 🎮 **Falling-notes stage** — color-coded hands, auto-fit keyboard, rhythm grid, visual count-in.
-- ⚡ **WebGL GPU rendering** — one instanced draw call for thousands of notes; Canvas2D fallback.
+- ⚡ **WebGL GPU rendering** — one instanced draw call for thousands of notes; Canvas2D fallback. Smooth 60fps playback: the sheet's static layer is cached offscreen, beam geometry is cached per layout, and the fallback uses a cheap halo instead of costly shadow blur.
 - 🎹 **Practice mode** — hand assist (app plays the other hand), per-measure review + focus chips, scoring & achievements, undoable clears.
 - 🎓 **Guided curriculum** — 4 stages / 12 lessons, unlock the next by best grade, one-tap continue.
 - 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with inferred key signatures, key-aware note spelling, beamed eighth/sixteenth notes, rests and ties across barlines, tempo/time-signature display, staccato dots and velocity-derived dynamic markings. Open the score with one tap 🎼 on any library song, or the highlighted "Sheet" toggle in the player.

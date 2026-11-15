@@ -89,12 +89,11 @@ export function drawSheetNote(
     }
   }
 
-  // Notehead.
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(-0.32);
+  // Notehead. The tilt is baked into the ellipse rotation argument so each note
+  // avoids a save/translate/rotate/restore round-trip (hundreds of notes scroll
+  // past every frame in dense scores — per-note transform state is costly).
   ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, rx, ry, -0.32, 0, Math.PI * 2);
   if (filled) {
     ctx.fillStyle = color;
     if (near) {
@@ -102,13 +101,12 @@ export function drawSheetNote(
       ctx.shadowBlur = 12;
     }
     ctx.fill();
+    if (near) ctx.shadowBlur = 0;
   } else {
     ctx.lineWidth = Math.max(1.4, gap * 0.2);
     ctx.strokeStyle = color;
     ctx.stroke();
   }
-  ctx.restore();
-  ctx.shadowBlur = 0;
 }
 
 /** Stylised treble clef: a vertical spiral centred on the G line (steps 2). */

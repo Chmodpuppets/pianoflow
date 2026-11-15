@@ -402,14 +402,15 @@ export class Renderer {
           state.dimHand === 'left' ? withAlpha(theme.leftNote, 0.3) : withAlpha(theme.rightNote, 0.3);
         this.fillBatch(this.dimBuf, dimColor);
       }
-      // One fill per hand instead of one per note, with a soft luminous bloom.
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = withAlpha(theme.rightNote, 0.7);
+      // One fill per hand instead of one per note. The luminous bloom is a cheap
+      // translucent halo batched under each hand: Canvas2D shadowBlur is CPU-
+      // rasterised and catastrophically slow for dense scores (it re-blurs the
+      // whole note path every frame), so we approximate the glow with an expanded
+      // halo fill instead. The GPU path keeps its shader-based bloom.
+      this.fillBatchGlow(this.rightBuf, withAlpha(theme.rightNote, 0.22), 3);
+      this.fillBatchGlow(this.leftBuf, withAlpha(theme.leftNote, 0.22), 3);
       this.fillBatch(this.rightBuf, theme.rightNote, this.noteGradRight);
-      ctx.shadowColor = withAlpha(theme.leftNote, 0.7);
       this.fillBatch(this.leftBuf, theme.leftNote, this.noteGradLeft);
-      ctx.shadowBlur = 0;
-      ctx.shadowColor = 'rgba(0,0,0,0)';
     }
     if (config.showNoteLabels) this.drawNoteLabels(theme);
 
@@ -770,6 +771,19 @@ export class Renderer {
     ctx.beginPath();
     for (let i = 0; i < buf.length; i += 5) {
       this.roundRectPath(buf[i], buf[i + 1], buf[i + 2], buf[i + 3], buf[i + 4]);
+    }
+    ctx.fill();
+  }
+
+  /** A single batched translucent halo (each rect expanded by `pad`) used as a
+   *  cheap bloom under the solid note fill — far faster than Canvas2D shadowBlur. */
+  private fillBatchGlow(buf: number[], color: string, pad: number): void {
+    if (buf.length === 0) return;
+    const ctx = this.ctx;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < buf.length; i += 5) {
+      this.roundRectPath(buf[i] - pad, buf[i + 1] - pad, buf[i + 2] + pad * 2, buf[i + 3] + pad * 2, buf[i + 4] + pad);
     }
     ctx.fill();
   }
