@@ -91,7 +91,7 @@ Add to Home Screen for a full-screen, offline practice app.
 - ⚡ **WebGL GPU 渲染** — 实例化单次绘制数千音符，无 WebGL 时自动回退 Canvas2D。
 - 🎹 **练习模式** — 单手辅助（另一只手自动弹奏）、逐小节复盘 + 弱项跳转、评分与成就、清空可撤销。
 - 🎓 **引导式课程** — 4 阶段 12 课循序渐进，按最佳成绩解锁下一课，一键继续练习。
-- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，自动推断调号、按调拼写音符、八分/十六分音符自动符杠、休止符与跨小节连音线、速度/拍号/断奏点/力度记号。
+- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，自动推断调号、按调拼写音符、八分/十六分音符自动符杠、休止符与跨小节连音线、速度/拍号/断奏点/力度记号；曲库每首歌一键 🎼 打开乐谱，播放器内高亮「五线谱」按钮随时切换。
 - 🎵 **12 首内置公版曲目** — 致爱丽丝、卡农、巴赫前奏曲、奇异恩典等。
 - 🗂 **曲库管理** — 实时搜索、8 种排序、收藏；多选批量收藏 / 取消收藏，可一键撤销。
 - 🎤 **真实音色** — 4 种离线 SoundFont（钢琴/电钢/音乐盒/颤音琴）。
@@ -119,7 +119,7 @@ macOS / Windows / Linux desktop builds.
 - ⚡ **WebGL GPU rendering** — one instanced draw call for thousands of notes; Canvas2D fallback.
 - 🎹 **Practice mode** — hand assist (app plays the other hand), per-measure review + focus chips, scoring & achievements, undoable clears.
 - 🎓 **Guided curriculum** — 4 stages / 12 lessons, unlock the next by best grade, one-tap continue.
-- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with inferred key signatures, key-aware note spelling, beamed eighth/sixteenth notes, rests and ties across barlines, tempo/time-signature display, staccato dots and velocity-derived dynamic markings.
+- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with inferred key signatures, key-aware note spelling, beamed eighth/sixteenth notes, rests and ties across barlines, tempo/time-signature display, staccato dots and velocity-derived dynamic markings. Open the score with one tap 🎼 on any library song, or the highlighted "Sheet" toggle in the player.
 - 🎵 **12 bundled public-domain songs** — Für Elise, Canon in D, Bach Prelude, Amazing Grace…
 - 🗂 **Library management** — live search, 8 sort orders, favorites; multi-select bulk favorite / unfavorite with one-tap undo.
 - 🎤 **Real sound** — 4 offline SoundFonts (piano / e-piano / music box / vibraphone).

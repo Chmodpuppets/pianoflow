@@ -470,6 +470,7 @@ function buildSongList(): void {
       </div>
       ${info ? diffBars(info.difficulty.level) : '<span class="song-diff"></span>'}
       <button class="fav-btn${favs.has(s.id) ? ' on' : ''}" title="${tr('songs.fav')}">${favs.has(s.id) ? '♥' : '♡'}</button>
+      <button class="song-sheet" title="${tr('songs.sheet')}" aria-label="${tr('songs.sheet')}">🎼</button>
       <button class="btn btn-primary song-play">${tr('songs.play')}</button>`;
     const favBtn = row.querySelector('.fav-btn') as HTMLButtonElement;
     favBtn.addEventListener('click', () => {
@@ -479,6 +480,7 @@ function buildSongList(): void {
       favBtn.textContent = favs.has(s.id) ? '♥' : '♡';
     });
     (row.querySelector('.song-play') as HTMLButtonElement).addEventListener('click', () => { void selectSong(s, true); });
+    (row.querySelector('.song-sheet') as HTMLButtonElement).addEventListener('click', (e) => { e.stopPropagation(); void openSongSheet(s); });
     if (selectMode) {
       const check = row.querySelector('.song-check') as HTMLInputElement;
       const syncRow = (): void => {
@@ -551,6 +553,11 @@ async function selectSong(entry: SongEntry, autoplay: boolean): Promise<void> {
   } catch (err) {
     console.error('Failed to load song', err);
   }
+}
+/** Open a song in the player with the sheet-music panel already visible (library shortcut). */
+async function openSongSheet(entry: SongEntry): Promise<void> {
+  await selectSong(entry, false);
+  openSheet();
 }
 // ---------- learn / curriculum ----------
 function curriculumRecords(): Record<string, CurriculumRecord> {
@@ -1339,7 +1346,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.39.0';
+aboutVersion.textContent = 'v0.40.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {

@@ -421,6 +421,30 @@ await check('desktop: back to library, zero console errors overall', async () =>
   await page.waitForSelector('#screen-library:not(.hidden)');
   assert.strictEqual(d.errors.length, 0, 'console errors: ' + d.errors.join(' | '));
 });
+await check('desktop: library sheet shortcut opens player with sheet visible', async () => {
+  // Discoverability: the per-row 🎼 button must be visible in the library and open
+  // the score directly; the player toolbar toggle must carry a visible text label.
+  await page.waitForSelector('.song-row .song-sheet');
+  const rowBtnVisible = await page.evaluate(() => {
+    const r = document.querySelector('.song-row .song-sheet').getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  assert(rowBtnVisible, 'library .song-sheet button not visible');
+  await page.click('.song-row .song-sheet');
+  await page.waitForSelector('#screen-player:not(.hidden)');
+  await page.waitForSelector('#sheetPanel:not(.hidden)');
+  await page.waitForFunction(() => {
+    const c = document.querySelector('#sheetCanvas');
+    return c && c.width > 0 && c.height > 0;
+  }, null, { timeout: 15000 });
+  const label = await page.evaluate(() => document.querySelector('#sheetBtn .sheet-toggle-label').textContent.trim());
+  assert(label.length > 0, 'sheet toggle has no visible text label');
+  await shot(page, 'desktop-sheet-shortcut.png');
+  await page.click('#sheetClose');
+  await hidden(page, '#sheetPanel');
+  await page.click('#backBtn');
+  await page.waitForSelector('#screen-library:not(.hidden)');
+});
 await check('desktop: clear history is undoable via toast', async () => {
   await page.click('#navProgress');
   await page.waitForSelector('#view-progress:not(.hidden)');
@@ -454,6 +478,8 @@ await check('locale: zh-CN browser auto-detects Chinese UI', async () => {
   assert(navLearn.includes('课程'), 'navLearn=' + navLearn);
   const listTxt = await z.page.evaluate(() => document.querySelector('#songList').textContent);
   assert(listTxt.includes('小星星') && listTxt.includes('致爱丽丝'), 'song titles not localized: ' + listTxt.slice(0, 80));
+  const sheetTitle = await z.page.evaluate(() => document.querySelector('.song-row .song-sheet').getAttribute('title'));
+  assert(sheetTitle.includes('五线谱'), 'library sheet button not localized: ' + sheetTitle);
   await z.page.click('#navLearn');
   await z.page.waitForSelector('#view-learn:not(.hidden)');
   const learnTxt = await z.page.evaluate(() => document.querySelector('#learnPath').textContent);

@@ -95,6 +95,17 @@ input, select { font-family: inherit; }
 .icon-btn.recording { color: var(--red); background: rgba(255,107,107,.14); border-color: rgba(255,107,107,.4); animation: rec-pulse 1.2s ease-in-out infinite; }
 @keyframes rec-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,107,107,.35); } 50% { box-shadow: 0 0 0 6px rgba(255,107,107,0); } }
 .icon-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+/* Prominent labeled sheet-music toggle — stands out from the icon-only toolbar buttons. */
+.sheet-toggle {
+  display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px;
+  border-radius: 10px; border: 1px solid rgba(255,209,102,.5); cursor: pointer;
+  background: linear-gradient(135deg, rgba(255,209,102,.18), rgba(255,209,102,.05));
+  color: var(--gold); font-size: 13.5px; font-weight: 700; letter-spacing: .2px;
+  transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
+}
+.sheet-toggle-icon { font-size: 16px; line-height: 1; }
+.sheet-toggle:hover { background: linear-gradient(135deg, rgba(255,209,102,.28), rgba(255,209,102,.10)); transform: translateY(-1px); box-shadow: 0 2px 12px rgba(255,209,102,.20); }
+.sheet-toggle[aria-pressed="true"], .sheet-toggle.active { background: linear-gradient(135deg, rgba(255,209,102,.34), rgba(255,209,102,.14)); border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255,209,102,.35); }
 
 select, input[type="text"], input[type="search"] {
   background: var(--panel-2); color: var(--text);
@@ -209,7 +220,7 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 
 .song-list { display: flex; flex-direction: column; gap: 8px; }
 .song-row {
-  display: grid; grid-template-columns: 56px 1fr auto auto auto; align-items: center; gap: 16px;
+  display: grid; grid-template-columns: 56px 1fr auto auto auto auto; align-items: center; gap: 16px;
   padding: 10px 14px; border-radius: var(--radius); border: 1px solid transparent;
   background: var(--panel); transition: background .12s, border-color .12s, transform .12s;
 }
@@ -237,6 +248,12 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 .fav-btn { background: none; border: none; font-size: 18px; color: var(--faint); cursor: pointer; padding: 6px; transition: color .12s, transform .12s; }
 .fav-btn:hover { transform: scale(1.15); color: var(--magenta); }
 .fav-btn.on { color: var(--magenta); }
+.song-sheet {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  border-radius: 9px; border: 1px solid rgba(255,209,102,.4); cursor: pointer; font-size: 17px;
+  background: rgba(255,209,102,.08); color: var(--gold); transition: background .12s, transform .12s, box-shadow .12s;
+}
+.song-sheet:hover { background: rgba(255,209,102,.20); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(255,209,102,.18); }
 .song-play { padding: 8px 18px; }
 .empty-note { color: var(--muted); padding: 30px; text-align: center; }
 /* ---- library multi-select / bulk actions ---- */
@@ -253,7 +270,7 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 .btn-sm { padding: 6px 12px; font-size: 12.5px; }
 .bulk-bar .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 .song-row.selecting { grid-template-columns: 24px 56px 1fr auto; cursor: pointer; }
-.song-row.selecting .fav-btn, .song-row.selecting .song-play { display: none; }
+.song-row.selecting .fav-btn, .song-row.selecting .song-play, .song-row.selecting .song-sheet { display: none; }
 .song-row.selected { border-color: var(--blue); background: linear-gradient(90deg, rgba(78,161,255,.16), var(--panel-2)); }
 .song-check { width: 18px; height: 18px; accent-color: var(--blue); cursor: pointer; }
 .lib-hint { margin: 14px 4px 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
@@ -600,15 +617,17 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
   .sidebar-foot { align-items: center; }
   .profile-name, .linklike.small { display: none; }
   .lib-main { padding: 18px 16px 32px; }
-  .song-row { grid-template-columns: 44px 1fr auto auto; }
+  .song-row { grid-template-columns: 44px 1fr auto auto auto; }
   .song-diff { display: none; }
   .song-art { width: 44px; height: 44px; font-size: 20px; }
   .player-title { flex-basis: 120px; }
   .pt-sub { display: none; }
 }
 @media (max-width: 560px) {
-  .song-row { grid-template-columns: 40px 1fr auto; gap: 10px; }
+  .song-row { grid-template-columns: 40px 1fr auto auto; gap: 10px; }
   .fav-btn { display: none; }
+  .song-sheet { width: 34px; height: 34px; font-size: 16px; }
+  .sheet-toggle { padding: 0 10px; font-size: 12.5px; }
   .song-row.selecting { grid-template-columns: 22px 40px 1fr; gap: 10px; }
   .song-row.selecting .song-diff { display: none; }
   .bulk-bar { gap: 6px; padding: 8px 10px; }
