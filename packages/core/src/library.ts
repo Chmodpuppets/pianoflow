@@ -68,3 +68,33 @@ export function sortLibrary(
   };
   return [...ids].sort(cmp);
 }
+
+/**
+ * Pure bulk-favorite transform: return a NEW set equal to `current` with every
+ * id in `ids` added (favorite=true) or removed (favorite=false). Never mutates
+ * the inputs; duplicate ids are idempotent. Powers the library's multi-select
+ * "Favorite / Unfavorite" actions (and their undo snapshots).
+ */
+export function applyBulkFavorite(
+  current: Iterable<string>,
+  ids: Iterable<string>,
+  favorite: boolean,
+): Set<string> {
+  const next = new Set(current);
+  for (const id of ids) {
+    if (favorite) next.add(id);
+    else next.delete(id);
+  }
+  return next;
+}
+
+/**
+ * Pure selection toggle: return a NEW set with `id` removed if present, added
+ * otherwise. Never mutates the input. Powers per-row selection in select mode.
+ */
+export function toggleSelected(current: Iterable<string>, id: string): Set<string> {
+  const next = new Set(current);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
+}

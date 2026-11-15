@@ -108,7 +108,12 @@ Tauri builds for macOS (universal), Windows and Linux; no browser required.
   *Canon in D*, *Prelude in C (BWV 846)*, *Amazing Grace*, *When the Saints Go Marching In*,
   and *Scarborough Fair* — each a two-hand arrangement (melody + accompaniment).
 - **Song library** — browse bundled tracks with composer, duration, note count and a
-  ★ difficulty estimate; your best grade / accuracy is shown per song.
+  ★ difficulty estimate; your best grade / accuracy is shown per song. Live search (matches
+  English + Chinese titles/composers), genre chips and 8 sort orders (recommended / title /
+  difficulty ± / duration / recent / best grade / favorites). A **☑ Select** mode turns on
+  multi-select: tick rows (or **Select all**), then **♥ Favorite / ♡ Unfavorite** the whole
+  batch at once — every bulk change lands through an undoable toast that restores the exact
+  prior favorites. Pure `applyBulkFavorite` / `toggleSelected` core, headless-tested.
 - **Bring your own MIDI** — drop any `.mid` / `.midi` into `apps/web/public/songs/` and it
   appears in the library automatically: the folder is auto-indexed (dev live-refreshes on
   change; the index is baked into the production build). Curated metadata lives in
@@ -181,8 +186,9 @@ pnpm soundfont      # re-download the bundled offline piano samples (optional)
 
 `pnpm e2e` serves the production build under `/pianoflow/` (exactly like Pages) and drives
 headless system Chrome through the full primary flow — welcome → library (search / genre /
-sort / favorites / language) → player (pause, practice, coach, keyboard judging, seek,
-results + review, retry, sheet PNG export, transpose, drawer, resize) — plus a touch-enabled
+sort / favorites / bulk select + undo / language / Learn curriculum) → player (pause, practice,
+coach, keyboard judging, seek, results + review, retry, sheet PNG export, transpose, drawer,
+resize) — plus a touch-enabled
 390×844 mobile pass (overflow, reachable controls, on-screen piano input) and a zh-CN
 locale auto-detect pass, asserting zero console errors throughout. It also runs in CI.
 
@@ -239,7 +245,7 @@ every `v*` tag (or manual dispatch) and attaches all installers to one GitHub Re
 | Fit keyboard | player ⚙ drawer or Settings → Display: "Fit keyboard to song" zooms to the song's range (off = full 88 keys) |
 | GPU notes | player ⚙ drawer or Settings → Display: "GPU notes (WebGL)" toggles the instanced WebGL backend; a green **GPU** badge shows when active (auto-falls back to Canvas2D) |
 | Rhythm grid | player ⚙ drawer or Settings → Display: "Measure & beat grid" toggles the scrolling measure/beat lines + measure numbers behind the notes |
-| Song library | sidebar **Songs**: search, genre chips, sort (recommended / title / difficulty / duration / recent / best grade / favorites), ♥ favorite, ▶ Play, or open a local `.mid` |
+| Song library | sidebar **Songs**: search, genre chips, sort (recommended / title / difficulty / duration / recent / best grade / favorites), ♥ favorite, ▶ Play, ☑ Select (multi-select → batch favorite/unfavorite, undoable), or open a local `.mid` |
 | MIDI devices | Settings → MIDI, or player ⚙ → MIDI; pick a device (or All) and watch the note monitor |
 | Plugins | Settings → Plugins, player ⚙, or the Practice view; enable / disable (saved) |
 | Practice history | sidebar **Progress**: overall stats, per-song trends and recent sessions |
@@ -342,6 +348,7 @@ is missing, PianoFlow falls back to the CDN, then to the built-in synth.
 - **M35 (done)** — polish pass closing three audit gaps: (a) **localised song metadata** — every bundled piece carries `titleZh`/`composerZh`, so the library, player, results, history and sheet export show Chinese titles/composers in 中文 (search matches both languages); (b) **undo after destructive actions** — clearing history or scores now shows an 8-second toast with an Undo button that restores the exact snapshot (replacing the blocking `confirm()`); (c) **sheet beams** — consecutive eighth/sixteenth notes in the same beat are joined by a shared beam (primary + secondary sixteenth beams, clamped slope, stems extended to the beam line) instead of individual flags, in both the scrolling view and the printable page, via a pure `buildBeamGroups` core + shared `beamGeometry`/`drawBeamLines` primitives. Verified by 10 new headless tests (beam grouping, flag suppression, page beams) and two new real-browser E2E checks (undo restore, localised titles) — 26/26 E2E green.
 - **M36 (done)** — cross-platform desktop release pipeline: aligned the Tauri shell to the app version (0.34.0), set `bundle.targets: "all"`, and added a `Release` GitHub Actions workflow (`tauri-apps/tauri-action`) that builds **macOS (universal arm64+x64), Windows (.msi/.exe) and Linux (.deb/.rpm/.AppImage)** in a matrix on every `v*` tag / manual dispatch and attaches all installers to a single GitHub Release. macOS `.app` rebuilt and launch-verified locally; the full matrix is built and verified in CI. Also hardened the E2E practice check to be rAF-independent (seek to exact note times + press key) so it is deterministic on throttled CI runners.
 - **M37 (done)** — guided curriculum: a 🎓 **Learn** view with a linear 4-stage / 12-lesson path (one lesson per bundled song), each with a target grade, hand and practice speed; lessons unlock by your saved best grade and a "continue" card opens the next lesson in Practice mode pre-configured. Pure, headless-tested core (`curriculum.ts`, 14 tests) + bilingual UI + a real-browser E2E check (path renders, continue opens the lesson, zh-CN localisation). 27/27 E2E green.
+- **M38 (done)** — bulk library actions: a ☑ **Select** mode with per-row checkboxes, **Select all / Clear**, a live selected-count, and batch **♥ Favorite / ♡ Unfavorite** applied through the undoable toast (exact prior favorites restored on undo). Pure `applyBulkFavorite` / `toggleSelected` core (10 new tests) + bilingual toolbar + responsive layout + a real-browser E2E check (select → batch favorite → undo → select all/clear → done). 28/28 E2E green.
 
 ## 📄 License & attribution
 

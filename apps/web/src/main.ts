@@ -25,6 +25,8 @@ import {
   LANGS,
   sortLibrary,
   isLibrarySort,
+  applyBulkFavorite,
+  toggleSelected,
   CURRICULUM,
   buildStageProgress,
   curriculumSummary,
@@ -127,6 +129,14 @@ const genreChips = $<HTMLElement>('genreChips');
 const songList = $<HTMLElement>('songList');
 const loadBtn = $<HTMLButtonElement>('loadBtn');
 const fileInput = $<HTMLInputElement>('fileInput');
+const selectBtn = $<HTMLButtonElement>('selectBtn');
+const bulkBar = $<HTMLElement>('bulkBar');
+const bulkCount = $<HTMLElement>('bulkCount');
+const bulkAll = $<HTMLButtonElement>('bulkAll');
+const bulkNone = $<HTMLButtonElement>('bulkNone');
+const bulkFav = $<HTMLButtonElement>('bulkFav');
+const bulkUnfav = $<HTMLButtonElement>('bulkUnfav');
+const bulkDone = $<HTMLButtonElement>('bulkDone');
 
 const pHands = $<HTMLSelectElement>('pHands');
 const pSpeed = $<HTMLSelectElement>('pSpeed');
@@ -384,6 +394,10 @@ let sortKey: LibrarySort = loadSort();
 function saveSort(): void {
   try { localStorage.setItem(SORT_KEY, sortKey); } catch { /* ignore */ }
 }
+// ---------- library multi-select / bulk actions ----------
+let selectMode = false;
+let selected = new Set<string>();
+let visibleIds: string[] = [];
 const songInfoCache = new Map<string, { stats: SongStats; difficulty: Difficulty; duration: number }>();
 const ART_EMOJI: Record<string, string> = { Classical: '🎼', Traditional: '🎹', Folk: '🪕', Local: '📁', Imported: '📥' };
 
@@ -433,20 +447,22 @@ function buildSongList(): void {
   const order = sortLibrary(filtered.map((s) => s.id), sortKey, libMeta);
   const byId = new Map(filtered.map((s) => [s.id, s]));
   const rows = order.map((id) => byId.get(id)!).filter(Boolean);
+  visibleIds = rows.map((s) => s.id);
   songList.innerHTML = '';
   if (!rows.length) {
     songList.innerHTML = `<div class="empty-note">${tr('songs.empty')}</div>`;
+    updateBulkBar();
     return;
   }
   rows.forEach((s) => {
     const info = songInfoCache.get(s.id);
-    const best = progress.get(s.id)?.bestGrade;
     const row = document.createElement('div');
-    row.className = 'song-row' + (st.songId === s.id ? ' playing' : '');
+    row.className = 'song-row' + (st.songId === s.id ? ' playing' : '') + (selectMode ? ' selecting' : '') + (selected.has(s.id) ? ' selected' : '');
     const genre = s.genre ?? 'Local';
     const composer = locComposer(s);
     const sub = info ? `${composer} · ${tr('songs.notes', { n: info.stats.noteCount })} · ${fmt(info.duration)}` : composer;
     row.innerHTML = `
+      ${selectMode ? `<input type="checkbox" class="song-check"${selected.has(s.id) ? ' checked' : ''} aria-label="${locTitle(s)}" />` : ''}
       <div class="song-art art-${genre}">${ART_EMOJI[genre] ?? '🎵'}</div>
       <div class="song-meta">
         <div class="song-title">${locTitle(s)}</div>
@@ -463,7 +479,51 @@ function buildSongList(): void {
       favBtn.textContent = favs.has(s.id) ? '♥' : '♡';
     });
     (row.querySelector('.song-play') as HTMLButtonElement).addEventListener('click', () => { void selectSong(s, true); });
+    if (selectMode) {
+      const check = row.querySelector('.song-check') as HTMLInputElement;
+      const syncRow = (): void => {
+        const on = selected.has(s.id);
+        row.classList.toggle('selected', on);
+        check.checked = on;
+      };
+      check.addEventListener('change', () => { selected = toggleSelected(selected, s.id); syncRow(); updateBulkBar(); });
+      row.addEventListener('click', (e) => {
+        if (e.target === check || e.target === favBtn) return;
+        selected = toggleSelected(selected, s.id); syncRow(); updateBulkBar();
+      });
+    }
     songList.appendChild(row);
+  });
+  updateBulkBar();
+}
+function setSelectMode(on: boolean): void {
+  selectMode = on;
+  if (!on) selected = new Set();
+  selectBtn.classList.toggle('active', on);
+  selectBtn.setAttribute('aria-pressed', String(on));
+  selectBtn.textContent = on ? tr('songs.selectDone') : tr('songs.select');
+  bulkBar.classList.toggle('hidden', !on);
+  buildSongList();
+}
+function updateBulkBar(): void {
+  if (!selectMode) return;
+  const n = selected.size;
+  bulkCount.textContent = tr('songs.selected', { n });
+  const allVisible = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  bulkAll.disabled = allVisible;
+  bulkNone.disabled = n === 0;
+  bulkFav.disabled = n === 0;
+  bulkUnfav.disabled = n === 0;
+}
+function bulkFavorite(favorite: boolean): void {
+  if (!selected.size) return;
+  const snapshot = new Set(favs);
+  const n = selected.size;
+  favs = applyBulkFavorite(favs, selected, favorite);
+  saveFavs();
+  buildSongList();
+  showUndoToast(tr(favorite ? 'songs.bulkFavDone' : 'songs.bulkUnfavDone', { n }), () => {
+    favs = snapshot; saveFavs(); buildSongList();
   });
 }
 async function enrichLibrary(): Promise<void> {
@@ -585,6 +645,12 @@ sortSel.addEventListener('change', () => {
   if (isLibrarySort(sortSel.value)) { sortKey = sortSel.value; saveSort(); buildSongList(); }
 });
 loadBtn.addEventListener('click', () => fileInput.click());
+selectBtn.addEventListener('click', () => setSelectMode(!selectMode));
+bulkDone.addEventListener('click', () => setSelectMode(false));
+bulkAll.addEventListener('click', () => { selected = new Set([...selected, ...visibleIds]); buildSongList(); });
+bulkNone.addEventListener('click', () => { selected = new Set(); buildSongList(); });
+bulkFav.addEventListener('click', () => bulkFavorite(true));
+bulkUnfav.addEventListener('click', () => bulkFavorite(false));
 fileInput.addEventListener('change', async () => {
   const f = fileInput.files?.[0];
   if (!f) return;
@@ -1246,6 +1312,7 @@ function applyLanguage(): void {
   refreshProfileChip();
   buildChips();
   buildSongList();
+  selectBtn.textContent = selectMode ? tr('songs.selectDone') : tr('songs.select');
   const cur = songById(app.getState().songId);
   if (cur) {
     playerTitle.textContent = locTitle(cur);
@@ -1272,7 +1339,7 @@ langSelect.addEventListener('change', () => setLang(langSelect.value as Lang));
 langSelectPlayer.addEventListener('change', () => setLang(langSelectPlayer.value as Lang));
 
 // ---------- startup ----------
-aboutVersion.textContent = 'v0.35.0';
+aboutVersion.textContent = 'v0.36.0';
 for (const sel of [langSelect, langSelectPlayer]) {
   sel.innerHTML = '';
   for (const l of LANGS) {

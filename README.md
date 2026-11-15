@@ -59,6 +59,7 @@ Add to Home Screen for a full-screen, offline practice app.
 - 🎓 **引导式课程** — 4 阶段 12 课循序渐进，按最佳成绩解锁下一课，一键继续练习。
 - 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，八分/十六分音符自动符杠。
 - 🎵 **12 首内置公版曲目** — 致爱丽丝、卡农、巴赫前奏曲、奇异恩典等。
+- 🗂 **曲库管理** — 实时搜索、8 种排序、收藏；多选批量收藏 / 取消收藏，可一键撤销。
 - 🎤 **真实音色** — 4 种离线 SoundFont（钢琴/电钢/音乐盒/颤音琴）。
 - 🌐 **双语界面** — English / 中文 一键切换，曲目名与作者也本地化。
 - 📦 **PWA + 桌面** — 可安装、离线可用；Tauri 原生桌面应用（macOS / Windows / Linux）。
@@ -86,6 +87,7 @@ macOS / Windows / Linux desktop builds.
 - 🎓 **Guided curriculum** — 4 stages / 12 lessons, unlock the next by best grade, one-tap continue.
 - 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with beamed eighth/sixteenth notes.
 - 🎵 **12 bundled public-domain songs** — Für Elise, Canon in D, Bach Prelude, Amazing Grace…
+- 🗂 **Library management** — live search, 8 sort orders, favorites; multi-select bulk favorite / unfavorite with one-tap undo.
 - 🎤 **Real sound** — 4 offline SoundFonts (piano / e-piano / music box / vibraphone).
 - 🌐 **Bilingual UI** — English / 中文, one tap; song titles & composers localized too.
 - 📦 **PWA + desktop** — installable & offline; native Tauri apps for macOS / Windows / Linux.

@@ -190,6 +190,35 @@ await check('desktop: favorite toggles + persists', async () => {
   assert(stored && stored.includes('['), 'favs stored');
   await page.click('.song-row .fav-btn');
 });
+await check('desktop: bulk select + batch favorite + undo', async () => {
+  const favCount = () => page.evaluate(() => JSON.parse(localStorage.getItem('pianoflow.favs.v1') || '[]').length);
+  const before = await favCount();
+  await page.click('#selectBtn');
+  await page.waitForSelector('#bulkBar:not(.hidden)');
+  await page.waitForSelector('.song-row.selecting .song-check');
+  // select the first two rows by clicking their titles (row body toggles selection)
+  await page.click('.song-row:nth-child(1) .song-title');
+  await page.click('.song-row:nth-child(2) .song-title');
+  await page.waitForFunction(() => document.querySelectorAll('.song-row.selected').length === 2);
+  assert((await page.evaluate(() => document.querySelector('#bulkCount').textContent)).includes('2'), 'count shows 2');
+  // batch favorite -> favs grows by 2 + undo toast appears
+  await page.click('#bulkFav');
+  await page.waitForSelector('#toast:not(.hidden)');
+  await page.waitForFunction((b) => JSON.parse(localStorage.getItem('pianoflow.favs.v1') || '[]').length === b + 2, before);
+  // undo restores the exact prior favs
+  await page.click('#toastUndo');
+  await page.waitForFunction(() => document.querySelector('#toast').classList.contains('hidden'));
+  await page.waitForFunction((b) => JSON.parse(localStorage.getItem('pianoflow.favs.v1') || '[]').length === b, before);
+  // select all / clear
+  await page.click('#bulkAll');
+  await page.waitForFunction(() => document.querySelectorAll('.song-row.selected').length === 13);
+  await page.click('#bulkNone');
+  await page.waitForFunction(() => document.querySelectorAll('.song-row.selected').length === 0);
+  // done exits selection mode
+  await page.click('#bulkDone');
+  await page.waitForFunction(() => document.querySelector('#bulkBar').classList.contains('hidden'));
+  await page.waitForFunction(() => document.querySelectorAll('.song-row.selecting').length === 0);
+});
 await check('desktop: language switch EN->zh->EN', async () => {
   await page.click('#langSide');
   const nav = await page.evaluate(() => document.querySelector('#navSongs').textContent);

@@ -70,6 +70,7 @@
           <div class="view-head">
             <h2 data-i18n="songs.title">Songs</h2>
             <div class="head-actions">
+              <button id="selectBtn" class="btn btn-ghost select-btn" data-i18n="songs.select" aria-pressed="false">☑ Select</button>
               <button id="loadBtn" class="btn btn-ghost" data-i18n="songs.open">📂 Open .mid</button>
               <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" hidden />
             </div>
@@ -88,6 +89,15 @@
             </select>
           </div>
           <div id="genreChips" class="chips" role="tablist"></div>
+          <div id="bulkBar" class="bulk-bar hidden" role="toolbar" aria-label="Bulk actions">
+            <span id="bulkCount" class="bulk-count">0 selected</span>
+            <button id="bulkAll" class="btn btn-ghost btn-sm" data-i18n="songs.selectAll">Select all</button>
+            <button id="bulkNone" class="btn btn-ghost btn-sm" data-i18n="songs.clearSel">Clear</button>
+            <span class="bulk-sep"></span>
+            <button id="bulkFav" class="btn btn-ghost btn-sm" data-i18n="songs.bulkFav">♥ Favorite</button>
+            <button id="bulkUnfav" class="btn btn-ghost btn-sm" data-i18n="songs.bulkUnfav">♡ Unfavorite</button>
+            <button id="bulkDone" class="btn btn-primary btn-sm" data-i18n="songs.selectDone">✓ Done</button>
+          </div>
           <div id="songList" class="song-list"></div>
           <p class="lib-hint"><span data-i18n="songs.hint.pre">Tip: drop any </span><code>.mid</code><span data-i18n="songs.hint.mid"> / </span><code>.midi</code><span data-i18n="songs.hint.post"> file into </span><code>apps/web/public/songs/</code><span data-i18n="songs.hint.end"> — it appears here automatically and stays in your library.</span></p>
         </div>
