@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { SheetRenderer } from '../src/sheet';
-import { drawKeySignature, keySignatureWidth } from '../src/sheet-draw';
+import { drawKeySignature, keySignatureWidth, drawRest, drawTie } from '../src/sheet-draw';
+import { defaultTheme } from '../src/theme';
 import { signatureFor, type SheetLayout, type SheetNote } from '@pianoflow/core';
 
 function mockCtx() {
@@ -166,5 +167,82 @@ describe('keySignatureWidth / drawKeySignature', () => {
     const { ctx, rec } = mockCtx();
     drawKeySignature(ctx as unknown as CanvasRenderingContext2D, signatureFor(0), 'bass', 50, 200, 9, { text: '#000' } as never);
     expect(rec.texts).toHaveLength(0);
+  });
+});
+
+describe('SheetRenderer rests + ties', () => {
+  it('engraves a whole rest as a filled block in the live view', () => {
+    const a = mockCtx();
+    const ra = new SheetRenderer(mockCanvas(a.ctx));
+    ra.resize(800, 400);
+    ra.render({ layout: layout([]), position: 0 });
+    const lay = layout([]);
+    lay.rests = [{ time: 0.5, staff: 'treble', value: 'whole' }];
+    const b = mockCtx();
+    const rb = new SheetRenderer(mockCanvas(b.ctx));
+    rb.resize(800, 400);
+    rb.render({ layout: lay, position: 0 });
+    expect(b.rec.fillRects).toBeGreaterThan(a.rec.fillRects);
+  });
+
+  it('engraves a quarter rest as a stroked squiggle', () => {
+    const a = mockCtx();
+    const ra = new SheetRenderer(mockCanvas(a.ctx));
+    ra.resize(800, 400);
+    ra.render({ layout: layout([]), position: 0 });
+    const lay = layout([]);
+    lay.rests = [{ time: 0.5, staff: 'bass', value: 'quarter' }];
+    const b = mockCtx();
+    const rb = new SheetRenderer(mockCanvas(b.ctx));
+    rb.resize(800, 400);
+    rb.render({ layout: lay, position: 0 });
+    expect(b.rec.strokes).toBeGreaterThan(a.rec.strokes);
+  });
+
+  it('engraves a tie without adding noteheads', () => {
+    const notes = [note(0, 60, { duration: 1 }), note(1, 60, { duration: 0.5 })];
+    const a = mockCtx();
+    const ra = new SheetRenderer(mockCanvas(a.ctx));
+    ra.resize(800, 400);
+    ra.render({ layout: layout(notes), position: 0 });
+    const lay = layout(notes);
+    lay.ties = [{ from: 0, to: 1, staff: 'treble' }];
+    const b = mockCtx();
+    const rb = new SheetRenderer(mockCanvas(b.ctx));
+    rb.resize(800, 400);
+    rb.render({ layout: lay, position: 0 });
+    expect(b.rec.strokes).toBeGreaterThan(a.rec.strokes);
+    expect(b.rec.ellipses).toBe(a.rec.ellipses);
+  });
+});
+
+describe('drawRest / drawTie primitives', () => {
+  const theme = defaultTheme;
+  it('whole and half rests are filled blocks', () => {
+    for (const value of ['whole', 'half'] as const) {
+      const { ctx, rec } = mockCtx();
+      drawRest(ctx as unknown as CanvasRenderingContext2D, value, 100, 200, 9, theme);
+      expect(rec.fillRects).toBe(1);
+      expect(rec.strokes).toBe(0);
+    }
+  });
+  it('quarter and eighth rests are stroked glyphs', () => {
+    for (const value of ['quarter', 'eighth'] as const) {
+      const { ctx, rec } = mockCtx();
+      drawRest(ctx as unknown as CanvasRenderingContext2D, value, 100, 200, 9, theme);
+      expect(rec.strokes).toBeGreaterThanOrEqual(1);
+      expect(rec.fillRects).toBe(0);
+    }
+  });
+  it('a tie is a single stroked curve', () => {
+    const { ctx, rec } = mockCtx();
+    drawTie(ctx as unknown as CanvasRenderingContext2D, 100, 200, 200, 200, 'up', 9, '#4ea1ff');
+    expect(rec.strokes).toBe(1);
+    expect(rec.quads).toBe(0); // cubic Bézier, never the beam-flag counter
+  });
+  it('a tie is skipped when the noteheads would overlap', () => {
+    const { ctx, rec } = mockCtx();
+    drawTie(ctx as unknown as CanvasRenderingContext2D, 100, 200, 102, 200, 'up', 9, '#4ea1ff');
+    expect(rec.strokes).toBe(0);
   });
 });

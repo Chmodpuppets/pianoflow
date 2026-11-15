@@ -1,6 +1,6 @@
 import { buildSheetSystems, buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { paperTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, drawRest, drawTie, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Static, printable full-score renderer. Unlike the scrolling SheetRenderer (a
@@ -206,6 +206,30 @@ export class SheetPageRenderer {
         if (!geom) continue;
         const color = notes[g.indices[0]].hand === 'left' ? theme.leftNote : theme.rightNote;
         drawBeamLines(ctx, pts, geom, color, gap);
+      }
+
+      // Rests + ties belonging to this system.
+      const middleTreble = trebleBottom - 2 * gap;
+      const middleBass = bassBottom - 2 * gap;
+      for (const r of state.layout.rests ?? []) {
+        if (r.time < sys.startTime) continue;
+        if (r.time >= sys.endTime && si !== last) continue;
+        const x = xFor(r.time);
+        if (x < leftPad - 6 || x > width - RIGHT_PAD + 6) continue;
+        drawRest(ctx, r.value, x, r.staff === 'treble' ? middleTreble : middleBass, gap, theme);
+      }
+      for (const tie of state.layout.ties ?? []) {
+        const a = notes[tie.from];
+        const b = notes[tie.to];
+        if (!a || !b || a.time < sys.startTime) continue;
+        if (b.time >= sys.endTime && si !== last) continue;
+        const xa = xFor(a.time);
+        const xb = xFor(b.time);
+        if (xb < leftPad - 6 || xa > width - RIGHT_PAD + 6) continue;
+        const ya = a.staff === 'treble' ? yTreble(a.steps) : yBass(a.steps);
+        const yb = b.staff === 'treble' ? yTreble(b.steps) : yBass(b.steps);
+        const color = a.hand === 'left' ? theme.leftNote : theme.rightNote;
+        drawTie(ctx, xa, ya, xb, yb, a.steps >= 4 ? 'down' : 'up', gap, color);
       }
     });
 

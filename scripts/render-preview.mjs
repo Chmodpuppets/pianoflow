@@ -168,8 +168,8 @@ save(canonCanvas, 'playfield-canon.png');
 console.log('canon fitted', canonFit, 'notes', canon.notes.length);
 
 // ---- Sheet-music grand staff -------------------------------------------------------------
-const layout = buildSheet(song, 60, true);
-console.log('Für Elise key signature', JSON.stringify(layout.keySignature));
+const layout = buildSheet(song, 60, true, true);
+console.log('Für Elise key signature', JSON.stringify(layout.keySignature), 'rests', layout.rests.length, 'ties', layout.ties.length);
 const sheetCanvas = prep(createCanvas(1280, 440));
 const sheet = new SheetRenderer(sheetCanvas, {});
 sheet.resize(1280, 440);
@@ -186,13 +186,23 @@ save(pageCanvas, 'sheet-page.png');
 console.log('sheet page css size', page.viewWidth + 'x' + page.viewHeight);
 
 // ---- Key-signature showcase (Canon in D → D major, two sharps) ---------------------------
-const canonLayout = buildSheet(canon, 60, true);
-console.log('Canon key signature', JSON.stringify(canonLayout.keySignature));
+const canonLayout = buildSheet(canon, 60, true, true);
+console.log('Canon key signature', JSON.stringify(canonLayout.keySignature), 'rests', canonLayout.rests.length, 'ties', canonLayout.ties.length);
 const keyCanvas = prep(createCanvas(1000, 200));
 const keyPage = new SheetPageRenderer(keyCanvas, { width: 1000, measuresPerSystem: 4, scale: 1 });
 keyPage.render({ layout: canonLayout, title: 'Canon in D', composer: 'Johann Pachelbel', theme: paperTheme });
 save(keyCanvas, 'sheet-key.png');
 console.log('sheet-key css size', keyPage.viewWidth + 'x' + keyPage.viewHeight);
+
+// ---- Rests + ties showcase (Amazing Grace → sustained bass ties across barlines + a rest) ----
+const grace = loadSong('amazing-grace.mid');
+const graceLayout = buildSheet(grace, 60, true, true);
+console.log('Amazing Grace rests', graceLayout.rests.length, 'ties', graceLayout.ties.length);
+const restsCanvas = prep(createCanvas(1000, 200));
+const restsPage = new SheetPageRenderer(restsCanvas, { width: 1000, measuresPerSystem: 4, scale: 1 });
+restsPage.render({ layout: graceLayout, title: 'Amazing Grace', composer: 'Traditional', theme: paperTheme });
+save(restsCanvas, 'sheet-rests.png');
+console.log('sheet-rests css size', restsPage.viewWidth + 'x' + restsPage.viewHeight);
 
 // ---- Practice-review timeline (results screen) -------------------------------------------
 // Mirrors the DOM result-review layout using the SAME accuracyColor scale the app uses,

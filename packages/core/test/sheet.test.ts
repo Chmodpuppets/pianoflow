@@ -7,6 +7,8 @@ import {
   buildSheet,
   buildSheetSystems,
   buildBeamGroups,
+  buildRests,
+  buildTies,
   signatureFor,
   spellInKey,
   displayAccidental,
@@ -296,5 +298,93 @@ describe('buildSheet with key signature', () => {
     const layout = buildSheet(song([note(0, 480, 66)]));
     expect(layout.keySignature).toBeUndefined();
     expect(layout.notes[0].accidental).toBe(1); // F# spelled sharp, shown
+  });
+});
+
+// --- Rests + ties -----------------------------------------------------------
+function sn(time: number, duration: number, midi: number, staff: 'treble' | 'bass' = 'treble'): SheetNote {
+  return { midi, time, duration, staff, steps: 0, accidental: 0, value: 'quarter' };
+}
+function mkLayout(notes: SheetNote[]): SheetLayout {
+  return { notes, barTimes: [0, 2, 4], beatsPerMeasure: 4 }; // beatDur 0.5s
+}
+
+describe('buildRests', () => {
+  it('no rests when a staff is fully covered (no leading/inter-note gap)', () => {
+    expect(buildRests(mkLayout([sn(0, 2, 60)]))).toEqual([]);
+  });
+  it('emits a half rest for a 2-beat inter-note gap, at the gap start', () => {
+    const rests = buildRests(mkLayout([sn(0, 0.5, 60), sn(1.5, 0.5, 62)]));
+    expect(rests).toEqual([{ time: 0.5, staff: 'treble', value: 'half' }]);
+  });
+  it('emits a leading rest when a staff enters late', () => {
+    const rests = buildRests(mkLayout([sn(1, 0.5, 60)]));
+    expect(rests).toEqual([{ time: 0, staff: 'treble', value: 'half' }]);
+  });
+  it('emits a whole rest for a long (>=3.5 beat) gap', () => {
+    const rests = buildRests(mkLayout([sn(0, 0.5, 60), sn(4.5, 0.5, 62)]));
+    expect(rests).toEqual([{ time: 0.5, staff: 'treble', value: 'whole' }]);
+  });
+  it('merges sustained/chord intervals so they do not create spurious rests', () => {
+    // A long note covers the shorter ones beneath it → no silence.
+    expect(buildRests(mkLayout([sn(0, 2, 60), sn(0.5, 0.5, 64), sn(1, 0.5, 67)]))).toEqual([]);
+  });
+  it('detects gaps per staff independently', () => {
+    const rests = buildRests(mkLayout([sn(0, 2, 60, 'treble'), sn(0, 0.5, 48, 'bass'), sn(1.5, 0.5, 50, 'bass')]));
+    expect(rests).toEqual([{ time: 0.5, staff: 'bass', value: 'half' }]);
+  });
+  it('ignores gaps shorter than minBeats', () => {
+    // 0.25s gap = 0.5 beat < 1 → no rest.
+    expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0.75, 0.5, 62)]))).toEqual([]);
+  });
+  it('omits trailing silence after the last note', () => {
+    expect(buildRests(mkLayout([sn(0, 0.5, 60)]))).toEqual([]);
+  });
+});
+
+describe('buildTies', () => {
+  // mkLayout barlines are at 0, 2, 4 — a tie must cross the barline at t=2.
+  it('ties contiguous same-pitch notes that cross a barline', () => {
+    const ties = buildTies(mkLayout([sn(1.5, 0.5, 60), sn(2, 0.5, 60)]));
+    expect(ties).toEqual([{ from: 0, to: 1, staff: 'treble' }]);
+  });
+  it('does NOT tie repeated notes within a measure (no barline between)', () => {
+    // The classic repeated-note case (e.g. Twinkle "C C") must stay un-tied.
+    expect(buildTies(mkLayout([sn(0, 1, 60), sn(1, 1, 60)]))).toEqual([]);
+  });
+  it('does not tie different pitches across a barline', () => {
+    expect(buildTies(mkLayout([sn(1.5, 0.5, 60), sn(2, 0.5, 62)]))).toEqual([]);
+  });
+  it('does not tie re-articulated notes (a real gap between them)', () => {
+    expect(buildTies(mkLayout([sn(1.5, 0.25, 60), sn(2, 0.5, 60)]))).toEqual([]);
+  });
+  it('does not tie overlapping same-pitch notes', () => {
+    expect(buildTies(mkLayout([sn(1.5, 1, 60), sn(2, 1, 60)]))).toEqual([]);
+  });
+  it('ties on the bass staff independently', () => {
+    const ties = buildTies(mkLayout([sn(1.5, 0.5, 48, 'bass'), sn(2, 0.5, 48, 'bass')]));
+    expect(ties).toEqual([{ from: 0, to: 1, staff: 'bass' }]);
+  });
+});
+
+describe('buildSheet with rests + ties', () => {
+  it('attaches rests and ties when enabled', () => {
+    // C4 sustained across the barline at t=2 (tie) + a leading and a 2-beat gap (rests).
+    const layout = buildSheet(
+      song([note(1440, 480, 60), note(1920, 480, 60), note(3360, 480, 62)], 3840),
+      60,
+      false,
+      true,
+    );
+    expect(layout.ties).toEqual([{ from: 0, to: 1, staff: 'treble' }]);
+    expect(layout.rests).toEqual([
+      { time: 0, staff: 'treble', value: 'half' },
+      { time: 2.5, staff: 'treble', value: 'half' },
+    ]);
+  });
+  it('default leaves rests/ties undefined', () => {
+    const layout = buildSheet(song([note(0, 480, 60)]));
+    expect(layout.rests).toBeUndefined();
+    expect(layout.ties).toBeUndefined();
   });
 });

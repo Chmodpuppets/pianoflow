@@ -149,4 +149,27 @@ describe('SheetPageRenderer', () => {
     expect(rec.texts).not.toContain('♯');
     expect(rec.texts).not.toContain('♭');
   });
+
+  it('engraves a whole rest as a filled block on the page', () => {
+    const base = layout([note(0, 64)]);
+    const a = mockCtx();
+    new SheetPageRenderer(mockCanvas(a.ctx)).render({ layout: base });
+    const withRest = layout([note(0, 64)]);
+    withRest.rests = [{ time: 0.5, staff: 'treble', value: 'whole' }];
+    const b = mockCtx();
+    new SheetPageRenderer(mockCanvas(b.ctx)).render({ layout: withRest });
+    expect(b.rec.fillRects).toBeGreaterThan(a.rec.fillRects);
+  });
+
+  it('engraves a tie between contiguous same-pitch notes on the page', () => {
+    const notes = [note(0, 60, { duration: 1 }), note(1, 60, { duration: 0.5 })];
+    const a = mockCtx();
+    new SheetPageRenderer(mockCanvas(a.ctx)).render({ layout: layout(notes) });
+    const withTie = layout(notes);
+    withTie.ties = [{ from: 0, to: 1, staff: 'treble' }];
+    const b = mockCtx();
+    new SheetPageRenderer(mockCanvas(b.ctx)).render({ layout: withTie });
+    expect(b.rec.strokes).toBeGreaterThan(a.rec.strokes);
+    expect(b.rec.ellipses).toBe(a.rec.ellipses); // tie adds no noteheads
+  });
 });

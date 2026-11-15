@@ -1,6 +1,6 @@
 import { buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { defaultTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, drawRest, drawTie, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Scrolling grand-staff sheet-music renderer. Draws two staves (treble + bass)
@@ -153,6 +153,27 @@ export class SheetRenderer {
       if (!geom) continue;
       const color = notes[g.indices[0]].hand === 'left' ? theme.leftNote : theme.rightNote;
       drawBeamLines(this.ctx, pts, geom, color, lineGap);
+    }
+
+    // Rests (per-staff silences) and ties (contiguous same-pitch notes).
+    const middleTreble = trebleBottom - 2 * lineGap;
+    const middleBass = bassBottom - 2 * lineGap;
+    for (const r of state.layout.rests ?? []) {
+      const x = xFor(r.time);
+      if (x < leftPad - 20 || x > cssW + 20) continue;
+      drawRest(this.ctx, r.value, x, r.staff === 'treble' ? middleTreble : middleBass, lineGap, theme);
+    }
+    for (const tie of state.layout.ties ?? []) {
+      const a = notes[tie.from];
+      const b = notes[tie.to];
+      if (!a || !b) continue;
+      const xa = xFor(a.time);
+      const xb = xFor(b.time);
+      if (xb < leftPad - 20 || xa > cssW + 20) continue;
+      const ya = a.staff === 'treble' ? yTreble(a.steps) : yBass(a.steps);
+      const yb = b.staff === 'treble' ? yTreble(b.steps) : yBass(b.steps);
+      const color = a.hand === 'left' ? theme.leftNote : theme.rightNote;
+      drawTie(this.ctx, xa, ya, xb, yb, a.steps >= 4 ? 'down' : 'up', lineGap, color);
     }
 
     this.drawCursor(cursorX, trebleBottom, bassBottom, staffH, theme);

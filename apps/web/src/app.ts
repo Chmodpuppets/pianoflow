@@ -852,7 +852,7 @@ export class PianoFlowApp {
   getSheetLayout(): SheetLayout | null {
     if (!this.song) return null;
     if (this.sheetCacheNotes !== this.notes) {
-      this.sheetCache = buildSheet({ ...this.song, notes: this.notes }, this.splitMidi, true);
+      this.sheetCache = buildSheet({ ...this.song, notes: this.notes }, this.splitMidi, true, true);
       this.sheetCacheNotes = this.notes;
     }
     return this.sheetCache;

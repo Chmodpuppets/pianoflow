@@ -291,3 +291,102 @@ export function drawBeamLines(
     i = j + 1;
   }
 }
+
+/**
+ * Draw a rest centred on the staff's middle line at (x, middleY). Whole/half rests
+ * are the conventional filled blocks (whole hangs below the line above middle, half
+ * sits on the middle line); quarter/eighth are stylised vector glyphs consistent
+ * with the app's vector clefs. Pure canvas drawing; headless-testable.
+ */
+export function drawRest(
+  ctx: CanvasRenderingContext2D,
+  value: NoteValue,
+  x: number,
+  middleY: number,
+  gap: number,
+  theme: Theme,
+): void {
+  const ink = withAlpha(theme.text, 0.9);
+  ctx.fillStyle = ink;
+  ctx.strokeStyle = ink;
+  const w = gap * 1.3;
+  const h = gap * 0.5;
+  if (value === 'whole') {
+    // Hangs below the line one above middle.
+    ctx.fillRect(x - w / 2, middleY - gap, w, h);
+    return;
+  }
+  if (value === 'half') {
+    // Sits on top of the middle line.
+    ctx.fillRect(x - w / 2, middleY - h, w, h);
+    return;
+  }
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (value === 'eighth' || value === 'sixteenth') {
+    // A dot + a slanted stem with a hook (stylised eighth rest).
+    ctx.beginPath();
+    ctx.arc(x - gap * 0.28, middleY - gap * 0.55, gap * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.6, gap * 0.22);
+    ctx.beginPath();
+    ctx.moveTo(x + gap * 0.42, middleY - gap * 0.95);
+    ctx.bezierCurveTo(
+      x + gap * 0.1, middleY - gap * 0.2,
+      x + gap * 0.05, middleY + gap * 0.3,
+      x - gap * 0.35, middleY + gap * 0.95,
+    );
+    ctx.stroke();
+    if (value === 'sixteenth') {
+      ctx.beginPath();
+      ctx.arc(x - gap * 0.05, middleY - gap * 0.15, gap * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+  // Quarter rest: the characteristic squiggle (stylised).
+  ctx.lineWidth = Math.max(1.8, gap * 0.26);
+  ctx.beginPath();
+  ctx.moveTo(x + gap * 0.34, middleY - gap * 1.05);
+  ctx.bezierCurveTo(
+    x - gap * 0.18, middleY - gap * 0.62,
+    x + gap * 0.5, middleY - gap * 0.34,
+    x + gap * 0.02, middleY + gap * 0.02,
+  );
+  ctx.bezierCurveTo(
+    x - gap * 0.5, middleY + gap * 0.36,
+    x + gap * 0.42, middleY + gap * 0.56,
+    x - gap * 0.12, middleY + gap * 1.02,
+  );
+  ctx.stroke();
+}
+
+/**
+ * Draw a tie between two same-pitch noteheads at (x1,y1) and (x2,y2). The curve
+ * arches away from the stem direction (`dir` = stem direction). Uses a cubic Bézier
+ * so it never collides with the beam-flag quadratic counter. Pure canvas drawing.
+ */
+export function drawTie(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  dir: 'up' | 'down',
+  gap: number,
+  color: string,
+): void {
+  const rx = gap * 0.5;
+  const ax = x1 + rx;
+  const bx = x2 - rx;
+  if (bx <= ax) return;
+  const arch = (dir === 'up' ? 1 : -1) * gap * 0.9;
+  const my = (y1 + y2) / 2 + arch;
+  ctx.strokeStyle = withAlpha(color, 0.85);
+  ctx.lineWidth = Math.max(1.4, gap * 0.18);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(ax, y1);
+  ctx.bezierCurveTo(ax + (bx - ax) * 0.3, my, bx - (bx - ax) * 0.3, my, bx, y2);
+  ctx.stroke();
+}

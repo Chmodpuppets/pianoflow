@@ -192,6 +192,20 @@ export interface SheetNote {
   value: NoteValue;
 }
 
+/** A silence on one staff, quantised to a rhythmic value and placed at the gap start. */
+export interface Rest {
+  time: number; // seconds (start of the silent gap)
+  staff: Staff;
+  value: NoteValue;
+}
+
+/** A tie joining two contiguous same-pitch notes (indices into layout.notes). */
+export interface Tie {
+  from: number;
+  to: number;
+  staff: Staff;
+}
+
 export interface SheetLayout {
   notes: SheetNote[];
   /** Barline times in seconds (ascending, includes 0). */
@@ -199,14 +213,19 @@ export interface SheetLayout {
   beatsPerMeasure: number;
   /** Present when built with key-signature engraving; renderers draw it after the clef. */
   keySignature?: KeySignature;
+  /** Present when built with rest/tie engraving; renderers draw silences + ties. */
+  rests?: Rest[];
+  ties?: Tie[];
 }
 
 /**
  * Build the scrolling grand-staff layout for a song. Pure. With `useKeySignature`
  * the piece's key is inferred, notes are respelled into the key and only carry an
  * accidental when they deviate from the signature (which is attached to the layout).
+ * With `useRestsTies` per-staff silences (rests) and contiguous same-pitch ties are
+ * computed and attached for the renderers to engrave.
  */
-export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = false): SheetLayout {
+export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = false, useRestsTies = false): SheetLayout {
   const tempo = new TempoMap(song.ppq, song.tempos);
   const sigs = song.timeSignatures.length
     ? [...song.timeSignatures].sort((a, b) => a.ticks - b.ticks)
@@ -245,6 +264,10 @@ export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = fal
   const first = sigs[0];
   const layout: SheetLayout = { notes, barTimes, beatsPerMeasure: first.numerator * (4 / first.denominator) };
   if (keySig) layout.keySignature = keySig;
+  if (useRestsTies) {
+    layout.rests = buildRests(layout);
+    layout.ties = buildTies(layout);
+  }
   return layout;
 }
 
@@ -320,6 +343,84 @@ export function buildBeamGroups(layout: SheetLayout): BeamGroup[] {
   }
   flush();
   return groups;
+}
+
+/** Beat length in seconds, derived from the first bar span (shared by beams/rests). */
+function beatDuration(layout: SheetLayout): number {
+  const bars = layout.barTimes.length ? layout.barTimes : [0];
+  const beats = Math.max(1, layout.beatsPerMeasure);
+  return bars.length >= 2 ? (bars[1] - bars[0]) / beats : 0.5;
+}
+
+/**
+ * Detect per-staff silences and quantise each to a single rest value. Sounding
+ * intervals (note onset → onset+duration) are merged so chords/sustained notes do
+ * not produce spurious rests; a rest is emitted for the leading gap (staff enters
+ * late) and every inter-note gap of at least `minBeats` beats. The rest sits at the
+ * gap start and takes the largest standard value that fits (whole/half/quarter).
+ * Pure + headless-testable; trailing silence after a staff's last note is omitted.
+ */
+export function buildRests(layout: SheetLayout, minBeats = 1): Rest[] {
+  const beatDur = beatDuration(layout);
+  if (!(beatDur > 0)) return [];
+  const rests: Rest[] = [];
+  for (const staff of ['treble', 'bass'] as Staff[]) {
+    const intervals = layout.notes
+      .filter((n) => n.staff === staff)
+      .map((n) => [n.time, n.time + n.duration] as [number, number])
+      .sort((a, b) => a[0] - b[0]);
+    if (!intervals.length) continue;
+    // Merge overlapping/contiguous sounding intervals.
+    const merged: Array<[number, number]> = [];
+    for (const [s, e] of intervals) {
+      const last = merged[merged.length - 1];
+      if (last && s <= last[1] + 1e-3) last[1] = Math.max(last[1], e);
+      else merged.push([s, e]);
+    }
+    const gaps: Array<[number, number]> = [];
+    if (merged[0][0] > 1e-6) gaps.push([0, merged[0][0]]); // leading rest
+    for (let i = 1; i < merged.length; i++) gaps.push([merged[i - 1][1], merged[i][0]]);
+    for (const [gs, ge] of gaps) {
+      const beats = (ge - gs) / beatDur;
+      if (beats < minBeats - 1e-6) continue;
+      const value: NoteValue = beats >= 3.5 ? 'whole' : beats >= 1.5 ? 'half' : 'quarter';
+      rests.push({ time: gs, staff, value });
+    }
+  }
+  return rests.sort((a, b) => a.time - b.time || (a.staff < b.staff ? -1 : 1));
+}
+
+/**
+ * Detect ties across barlines: consecutive same-pitch notes on a staff where the
+ * first ends exactly as the second begins (contiguous within `epsilon`) AND a
+ * barline falls between their onsets. The barline requirement is what distinguishes
+ * a sustained sound carried over a measure line (a true tie) from a re-articulated
+ * repeated note within a measure (which must NOT be tied). Pure + headless-testable.
+ */
+export function buildTies(layout: SheetLayout, epsilon = 0.03): Tie[] {
+  const bars = layout.barTimes.length ? layout.barTimes : [0];
+  const crossesBar = (t0: number, t1: number): boolean =>
+    bars.some((bt) => bt > t0 + 1e-6 && bt <= t1 + 1e-6);
+  const ties: Tie[] = [];
+  for (const staff of ['treble', 'bass'] as Staff[]) {
+    const idx = layout.notes
+      .map((n, i) => ({ n, i }))
+      .filter((x) => x.n.staff === staff)
+      .sort((a, b) => a.n.time - b.n.time || a.n.midi - b.n.midi);
+    for (let k = 1; k < idx.length; k++) {
+      const a = idx[k - 1];
+      const b = idx[k];
+      if (
+        a.n.midi === b.n.midi &&
+        b.n.time > a.n.time + 1e-6 &&
+        Math.abs(a.n.time + a.n.duration - b.n.time) < epsilon &&
+        crossesBar(a.n.time, b.n.time)
+      ) {
+        ties.push({ from: a.i, to: b.i, staff });
+      }
+    }
+  }
+  return ties;
 }
 
 /**
