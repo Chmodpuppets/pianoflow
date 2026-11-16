@@ -6,6 +6,8 @@ import { signatureFor, type SheetLayout, type SheetNote } from '@pianoflow/core'
 function mockCtx() {
   const rec = {
     ellipses: 0, strokes: 0, fillRects: 0, texts: [] as string[],
+    textPositions: [] as { text: string; x: number; y: number }[],
+    noteXs: [] as number[],
     saves: 0, restores: 0, fillStyles: [] as string[], quads: 0,
   };
   const noop = () => {};
@@ -16,13 +18,13 @@ function mockCtx() {
     beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop,
     stroke: () => { rec.strokes++; },
     fill: noop, arc: noop,
-    ellipse: () => { rec.ellipses++; },
+    ellipse: (x: number) => { rec.ellipses++; rec.noteXs.push(x); },
     rotate: noop, translate: noop,
     save: () => { rec.saves++; }, restore: () => { rec.restores++; },
     bezierCurveTo: noop, quadraticCurveTo: () => { rec.quads++; },
     setTransform: noop,
     measureText: () => ({ width: 0 }),
-    fillText: (t: string) => { rec.texts.push(t); },
+    fillText: (t: string, x: number, y: number) => { rec.texts.push(t); rec.textPositions.push({ text: t, x, y }); },
   };
   return { ctx, rec };
 }
@@ -161,6 +163,17 @@ describe('SheetPageRenderer', () => {
     expect(b.rec.fillRects).toBeGreaterThan(a.rec.fillRects);
   });
 
+  it('draws both halves of a tie at a system break', () => {
+    const score = layout([note(7.5, 60), note(8, 60)]);
+    const a = mockCtx();
+    new SheetPageRenderer(mockCanvas(a.ctx)).render({ layout: score });
+    score.ties = [{ from: 0, to: 1, staff: 'treble' }];
+    const b = mockCtx();
+    new SheetPageRenderer(mockCanvas(b.ctx)).render({ layout: score });
+    expect(b.rec.strokes - a.rec.strokes).toBe(2);
+    expect(b.rec.ellipses).toBe(a.rec.ellipses);
+  });
+
   it('engraves a tie between contiguous same-pitch notes on the page', () => {
     const notes = [note(0, 60, { duration: 1 }), note(1, 60, { duration: 0.5 })];
     const a = mockCtx();
@@ -189,6 +202,20 @@ describe('SheetPageRenderer', () => {
     const r = new SheetPageRenderer(mockCanvas(ctx));
     r.render({ layout: lay, title: 'T' });
     expect(rec.texts.filter((t) => t === '3' || t === '4')).toEqual(['3', '4', '3', '4']);
+  });
+
+  it.each([1, 4])('draws a meter change on both staves with %i measures per system', (measuresPerSystem) => {
+    const { ctx, rec } = mockCtx();
+    const score = layout([note(0, 64), note(2, 67)]);
+    score.timeSig = [4, 4];
+    score.timeSigChanges = new Map([[2, [6, 8]]]);
+    new SheetPageRenderer(mockCanvas(ctx), { measuresPerSystem }).render({ layout: score });
+    const change = rec.textPositions.filter(({ text }) => text === '6' || text === '8');
+    expect(change.map(({ text }) => text)).toEqual(['6', '8', '6', '8']);
+    expect(change.map(({ x }) => x)).toEqual(Array<number>(4).fill(change[0].x));
+    expect(change[0].x).toBeLessThan(rec.noteXs[1]);
+    expect(change[0].y).toBeLessThan(change[1].y);
+    expect(change[2].y).toBeLessThan(change[3].y);
   });
 
   it('renders staccato dots for flagged notes', () => {

@@ -104,8 +104,9 @@ input, select { font-family: inherit; }
   transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
 }
 .sheet-toggle-icon { font-size: 16px; line-height: 1; }
+.sheet-toggle-label { white-space: nowrap; }
 .sheet-toggle:hover { background: linear-gradient(135deg, rgba(255,209,102,.28), rgba(255,209,102,.10)); transform: translateY(-1px); box-shadow: 0 2px 12px rgba(255,209,102,.20); }
-.sheet-toggle[aria-pressed="true"], .sheet-toggle.active { background: linear-gradient(135deg, rgba(255,209,102,.34), rgba(255,209,102,.14)); border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255,209,102,.35); }
+.sheet-toggle[aria-pressed="true"] { background: linear-gradient(135deg, rgba(255,209,102,.34), rgba(255,209,102,.14)); border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255,209,102,.35); }
 
 select, input[type="text"], input[type="search"] {
   background: var(--panel-2); color: var(--text);
@@ -452,8 +453,7 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
 .sheet-panel.hidden { display: none; }
 @keyframes sheet-in { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .sheet-head { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
-.sheet-title { font-weight: 700; font-size: 14px; }
-.sheet-hint { font-size: 12px; color: var(--muted); flex: 1; }
+.sheet-title { margin-inline-end: auto; font-weight: 700; font-size: 14px; }
 .sheet-head .icon-btn { width: 28px; height: 28px; font-size: 13px; }
 .sheet-export { padding: 5px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 #sheetCanvas { flex: 1; min-height: 0; width: 100%; display: block; }
@@ -627,7 +627,9 @@ label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--tex
   .song-row { grid-template-columns: 40px 1fr auto auto; gap: 10px; }
   .fav-btn { display: none; }
   .song-sheet { width: 34px; height: 34px; font-size: 16px; }
+  .player-right { flex-wrap: wrap; max-width: 100%; }
   .sheet-toggle { padding: 0 10px; font-size: 12.5px; }
+  .sheet-toggle-icon { display: none; }
   .song-row.selecting { grid-template-columns: 22px 40px 1fr; gap: 10px; }
   .song-row.selecting .song-diff { display: none; }
   .bulk-bar { gap: 6px; padding: 8px 10px; }

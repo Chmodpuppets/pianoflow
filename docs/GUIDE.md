@@ -136,14 +136,15 @@ Tauri builds for macOS (universal), Windows and Linux; no browser required.
   "continue" card jumps straight into the next lesson in Practice mode with the right hand /
   speed pre-set. Pure, headless-tested core (`buildCurriculumProgress` / `buildStageProgress`).
 - **Sheet-music view** — open it with one tap: every library row has a 🎼 button that loads the
-  song straight into the score, and the player top bar has a highlighted, labelled **Sheet / 五线谱**
-  toggle. The scrolling view draws a piano grand staff with a synced playback cursor.
+  song straight into the score, and the player top bar has a **Scrolling score / 滚动谱** toggle. Your view choice is remembered across songs and reloads. The scrolling view draws a piano grand staff with a synced playback cursor.
+  The header shows the time signature at the current position.
   PianoFlow assigns staves by pitch and estimates notation from the MIDI notes, including
-  key signatures, note values, beams, rests and cross-bar ties. Entirely empty measures
-  show a centered whole rest.
+  key signatures, note values, beams and rests. Sustained MIDI notes split at each barline
+  and get tied across measures, including where the score wraps to the next system.
+  Entirely empty measures show a centered whole rest. Gaps of at least a sixteenth
+  note are estimated from the MIDI tempo map.
 - **Score PNG export** — the sheet panel exports the piece as one tall image with
-  several staff systems, a title, composer when available, a piano brace, a stacked opening
-  time signature on each staff, tempo and velocity-derived dynamics.
+  several staff systems, a title, composer when available, a piano brace, stacked time signatures on each staff, including meter changes, tempo and velocity-derived dynamics.
   MusicXML import, fixed paper pagination, vocal staves, lyrics, chord diagrams and pedal
   markings are not available yet.
 - **Results screen** — at the end of a Practice run: grade, accuracy, perfect / good /
@@ -243,7 +244,7 @@ every `v*` tag (or manual dispatch) and attaches all installers to one GitHub Re
 | Mute / unmute | the 🔊 button in the player top bar (silences piano + metronome; saved) |
 | Next song | the ⏭ button in the player top bar |
 | Fullscreen | the ⛶ button in the player top bar |
-| Sheet music | the 🎼 button on any library row opens that song's score directly; the labelled **Sheet / 五线谱** toggle in the player top bar opens a synced grand-staff panel (✕ or Esc closes); ⤓ Export PNG downloads the whole piece as a printable score |
+| Sheet music | the 🎼 button on any library row opens that song's score directly; the labelled **Scrolling score / 滚动谱** toggle in the player top bar opens the synced score (✕ or Esc closes); ⤓ Export PNG downloads the whole piece as a printable score |
 | Fit keyboard | player ⚙ drawer or Settings → Display: "Fit keyboard to song" zooms to the song's range (off = full 88 keys) |
 | GPU notes | player ⚙ drawer or Settings → Display: "GPU notes (WebGL)" toggles the instanced WebGL backend; a green **GPU** badge shows when active (auto-falls back to Canvas2D) |
 | Rhythm grid | player ⚙ drawer or Settings → Display: "Measure & beat grid" toggles the scrolling measure/beat lines + measure numbers behind the notes |

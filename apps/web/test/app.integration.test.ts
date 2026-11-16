@@ -6,6 +6,8 @@ import { createCanvas } from '@napi-rs/canvas';
 import { PianoFlowApp } from '../src/app';
 import { parseMidi, type MidiNote } from '@pianoflow/core';
 
+import { AudioEngine } from '@pianoflow/audio';
+
 // ---- controllable Web Audio clock -------------------------------------------
 let mockTime = 0;
 class MockParam {
@@ -426,5 +428,26 @@ describe('PianoFlowApp practice review (per-measure accuracy + focus areas)', ()
     expect(review!.weakest.every((m) => m.accuracy < 1)).toBe(true);
     // the weakest measures are the later (unplayed) ones
     expect(review!.weakest[0].measure).toBeGreaterThan(measures.length / 2);
+  });
+});
+
+describe('external MIDI lookahead', () => {
+  it('reschedules a future note canceled by mute, without replaying an elapsed note', async () => {
+    const engine = new AudioEngine();
+    const send = vi.fn();
+    engine.setMidiOutput({ state: 'connected', send } as unknown as MIDIOutput);
+    const base: MidiNote = { midi: 60, ticks: 0, durationTicks: 100, time: 0.03, duration: 0.1, velocity: 0.8, track: 0, channel: 0 };
+    engine.load([base, { ...base, midi: 64, time: 0.12 }], 1);
+    try {
+      await engine.play();
+      engine.setMuted(true);
+      mockTime = 0.08;
+      vi.advanceTimersByTime(80);
+      engine.setMuted(false);
+      mockTime = 0.14;
+      vi.advanceTimersByTime(60);
+      const noteOns = send.mock.calls.map(([bytes]) => bytes).filter(([status]) => status === 0x90);
+      expect(noteOns).toEqual([[0x90, 64, 102]]);
+    } finally { engine.dispose(); }
   });
 });

@@ -81,7 +81,7 @@ export const MESSAGES: Record<string, Entry> = {
   'songs.hint.end': { en: ' — it appears here automatically and stays in your library.', zh: ' —— 它会自动出现在这里并保留在曲库中。' },
   'songs.empty': { en: 'No songs match your search.', zh: '没有匹配的曲目。' },
   'songs.play': { en: '▶ Play', zh: '▶ 播放' },
-  'songs.sheet': { en: 'View sheet music', zh: '查看五线谱' },
+  'songs.sheet': { en: 'Open scrolling score', zh: '打开滚动五线谱' },
   'songs.fav': { en: 'Favorite', zh: '收藏' },
   'songs.select': { en: '☑ Select', zh: '☑ 多选' },
   'songs.selectDone': { en: '✓ Done', zh: '✓ 完成' },
@@ -254,8 +254,8 @@ export const MESSAGES: Record<string, Entry> = {
   'player.metro': { en: 'Metronome', zh: '节拍器' },
   'player.mute': { en: 'Mute / unmute', zh: '静音 / 取消静音' },
   'player.export': { en: 'Export recording as .mid', zh: '导出录音为 .mid' },
-  'player.sheet': { en: 'Sheet music', zh: '五线谱' },
-  'player.sheetLabel': { en: 'Sheet', zh: '五线谱' },
+  'player.sheet': { en: 'Scrolling score', zh: '滚动五线谱' },
+  'player.sheetLabel': { en: 'Scrolling score', zh: '滚动谱' },
   'player.gear': { en: 'Practice settings', zh: '练习设置' },
   'player.fs': { en: 'Fullscreen', zh: '全屏' },
   'player.seek': { en: 'Seek', zh: '拖动进度' },
@@ -282,10 +282,8 @@ export const MESSAGES: Record<string, Entry> = {
   'coach.gotit': { en: 'Got it — let’s play', zh: '明白了 —— 开始吧' },
 
   // ---- sheet music ----
-  'sheet.aria': { en: 'Sheet music', zh: '五线谱' },
-  'sheet.title': { en: '🎼 Sheet music', zh: '🎼 五线谱' },
-  'sheet.hint': { en: 'Treble = right hand · Bass = left hand', zh: '高音谱表 = 右手 · 低音谱表 = 左手' },
-  'sheet.close': { en: 'Close sheet music', zh: '关闭五线谱' },
+  'sheet.title': { en: 'Scrolling score', zh: '滚动五线谱' },
+  'sheet.close': { en: 'Close scrolling score', zh: '关闭滚动五线谱' },
   'sheet.export': { en: '⤓ Export PNG', zh: '⤓ 导出 PNG' },
 
   // ---- pause ----

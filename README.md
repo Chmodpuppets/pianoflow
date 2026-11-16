@@ -53,8 +53,8 @@ respells notes into the key, and cancels with naturals only where needed.
 
 <img src="docs/img/sheet-rests.png" alt="Amazing Grace engraved with rests and ties across barlines" width="640">
 
-The renderer estimates rests and ties from note timing. Entirely silent measures show a centered whole rest.
-休止符与跨小节连音线根据 MIDI 音符时序推断。完全空白的小节显示居中的全休止符。
+A held MIDI note is split and tied at barlines. Repeated attacks stay separate, and entirely silent measures show a centered whole rest.
+持续跨小节的 MIDI 音符会在小节线处分段，并用连音线连接。重新弹奏的同音仍各自显示，完全空白的小节显示居中的全休止符。
 
 </div>
 
@@ -62,15 +62,16 @@ The renderer estimates rests and ties from note timing. Entirely silent measures
 
 ### 🎼 MIDI sheet preview · MIDI 五线谱预览
 
-The PNG export shows a piano brace, a stacked opening time signature on each staff,
+The PNG export shows a piano brace, stacked time signatures on each staff, including meter changes,
 and a centered whole rest in empty measures. Tempo and approximate dynamics are derived from the MIDI.
 
-PNG 导出显示钢琴大括号、每条谱表各自的完整开头拍号，以及居中的整小节休止符。速度和力度取自 MIDI，力度为近似值。
+PNG 导出显示钢琴大括号、每条谱表各自的完整拍号及变拍号，以及居中的整小节休止符。速度和力度取自 MIDI，力度为近似值。
 
-The scrolling view and PNG export generate a two-staff practice score from MIDI. MusicXML import,
+The scrolling score header shows the meter at the playhead. Both views estimate rests,
+including eighth and sixteenth rests, from gaps in the MIDI. MusicXML import,
 a separate vocal staff, lyrics, chord diagrams, pedal markings, and fixed paper pagination are not available yet.
 
-滚动谱和 PNG 导出根据 MIDI 生成双谱表练习谱。目前尚不支持 MusicXML 导入、独立声乐谱表、歌词、和弦图、踏板标记或固定纸张分页。
+滚动谱谱头显示播放位置的拍号。滚动谱和 PNG 导出均按 MIDI 空白推断休止符，包括八分和十六分休止符。目前尚不支持 MusicXML 导入、独立声乐谱表、歌词、和弦图、踏板标记或固定纸张分页。
 
 </div>
 
@@ -96,7 +97,7 @@ Add to Home Screen for a full-screen, offline practice app.
 - ⚡ **WebGL GPU 渲染** — 实例化单次绘制数千音符，无 WebGL 时自动回退 Canvas2D；五线谱静态层离屏缓存、符杠几何按布局缓存，回退路径以廉价光晕替代高开销阴影模糊。
 - 🎹 **练习模式** — 单手辅助（另一只手自动弹奏）、逐小节复盘 + 弱项跳转、评分与成就、清空可撤销。
 - 🎓 **引导式课程** — 4 阶段 12 课循序渐进，按最佳成绩解锁下一课，一键继续练习。
-- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，自动推断调号、按调拼写音符、八分/十六分音符自动符杠、休止符与跨小节连音线、导出谱显示开头拍号、速度和推断的力度；曲库每首歌一键 🎼 打开乐谱，播放器内高亮「五线谱」按钮随时切换。
+- 📜 **五线谱** — 滚动大谱表 + 可打印整谱 PNG 导出，自动推断调号、按调拼写音符、八分/十六分音符自动符杠、休止符与跨小节连音线、导出谱显示拍号变化、速度和推断的力度；曲库每首歌一键 🎼 打开乐谱，播放器顶部点「滚动谱」开关，选择会保留到下一首和下次打开。
 - 🎵 **12 首内置公版曲目** — 致爱丽丝、卡农、巴赫前奏曲、奇异恩典等。
 - 🗂 **曲库管理** — 实时搜索、8 种排序、收藏；多选批量收藏 / 取消收藏，可一键撤销。
 - 🎤 **真实音色** — 5 种离线采样音色，包含 Salamander Grand（雅马哈 C5）。通过 Chrome / Edge 的 MIDI 输出可让 Pianoteq 等外部音源发声。
@@ -124,7 +125,7 @@ macOS / Windows / Linux desktop builds.
 - ⚡ **WebGL GPU rendering** — one instanced draw call for thousands of notes; Canvas2D fallback. The score caches its static layer and beam geometry to reduce per-frame drawing.
 - 🎹 **Practice mode** — hand assist (app plays the other hand), per-measure review + focus chips, scoring & achievements, undoable clears.
 - 🎓 **Guided curriculum** — 4 stages / 12 lessons, unlock the next by best grade, one-tap continue.
-- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with inferred key signatures, key-aware note spelling, beamed eighth/sixteenth notes, rests and ties across barlines, opening time signature, tempo and estimated dynamics in the export. Open the score with one tap 🎼 on any library song, or the highlighted "Sheet" toggle in the player.
+- 📜 **Sheet music** — scrolling grand staff + printable full-score PNG export, with inferred key signatures, key-aware note spelling, beamed eighth/sixteenth notes, rests and ties across barlines, time signature changes, tempo and estimated dynamics in the export. Open the score with one tap 🎼 on any library song, or use the **Scrolling score** toggle in the player. Your choice is remembered.
 - 🎵 **12 bundled public-domain songs** — Für Elise, Canon in D, Bach Prelude, Amazing Grace…
 - 🗂 **Library management** — live search, 8 sort orders, favorites; multi-select bulk favorite / unfavorite with one-tap undo.
 - 🎤 **Real sound** — Five offline sample-based instruments, including Salamander Grand (Yamaha C5). Chrome and Edge can also send MIDI to external instruments such as Pianoteq.

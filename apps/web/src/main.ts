@@ -202,6 +202,9 @@ const sheetCanvas = $<HTMLCanvasElement>('sheetCanvas');
 const sheetClose = $<HTMLButtonElement>('sheetClose');
 const sheetExport = $<HTMLButtonElement>('sheetExport');
 const sheet = new SheetRenderer(sheetCanvas);
+const SHEET_VIEW_KEY = 'pianoflow.scrollingScore.v1';
+let preferSheet = false;
+try { preferSheet = localStorage.getItem(SHEET_VIEW_KEY) === '1'; } catch { /* optional storage */ }
 const seek = $<HTMLInputElement>('seek');
 const timeEl = $<HTMLElement>('time');
 const scoreEl = $<HTMLElement>('score');
@@ -314,6 +317,7 @@ function showScreen(name: ScreenName): void {
     app.pause();
   }
   closeAllDrawers();
+  setSheetView(name === 'player' && preferSheet);
   hidePause();
   syncControls();
 }
@@ -547,13 +551,14 @@ async function enrichLibrary(): Promise<void> {
   }));
   buildSongList();
 }
-async function selectSong(entry: SongEntry, autoplay: boolean): Promise<void> {
+async function selectSong(entry: SongEntry, autoplay: boolean, showScore = false): Promise<void> {
   try {
     const res = await fetch(`songs/${entry.file}`);
     const buf = await res.arrayBuffer();
     app.loadBuffer(buf, entry.title, entry.id);
     playerTitle.textContent = locTitle(entry);
     playerComposer.textContent = locComposer(entry);
+    if (showScore) saveSheetPreference(true);
     showScreen('player');
     buildSongList();
     if (autoplay) await app.play();
@@ -563,8 +568,7 @@ async function selectSong(entry: SongEntry, autoplay: boolean): Promise<void> {
 }
 /** Open a song in the player with the sheet-music panel already visible (library shortcut). */
 async function openSongSheet(entry: SongEntry): Promise<void> {
-  await selectSong(entry, false);
-  openSheet();
+  await selectSong(entry, false, true);
 }
 // ---------- learn / curriculum ----------
 function curriculumRecords(): Record<string, CurriculumRecord> {
@@ -1002,7 +1006,6 @@ function closeAllDrawers(): void {
   playerSettings.classList.add('hidden');
   midiPanel.classList.add('hidden');
   pluginsPanel.classList.add('hidden');
-  closeSheet();
 }
 function openDrawer(el: HTMLElement): void {
   closeAllDrawers();
@@ -1024,23 +1027,24 @@ function resizeSheet(): void {
   const r = sheetCanvas.getBoundingClientRect();
   if (r.width > 0 && r.height > 0) sheet.resize(r.width, r.height);
 }
-function openSheet(): void {
-  sheetPanel.classList.remove('hidden');
-  sheetBtn.setAttribute('aria-pressed', 'true');
-  sheetBtn.classList.add('active');
-  resizeSheet();
+function saveSheetPreference(open: boolean): void {
+  preferSheet = open;
+  try { localStorage.setItem(SHEET_VIEW_KEY, open ? '1' : '0'); } catch { /* optional storage */ }
 }
-function closeSheet(): void {
-  sheetPanel.classList.add('hidden');
-  sheetBtn.setAttribute('aria-pressed', 'false');
-  sheetBtn.classList.remove('active');
+function setSheetView(open: boolean): void {
+  sheetPanel.classList.toggle('hidden', !open);
+  sheetBtn.setAttribute('aria-pressed', String(open));
+  if (open) resizeSheet();
 }
-function toggleSheet(): void {
-  if (sheetPanel.classList.contains('hidden')) openSheet();
-  else closeSheet();
+function chooseSheet(open: boolean): void {
+  saveSheetPreference(open);
+  setSheetView(open);
 }
-sheetBtn.addEventListener('click', toggleSheet);
-sheetClose.addEventListener('click', closeSheet);
+sheetBtn.addEventListener('click', () => chooseSheet(sheetPanel.classList.contains('hidden')));
+sheetClose.addEventListener('click', () => {
+  chooseSheet(false);
+  sheetBtn.focus();
+});
 
 /** Render the full printable score to an offscreen canvas and download it as PNG. */
 function exportSheetPng(): void {
@@ -1313,8 +1317,11 @@ window.addEventListener('keydown', (e) => {
     else if (!pauseOverlay.classList.contains('hidden')) { hidePause(); void app.play(); }
     else if (!resultOverlay.classList.contains('hidden')) resultOverlay.classList.add('hidden');
     else if (!profileModal.classList.contains('hidden')) closeProfileModal();
-    else if (!sheetPanel.classList.contains('hidden')) closeSheet();
-    else closeAllDrawers();
+    else if ([playerSettings, midiPanel, pluginsPanel].some((drawer) => !drawer.classList.contains('hidden'))) closeAllDrawers();
+    else if (!sheetPanel.classList.contains('hidden')) {
+      chooseSheet(false);
+      sheetBtn.focus();
+    }
   }
 });
 

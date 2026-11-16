@@ -9,7 +9,6 @@ import {
   buildSheetSystems,
   buildBeamGroups,
   buildRests,
-  buildTies,
   signatureFor,
   spellInKey,
   displayAccidental,
@@ -125,6 +124,22 @@ describe('buildSheet', () => {
     const layout = buildSheet(s);
     expect(layout.beatsPerMeasure).toBe(3);
     expect(layout.barTimes).toEqual([0, 1.5]); // barlines at the start of each measure
+  });
+  it('uses the local meter and tempo for the last bar, including a silent staff', () => {
+    const s = song([note(0, 480, 64), note(1920, 480, 67)], 3000);
+    // No explicit opening signature, plus duplicate events from two MIDI tracks.
+    s.timeSignatures = [
+      { ticks: 1920, numerator: 6, denominator: 8 },
+      { ticks: 1920, numerator: 6, denominator: 8 },
+    ];
+    s.tempos.push({ ticks: 2400, bpm: 60, time: 2.5 });
+    const score = buildSheet(s, 60, false, true);
+    expect(score.timeSig).toEqual([4, 4]);
+    expect([...score.timeSigChanges!]).toEqual([[2, [6, 8]]]);
+    expect(score.barTimes).toEqual([0, 2]);
+    expect(score.measureEnds).toEqual([2, 4.5]);
+    expect(buildSheetSystems(score)[0].endTime).toBe(4.5);
+    expect(score.rests).toContainEqual({ time: 2, staff: 'bass', value: 'whole', measureEnd: 4.5 });
   });
 });
 
@@ -305,6 +320,13 @@ describe('buildSheet with key signature', () => {
     expect(fSharp.accidental).toBe(0); // covered by the F# signature
     expect(fNatural.accidental).toBe(2); // natural cancels the signature
   });
+  it('carries an accidental through the bar at the same octave and restores the key at the next bar', () => {
+    const scale = [67, 69, 71, 72, 74, 76, 78, 79].map((m, i) => note(i * 480, 480, m));
+    const altered = [65, 65, 77, 66, 65, 66].map((m, i) => note(3840 + i * 120, 120, m));
+    const layout = buildSheet(song([...scale, ...altered, note(5760, 120, 66)], 7680), 60, true);
+    expect(layout.keySignature?.fifths).toBe(1);
+    expect(layout.notes.slice(8).map((n) => n.accidental)).toEqual([2, 0, 2, 1, 2, 1, 0]);
+  });
   it('default (no key signature) keeps raw sharp accidentals and no signature field', () => {
     const layout = buildSheet(song([note(0, 480, 66)]));
     expect(layout.keySignature).toBeUndefined();
@@ -350,35 +372,35 @@ describe('buildRests', () => {
   });
   it('ignores gaps shorter than minBeats', () => {
     // 0.25s gap = 0.5 beat < 1 → no rest.
-    expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0.75, 0.5, 62), sn(0, 2, 48, 'bass')]))).toEqual([]);
+    expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0.75, 0.5, 62), sn(0, 2, 48, 'bass')]), 1)).toEqual([]);
   });
+  it('engraves eighth and sixteenth rests while ignoring tiny release gaps', () => {
+    const score = mkLayout([
+      sn(0, 0.25, 60), sn(0.5, 0.25, 62), sn(0.875, 0.25, 64),
+      sn(1.14, 0.5, 65), sn(0, 2, 48, 'bass'),
+    ]);
+    expect(buildRests(score)).toEqual([
+      { time: 0.25, staff: 'treble', value: 'eighth' },
+      { time: 0.75, staff: 'treble', value: 'sixteenth' },
+    ]);
+  });
+
+  it('uses the MIDI tempo at each gap to determine its rest value', () => {
+    const s = song([note(0, 480, 64),
+      { ...note(1920, 480, 64), time: 2, duration: 1 },
+      { ...note(2520, 120, 65), time: 3.25, duration: 0.25 },
+      { ...note(2880, 480, 67), time: 4, duration: 1 },
+    ], 3360);
+    s.tempos.push({ ticks: 1920, bpm: 60, time: 2 });
+    const score = buildSheet(s, 60, false, true);
+    expect(score.rests?.filter(({ staff, time }) => staff === 'treble' && time >= 2)).toEqual([
+      { time: 3, staff: 'treble', value: 'sixteenth' },
+      { time: 3.5, staff: 'treble', value: 'eighth' },
+    ]);
+  });
+
   it('omits trailing silence after the last note', () => {
     expect(buildRests(mkLayout([sn(0, 0.5, 60), sn(0, 2, 48, 'bass')]))).toEqual([]);
-  });
-});
-
-describe('buildTies', () => {
-  // mkLayout barlines are at 0, 2, 4 — a tie must cross the barline at t=2.
-  it('ties contiguous same-pitch notes that cross a barline', () => {
-    const ties = buildTies(mkLayout([sn(1.5, 0.5, 60), sn(2, 0.5, 60)]));
-    expect(ties).toEqual([{ from: 0, to: 1, staff: 'treble' }]);
-  });
-  it('does NOT tie repeated notes within a measure (no barline between)', () => {
-    // The classic repeated-note case (e.g. Twinkle "C C") must stay un-tied.
-    expect(buildTies(mkLayout([sn(0, 1, 60), sn(1, 1, 60)]))).toEqual([]);
-  });
-  it('does not tie different pitches across a barline', () => {
-    expect(buildTies(mkLayout([sn(1.5, 0.5, 60), sn(2, 0.5, 62)]))).toEqual([]);
-  });
-  it('does not tie re-articulated notes (a real gap between them)', () => {
-    expect(buildTies(mkLayout([sn(1.5, 0.25, 60), sn(2, 0.5, 60)]))).toEqual([]);
-  });
-  it('does not tie overlapping same-pitch notes', () => {
-    expect(buildTies(mkLayout([sn(1.5, 1, 60), sn(2, 1, 60)]))).toEqual([]);
-  });
-  it('ties on the bass staff independently', () => {
-    const ties = buildTies(mkLayout([sn(1.5, 0.5, 48, 'bass'), sn(2, 0.5, 48, 'bass')]));
-    expect(ties).toEqual([{ from: 0, to: 1, staff: 'bass' }]);
   });
 });
 
@@ -386,7 +408,7 @@ describe('buildSheet with rests + ties', () => {
   it('attaches rests and ties when enabled', () => {
     // C4 sustained across the barline at t=2 (tie) + a leading and a 2-beat gap (rests).
     const layout = buildSheet(
-      song([note(1440, 480, 60), note(1920, 480, 60), note(3360, 480, 62)], 3840),
+      song([note(1440, 960, 60), note(3360, 480, 62)], 3840),
       60,
       false,
       true,
@@ -398,6 +420,26 @@ describe('buildSheet with rests + ties', () => {
       { time: 2, staff: 'bass', value: 'whole', measureEnd: 4 },
       { time: 2.5, staff: 'treble', value: 'half' },
     ]);
+  });
+  it('keeps same-pitch reattacks distinct, including exactly at a barline', () => {
+    const layout = buildSheet(song([note(1440, 480, 60), note(1920, 480, 60)]), 60, false, true);
+    expect(layout.notes).toHaveLength(2);
+    expect(layout.ties).toEqual([]);
+  });
+
+  it('ties each sustained chord pitch through multiple bars without matching by pitch', () => {
+    const input = song([note(1440, 2880, 60), note(1440, 960, 64)], 4800);
+    const layout = buildSheet(input, 60, false, true);
+    expect(layout.notes.map(({ midi, time, duration, value }) => [midi, time, duration, value])).toEqual([
+      [60, 1.5, 0.5, 'quarter'], [64, 1.5, 0.5, 'quarter'],
+      [60, 2, 2, 'whole'], [64, 2, 0.5, 'quarter'],
+      [60, 4, 0.5, 'quarter'],
+    ]);
+    expect(layout.ties).toEqual([
+      { from: 0, to: 2, staff: 'treble' }, { from: 1, to: 3, staff: 'treble' },
+      { from: 2, to: 4, staff: 'treble' },
+    ]);
+    expect(input.notes).toHaveLength(2);
   });
   it('default leaves rests/ties undefined', () => {
     const layout = buildSheet(song([note(0, 480, 60)]));
@@ -457,12 +499,14 @@ describe('buildSheet metadata (tempo, timeSig, staccato, dynamics)', () => {
   });
 
   it('omits dynamics when velocity is uniform across all measures', () => {
-    // Two measures with same avg velocity → only measure 0 gets a dynamic.
+    // Four measures at the same velocity → only measure 0 gets a dynamic.
     const s: MidiSong = {
       name: 't', format: 1, ppq: 480, durationTicks: 7680, duration: 16,
       notes: [
         { midi: 60, ticks: 0, durationTicks: 480, time: 0, duration: 0.5, velocity: 0.5, channel: 0, track: 0 },
         { midi: 62, ticks: 1920, durationTicks: 480, time: 2, duration: 0.5, velocity: 0.5, channel: 0, track: 0 },
+        { midi: 64, ticks: 3840, durationTicks: 480, time: 4, duration: 0.5, velocity: 0.5, channel: 0, track: 0 },
+        { midi: 65, ticks: 5760, durationTicks: 480, time: 6, duration: 0.5, velocity: 0.5, channel: 0, track: 0 },
       ],
       tempos: [{ ticks: 0, bpm: 120, time: 0 }],
       timeSignatures: [{ ticks: 0, numerator: 4, denominator: 4 }],

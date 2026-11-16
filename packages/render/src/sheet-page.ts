@@ -1,6 +1,6 @@
 import { buildSheetSystems, buildBeamGroups, noteValueToBeats, type SheetLayout, type SheetNote, type BeamGroup } from '@pianoflow/core';
 import { paperTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, drawRest, drawTie, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, drawTimeSignature, keySignatureWidth, drawRest, drawTie, beamGeometry, drawBeamLines, type BeamPoint } from './sheet-draw';
 
 /**
  * Static, printable full-score renderer. Unlike the scrolling SheetRenderer (a
@@ -133,21 +133,29 @@ export class SheetPageRenderer {
 
     const keyWidth = keySignatureWidth(state.layout.keySignature, gap);
     const last = systems.length - 1;
+    const tieEndTimes = new Set((state.layout.ties ?? []).map(({ to }) => state.layout.notes[to]?.time));
+    const meterChanges = [...(state.layout.timeSigChanges ?? [])];
     systems.forEach((sys, si) => {
-      const showTimeSignature = si === 0 && state.layout.timeSig;
-      const leftPad = CLEF_WIDTH + keyWidth + gap * (showTimeSignature ? 3.5 : 1);
-      const contentW = width - leftPad - RIGHT_PAD;
+      const openingMeter = si === 0 ? state.layout.timeSig : state.layout.timeSigChanges?.get(sys.startTime);
+      const changes = meterChanges.filter(([time]) => time > sys.startTime && time < sys.endTime);
+      const meterWidth = gap * 3.5;
+      const tieInset = tieEndTimes.has(sys.startTime) ? gap * 2 : 0;
+      const leftPad = CLEF_WIDTH + keyWidth + gap * (openingMeter ? 3.5 : 1) + tieInset;
+      const contentW = width - leftPad - RIGHT_PAD - changes.length * meterWidth;
       const topY = PAD_X + titleH + si * (systemBlock + systemGap);
       const trebleBottom = topY + staffH;
       const bassBottom = trebleBottom + staffH + gap * 6;
       const trebleTop = trebleBottom - staffH;
       const span = Math.max(0.001, sys.endTime - sys.startTime);
-      const xFor = (t: number) => leftPad + ((t - sys.startTime) / span) * contentW;
+      const timelineX = (t: number) => leftPad + ((t - sys.startTime) / span) * contentW;
+      const barlineX = (t: number) => timelineX(t) + changes.filter(([time]) => time < t).length * meterWidth;
+      const changeTimes = new Set(changes.map(([time]) => time));
+      const xFor = (t: number) => barlineX(t) + (changeTimes.has(t) ? meterWidth : 0);
       const yTreble = (steps: number) => trebleBottom - steps * (gap / 2);
       const yBass = (steps: number) => bassBottom - steps * (gap / 2);
 
       this.drawSystemStaves(trebleBottom, bassBottom, width, theme);
-      this.drawSystemBarlines(state.layout, sys.startTime, sys.endTime, xFor, trebleTop, bassBottom, width, theme);
+      this.drawSystemBarlines(state.layout, sys.startTime, sys.endTime, barlineX, trebleTop, bassBottom, width, theme);
 
       // Join the piano staves with an opening barline and a curved brace.
       const spine = STAFF_START;
@@ -174,20 +182,10 @@ export class SheetPageRenderer {
       drawKeySignature(ctx, state.layout.keySignature, 'treble', CLEF_WIDTH * 0.72, trebleBottom, gap, theme);
       drawKeySignature(ctx, state.layout.keySignature, 'bass', CLEF_WIDTH * 0.72, bassBottom, gap, theme);
 
-      // Time signature fraction after the key signature.
-      if (showTimeSignature) {
-        const [num, den] = showTimeSignature;
-        const tsX = CLEF_WIDTH + keyWidth + gap;
-        ctx.fillStyle = theme.text;
-        ctx.font = `bold ${Math.round(gap * 2.2)}px Georgia, serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        for (const bottom of [trebleBottom, bassBottom]) {
-          ctx.fillText(String(num), tsX, bottom - 3 * gap);
-          ctx.fillText(String(den), tsX, bottom - gap);
-        }
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'alphabetic';
+      const staffBottoms: [number, number] = [trebleBottom, bassBottom];
+      if (openingMeter) drawTimeSignature(ctx, openingMeter, CLEF_WIDTH + keyWidth + gap, staffBottoms, gap, theme);
+      for (const [time, meter] of changes) {
+        drawTimeSignature(ctx, meter, barlineX(time) + gap * 1.5, staffBottoms, gap, theme);
       }
 
       // Tempo marking above the first system only.
@@ -204,7 +202,7 @@ export class SheetPageRenderer {
       ctx.font = `600 ${Math.round(gap * 1.2)}px Georgia, serif`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(String(sys.startMeasure), CLEF_WIDTH - 10, trebleTop - gap * 0.6);
+      ctx.fillText(String(sys.startMeasure), STAFF_START, trebleTop - gap * 2);
 
       // Notes belonging to this system (beamed runs share a beam instead of flags).
       const notes = state.layout.notes;
@@ -287,10 +285,9 @@ export class SheetPageRenderer {
       for (const tie of state.layout.ties ?? []) {
         const a = notes[tie.from];
         const b = notes[tie.to];
-        if (!a || !b || a.time < sys.startTime) continue;
-        if (b.time >= sys.endTime && si !== last) continue;
-        const xa = xFor(a.time);
-        const xb = xFor(b.time);
+        if (!a || !b || b.time < sys.startTime || a.time >= sys.endTime) continue;
+        const xa = a.time < sys.startTime ? leftPad - tieInset : xFor(a.time);
+        const xb = b.time >= sys.endTime ? width - RIGHT_PAD + gap * 0.5 : xFor(b.time);
         if (xb < leftPad - 6 || xa > width - RIGHT_PAD + 6) continue;
         const ya = a.staff === 'treble' ? yTreble(a.steps) : yBass(a.steps);
         const yb = b.staff === 'treble' ? yTreble(b.steps) : yBass(b.steps);

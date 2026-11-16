@@ -205,9 +205,15 @@ export class AudioEngine {
 
   /** Mute/unmute the active sound output. */
   setMuted(muted: boolean): void {
-    if (muted && !this._muted) this.resetMidiOutput();
+    if (this._muted === muted) return;
+    if (muted) this.resetMidiOutput();
     this._muted = muted;
     this.updateMasterGain();
+    if (!muted && this.midiOutput && this._playing) {
+      // Muting cancels lookahead events, so restore any notes still in the future.
+      this.reindex(this.position);
+      this.schedule();
+    }
   }
   get muted(): boolean {
     return this._muted;
@@ -260,9 +266,9 @@ export class AudioEngine {
     this.loopEnabled = on && this.loopStart != null && this.loopEnd != null;
   }
 
-  private reindex(): void {
+  private reindex(position = this.anchorPos): void {
     let i = 0;
-    while (i < this.notes.length && this.notes[i].time < this.anchorPos) i++;
+    while (i < this.notes.length && this.notes[i].time < position) i++;
     this.nextIndex = i;
   }
 
@@ -324,13 +330,16 @@ export class AudioEngine {
   }
 
   setSpeed(s: number): void {
+    const speed = Math.max(0.1, Math.min(4, s));
+    if (speed === this._speed) return;
     const pos = this.position;
-    this.resetMidiOutput();
-    this._speed = Math.max(0.1, Math.min(4, s));
+    this.stopScheduled();
+    this._speed = speed;
     this.anchorPos = pos;
     this.anchorTime = this.ctx.currentTime;
     this.reindex();
     this.reindexBeats();
+    if (this._playing) this.schedule();
   }
 
   private schedule(): void {

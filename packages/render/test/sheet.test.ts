@@ -11,6 +11,7 @@ function mockCtx() {
     fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 1, lineCap: 'butt',
     font: '', textAlign: 'left', textBaseline: 'alphabetic', shadowColor: '', shadowBlur: 0,
     fillRect: () => { rec.fillRects++; },
+    rect: noop, clip: noop,
     beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop,
     stroke: () => { rec.strokes++; },
     fill: noop,
@@ -55,6 +56,24 @@ describe('SheetRenderer', () => {
     expect(rec.ellipses).toBe(0);
     expect(rec.strokes).toBeGreaterThan(0); // staff lines + clefs + cursor
     expect(rec.saves).toBe(rec.restores); // balanced state
+  });
+
+  it('updates the stacked meter on both staves after playback or seeking crosses a change', () => {
+    const { ctx, rec } = mockCtx();
+    const renderer = new SheetRenderer(mockCanvas(ctx));
+    renderer.resize(800, 400);
+    const score = layout([note(0, 64)]);
+    score.timeSig = [3, 4];
+    score.timeSigChanges = new Map([[2, [6, 8]]]);
+    for (const [position, expected] of [
+      [1.99, ['3', '4', '3', '4']],
+      [2, ['6', '8', '6', '8']],
+      [0, ['3', '4', '3', '4']],
+    ] as const) {
+      rec.texts.length = 0;
+      renderer.render({ layout: score, position });
+      expect(rec.texts).toEqual(expected);
+    }
   });
 
   it('draws noteheads for visible notes and culls far-away ones', () => {

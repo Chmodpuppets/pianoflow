@@ -211,7 +211,7 @@ export interface Rest {
   value: NoteValue;
 }
 
-/** A tie joining two contiguous same-pitch notes (indices into layout.notes). */
+/** A tie joining two fragments of one MIDI note (indices into layout.notes). */
 export interface Tie {
   from: number;
   to: number;
@@ -223,6 +223,10 @@ export interface SheetLayout {
   /** Barline times in seconds (ascending, includes 0). */
   barTimes: number[];
   beatsPerMeasure: number;
+  /** The end of each measure, including the final bar, resolved from MIDI ticks. */
+  measureEnds?: number[];
+  /** Changes after the opening time signature, keyed by measure start in seconds. */
+  timeSigChanges?: Map<number, [number, number]>;
   /** Present when built with key-signature engraving; renderers draw it after the clef. */
   keySignature?: KeySignature;
   /** Present when built with rest/tie engraving; renderers draw silences + ties. */
@@ -242,32 +246,86 @@ export interface SheetLayout {
  * Build the scrolling grand-staff layout for a song. Pure. With `useKeySignature`
  * the piece's key is inferred, notes are respelled into the key and only carry an
  * accidental when they deviate from the signature (which is attached to the layout).
- * With `useRestsTies` per-staff silences (rests) and contiguous same-pitch ties are
- * computed and attached for the renderers to engrave.
+ * With `useRestsTies` sustained notes are split at barlines and tied, and
+ * per-staff silences are marked with rests.
  */
 export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = false, useRestsTies = false): SheetLayout {
   const tempo = new TempoMap(song.ppq, song.tempos);
-  const sigs = song.timeSignatures.length
-    ? [...song.timeSignatures].sort((a, b) => a.ticks - b.ticks)
-    : [{ ticks: 0, numerator: 4, denominator: 4 }];
+  const byTick = new Map([[0, { ticks: 0, numerator: 4, denominator: 4 }]]);
+  for (const sig of song.timeSignatures) {
+    if (sig.ticks <= song.durationTicks && sig.numerator > 0 && sig.denominator > 0) byTick.set(sig.ticks, sig);
+  }
+  const sigs = [...byTick.values()].sort((a, b) => a.ticks - b.ticks);
 
-  const barTicks: number[] = [0];
+  const barTicks: number[] = [];
+  const barEnds: number[] = [];
+  const timeSigChanges = new Map<number, [number, number]>();
   for (let i = 0; i < sigs.length; i++) {
     const sig = sigs[i];
+    const next = sigs[i + 1];
+    const prev = sigs[i - 1];
     const measureTicks = Math.max(1, Math.round((song.ppq * 4 * sig.numerator) / sig.denominator));
-    const end = i + 1 < sigs.length ? sigs[i + 1].ticks : song.durationTicks;
-    // First barline of this segment aligns to its start tick.
-    let t = sig.ticks;
-    if (barTicks[barTicks.length - 1] !== t) barTicks.push(t);
-    for (t += measureTicks; t < end; t += measureTicks) barTicks.push(t);
+    const end = next?.ticks ?? song.durationTicks;
+    if (prev && (prev.numerator !== sig.numerator || prev.denominator !== sig.denominator)) {
+      timeSigChanges.set(tempo.ticksToSeconds(sig.ticks), [sig.numerator, sig.denominator]);
+    }
+    for (let tick = sig.ticks; tick < end || tick === 0; tick += measureTicks) {
+      barTicks.push(tick);
+      barEnds.push(Math.min(tick + measureTicks, next?.ticks ?? Infinity));
+    }
   }
-  const barTimes = [...new Set(barTicks.map((t) => tempo.ticksToSeconds(t)))].sort((a, b) => a - b);
+  const barTimes = barTicks.map((tick) => tempo.ticksToSeconds(tick));
+  const measureEnds = barEnds.map((tick) => tempo.ticksToSeconds(tick));
 
   const keySig = useKeySignature ? inferKeySignature(song.notes) : null;
-  const notes: SheetNote[] = song.notes.map((n: MidiNote) => {
+  const orderedNotes = [...song.notes].sort((a, b) => a.ticks - b.ticks || a.midi - b.midi);
+  const fragments: { note: MidiNote; source: number; continuation: boolean }[] = [];
+  let nextBar = 1;
+  for (const [source, n] of orderedNotes.entries()) {
+    while (nextBar < barTicks.length && barTicks[nextBar] <= n.ticks) nextBar++;
+    const endTick = n.ticks + n.durationTicks;
+    if (!useRestsTies || nextBar === barTicks.length || barTicks[nextBar] >= endTick) {
+      fragments.push({ note: n, source, continuation: false });
+      continue;
+    }
+
+    let start = n.ticks;
+    let bar = nextBar;
+    while (start < endTick) {
+      const end = Math.min(endTick, barTicks[bar] ?? Infinity);
+      const time = tempo.ticksToSeconds(start);
+      fragments.push({
+        note: { ...n, ticks: start, durationTicks: end - start, time, duration: tempo.ticksToSeconds(end) - time },
+        source,
+        continuation: start !== n.ticks,
+      });
+      start = end;
+      bar++;
+    }
+  }
+  if (useRestsTies) fragments.sort((a, b) => a.note.ticks - b.note.ticks || a.note.midi - b.note.midi);
+
+  const ties: Tie[] = [];
+  const lastFragment = new Map<number, number>();
+  const accidentals: Record<Staff, Map<number, number>> = { treble: new Map(), bass: new Map() };
+  let measure = 0;
+  const notes: SheetNote[] = fragments.map(({ note: n, source, continuation }, index) => {
+    while (measure + 1 < barTicks.length && n.ticks >= barTicks[measure + 1]) {
+      measure++;
+      accidentals.treble.clear();
+      accidentals.bass.clear();
+    }
     const staff = staffFor(n.midi, splitMidi);
     const d = keySig ? spellInKey(n.midi, keySig) : midiToDiatonic(n.midi);
     const bottom = staff === 'treble' ? TREBLE_BOTTOM : BASS_BOTTOM;
+    const previous = accidentals[staff].get(d.index);
+    const accidental = continuation ? 0 : previous === undefined
+      ? (keySig ? displayAccidental(d, keySig) : d.accidental)
+      : previous === d.accidental ? 0 : d.accidental || 2;
+    if (!continuation) accidentals[staff].set(d.index, d.accidental);
+    const from = lastFragment.get(source);
+    if (continuation && from !== undefined) ties.push({ from, to: index, staff });
+    if (useRestsTies) lastFragment.set(source, index);
     return {
       midi: n.midi,
       time: n.time,
@@ -275,14 +333,16 @@ export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = fal
       hand: n.hand,
       staff,
       steps: d.index - bottom,
-      accidental: keySig ? displayAccidental(d, keySig) : d.accidental,
+      accidental,
       value: noteValue(n.durationTicks / song.ppq),
     };
   });
-  notes.sort((a, b) => a.time - b.time || a.midi - b.midi);
 
   const first = sigs[0];
-  const layout: SheetLayout = { notes, barTimes, beatsPerMeasure: first.numerator * (4 / first.denominator) };
+  const layout: SheetLayout = {
+    notes, barTimes, measureEnds, timeSigChanges,
+    beatsPerMeasure: first.numerator * (4 / first.denominator),
+  };
   if (keySig) layout.keySignature = keySig;
 
   // Tempo + time signature metadata for engraving.
@@ -294,7 +354,9 @@ export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = fal
   const beatDur = barTimes.length >= 2 ? (barTimes[1] - barTimes[0]) / Math.max(1, layout.beatsPerMeasure) : 0.5;
   if (beatDur > 0) {
     const staccatoIndices = new Set<number>();
+    const tiedFragments = new Set(ties.flatMap(({ from, to }) => [from, to]));
     for (let i = 0; i < notes.length; i++) {
+      if (tiedFragments.has(i)) continue;
       const n = notes[i];
       // Use the note's rhythmic value (in beats) from the NoteValue enum.
       const notatedBeats = noteValueToBeats(n.value);
@@ -310,30 +372,29 @@ export function buildSheet(song: MidiSong, splitMidi = 60, useKeySignature = fal
   // Dynamic markings from velocity analysis per measure.
   if (song.notes.length > 0 && barTimes.length >= 2) {
     const dynamics = new Map<number, string>();
+    let nextNote = 0;
+    let previousDynamic: string | undefined;
     for (let mi = 0; mi < barTimes.length; mi++) {
-      const mStart = barTimes[mi];
-      const mEnd = mi + 1 < barTimes.length ? barTimes[mi + 1] : Infinity;
+      const mEndTick = barTicks[mi + 1] ?? Infinity;
       let sum = 0;
       let count = 0;
-      for (const sn of song.notes) {
-        if (sn.time >= mStart && sn.time < mEnd) {
-          sum += sn.velocity * 127;
-          count++;
-        }
+      while (nextNote < orderedNotes.length && orderedNotes[nextNote].ticks < mEndTick) {
+        sum += orderedNotes[nextNote++].velocity * 127;
+        count++;
       }
       if (count === 0) continue;
       const avg = sum / count;
       // Only emit a dynamic when it changes from the previous measure.
       const dyn = avg < 40 ? 'p' : avg < 60 ? 'mp' : avg < 80 ? 'mf' : avg < 100 ? 'f' : 'ff';
-      const prevDyn = mi > 0 ? dynamics.get(mi - 1) : undefined;
-      if (dyn !== prevDyn) dynamics.set(mi, dyn);
+      if (dyn !== previousDynamic) dynamics.set(mi, dyn);
+      previousDynamic = dyn;
     }
     if (dynamics.size > 0) layout.dynamics = dynamics;
   }
 
   if (useRestsTies) {
-    layout.rests = buildRests(layout);
-    layout.ties = buildTies(layout);
+    layout.rests = buildRests(layout, 0.25, (time) => tempo.secondsToTicks(time) / song.ppq);
+    layout.ties = ties;
   }
   return layout;
 }
@@ -420,13 +481,13 @@ function beatDuration(layout: SheetLayout): number {
 }
 
 /** Merge sounding intervals per staff, then write a centered rest for each empty measure. */
-export function buildRests(layout: SheetLayout, minBeats = 1): Rest[] {
+export function buildRests(layout: SheetLayout, minBeats = 0.25, quarterAt?: (time: number) => number): Rest[] {
   const beatDur = beatDuration(layout);
   if (!(beatDur > 0) || layout.notes.length === 0) return [];
   const lastOnset = layout.notes.reduce((last, note) => Math.max(last, note.time), 0);
   const bars = (layout.barTimes.length ? layout.barTimes : [0]).filter((time) => time <= lastOnset + 1e-9);
   const lastBar = bars[bars.length - 1] ?? 0;
-  const nextBar = layout.barTimes[bars.length];
+  const nextBar = layout.measureEnds?.[bars.length - 1] ?? layout.barTimes[bars.length];
   bars.push(nextBar ?? lastBar + beatDur * layout.beatsPerMeasure);
 
   const rests: Rest[] = [];
@@ -443,10 +504,9 @@ export function buildRests(layout: SheetLayout, minBeats = 1): Rest[] {
     }
 
     const addPartialRest = (start: number, end: number) => {
-      const beats = (end - start) / beatDur;
+      const beats = quarterAt ? quarterAt(end) - quarterAt(start) : (end - start) / beatDur;
       if (beats < minBeats - 1e-6) return;
-      const value: NoteValue = beats >= 3.5 ? 'whole' : beats >= 1.5 ? 'half' : 'quarter';
-      rests.push({ time: start, staff, value });
+      rests.push({ time: start, staff, value: noteValue(beats) });
     };
 
     let i = 0;
@@ -470,39 +530,6 @@ export function buildRests(layout: SheetLayout, minBeats = 1): Rest[] {
     }
   }
   return rests.sort((a, b) => a.time - b.time || (a.staff < b.staff ? -1 : 1));
-}
-
-/**
- * Detect ties across barlines: consecutive same-pitch notes on a staff where the
- * first ends exactly as the second begins (contiguous within `epsilon`) AND a
- * barline falls between their onsets. The barline requirement is what distinguishes
- * a sustained sound carried over a measure line (a true tie) from a re-articulated
- * repeated note within a measure (which must NOT be tied). Pure + headless-testable.
- */
-export function buildTies(layout: SheetLayout, epsilon = 0.03): Tie[] {
-  const bars = layout.barTimes.length ? layout.barTimes : [0];
-  const crossesBar = (t0: number, t1: number): boolean =>
-    bars.some((bt) => bt > t0 + 1e-6 && bt <= t1 + 1e-6);
-  const ties: Tie[] = [];
-  for (const staff of ['treble', 'bass'] as Staff[]) {
-    const idx = layout.notes
-      .map((n, i) => ({ n, i }))
-      .filter((x) => x.n.staff === staff)
-      .sort((a, b) => a.n.time - b.n.time || a.n.midi - b.n.midi);
-    for (let k = 1; k < idx.length; k++) {
-      const a = idx[k - 1];
-      const b = idx[k];
-      if (
-        a.n.midi === b.n.midi &&
-        b.n.time > a.n.time + 1e-6 &&
-        Math.abs(a.n.time + a.n.duration - b.n.time) < epsilon &&
-        crossesBar(a.n.time, b.n.time)
-      ) {
-        ties.push({ from: a.i, to: b.i, staff });
-      }
-    }
-  }
-  return ties;
 }
 
 /**
@@ -532,7 +559,9 @@ export function buildSheetSystems(layout: SheetLayout, measuresPerSystem = 4): S
   // Drop trailing empty measures so a printed score never ends on a blank system
   // (the MIDI duration can round up past the final note). Keep >= 1 measure.
   const total = Math.max(1, lastWithNote + 1);
-  const pieceEnd = Math.max(noteEnd, bars[Math.min(total, bars.length) - 1] + typical);
+  const finalBar = total - 1;
+  const finalBarEnd = layout.measureEnds?.[finalBar] ?? bars[total] ?? bars[finalBar] + typical;
+  const pieceEnd = Math.max(noteEnd, finalBarEnd);
 
   const systems: SheetSystem[] = [];
   for (let i = 0; i < total; i += per) {

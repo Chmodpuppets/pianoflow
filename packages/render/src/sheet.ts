@@ -1,6 +1,6 @@
 import { buildBeamGroups, type SheetLayout, type SheetNote, type BeamGroup, type KeySignature } from '@pianoflow/core';
 import { defaultTheme, type Theme } from './theme';
-import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, keySignatureWidth, drawRest, drawTie, drawBeamLines, type BeamPoint, type BeamGeometry } from './sheet-draw';
+import { withAlpha, drawSheetNote, drawTrebleClef, drawBassClef, drawKeySignature, drawTimeSignature, keySignatureWidth, drawRest, drawTie, drawBeamLines, type BeamPoint, type BeamGeometry } from './sheet-draw';
 
 /**
  * Scrolling grand-staff sheet-music renderer. Draws two staves (treble + bass)
@@ -130,7 +130,12 @@ export class SheetRenderer {
 
     const span = this.config.ahead + this.config.behind;
     const keyWidth = keySignatureWidth(state.layout.keySignature, lineGap);
-    const leftPad = CLEF_WIDTH + keyWidth;
+    let meter = state.layout.timeSig;
+    for (const [time, signature] of state.layout.timeSigChanges ?? []) {
+      if (time > state.position) break;
+      meter = signature;
+    }
+    const leftPad = CLEF_WIDTH + keyWidth + (meter ? lineGap * 3.5 : 0);
     const pxPerSec = (cssW - leftPad - RIGHT_PAD) / span;
     const cursorX = leftPad + this.config.behind * pxPerSec;
     const xFor = (t: number) => cursorX + (t - state.position) * pxPerSec;
@@ -140,12 +145,17 @@ export class SheetRenderer {
 
     // Static frame (backdrop + staves + clefs + key signature): blit the cached
     // offscreen canvas when available, else paint directly (headless tests).
-    const frame = this.staticFrame(state.layout, theme, geom);
+    const frame = this.staticFrame(state.layout, theme, geom, meter);
     if (frame) {
       ctx.drawImage(frame, 0, 0, cssW, cssH);
     } else {
-      this.paintStatic(ctx, state.layout.keySignature, theme, geom);
+      this.paintStatic(ctx, state.layout.keySignature, theme, geom, meter);
     }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(leftPad, 0, Math.max(0, cssW - leftPad), cssH);
+    ctx.clip();
 
     this.drawBarlines(state.layout, xFor, trebleBottom, bassBottom, staffH, theme);
 
@@ -205,6 +215,7 @@ export class SheetRenderer {
       drawTie(this.ctx, xa, ya, xb, yb, a.steps >= 4 ? 'down' : 'up', lineGap, color);
     }
 
+    ctx.restore();
     this.drawCursor(cursorX, trebleBottom, bassBottom, staffH, theme);
   }
 
@@ -240,10 +251,10 @@ export class SheetRenderer {
    * change. Returns null when offscreen canvases are unavailable (node tests), in
    * which case the caller paints the static layer directly onto the main context.
    */
-  private staticFrame(layout: SheetLayout, theme: Theme, geom: StaffGeom): HTMLCanvasElement | null {
+  private staticFrame(layout: SheetLayout, theme: Theme, geom: StaffGeom, meter: SheetLayout['timeSig']): HTMLCanvasElement | null {
     if (!this.frameOk || typeof document === 'undefined') return null;
     const { cssW, cssH, dpr } = this;
-    const key = `${cssW}x${cssH}x${dpr}|${geom.lineGap}|${geom.trebleBottom}|${geom.bassBottom}`;
+    const key = `${cssW}x${cssH}x${dpr}|${geom.lineGap}|${geom.trebleBottom}|${geom.bassBottom}|${meter?.join("/") ?? ""}`;
     if (this.frameCanvas && this.frameCtx && this.frameKey === key && this.frameLayout === layout && this.frameTheme === theme) {
       return this.frameCanvas;
     }
@@ -260,7 +271,7 @@ export class SheetRenderer {
     fc.width = Math.round(cssW * dpr);
     fc.height = Math.round(cssH * dpr);
     fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.paintStatic(fctx, layout.keySignature, theme, geom);
+    this.paintStatic(fctx, layout.keySignature, theme, geom, meter);
     this.frameKey = key;
     this.frameLayout = layout;
     this.frameTheme = theme;
@@ -268,7 +279,7 @@ export class SheetRenderer {
   }
 
   /** Paint the non-scrolling layer: backdrop, staff lines, clefs, key signature. */
-  private paintStatic(target: CanvasRenderingContext2D, keySig: KeySignature | undefined, theme: Theme, geom: StaffGeom): void {
+  private paintStatic(target: CanvasRenderingContext2D, keySig: KeySignature | undefined, theme: Theme, geom: StaffGeom, meter: SheetLayout['timeSig']): void {
     const { cssW, cssH } = this;
     const { lineGap, trebleBottom, bassBottom } = geom;
     target.globalAlpha = 1;
@@ -281,6 +292,10 @@ export class SheetRenderer {
     drawBassClef(target, 28, bassBottom, lineGap, theme);
     drawKeySignature(target, keySig, 'treble', 52, trebleBottom, lineGap, theme);
     drawKeySignature(target, keySig, 'bass', 52, bassBottom, lineGap, theme);
+    if (meter) {
+      const x = CLEF_WIDTH + keySignatureWidth(keySig, lineGap) + lineGap;
+      drawTimeSignature(target, meter, x, [trebleBottom, bassBottom], lineGap, theme);
+    }
   }
 
   private drawStaves(target: CanvasRenderingContext2D, tb: number, bb: number, gap: number, theme: Theme): void {

@@ -256,7 +256,7 @@
           <button id="metroBtn" class="icon-btn" data-i18n-title="player.metro" title="Metronome" aria-pressed="false">𝅗</button>
           <button id="muteBtn" class="icon-btn" data-i18n-title="player.mute" title="Mute / unmute" aria-pressed="false">🔊</button>
           <button id="exportBtn" class="icon-btn" data-i18n-title="player.export" title="Export recording as .mid" disabled>⤓</button>
-          <button id="sheetBtn" class="sheet-toggle" data-i18n-title="player.sheet" title="Sheet music" aria-pressed="false"><span class="sheet-toggle-icon" aria-hidden="true">🎼</span><span class="sheet-toggle-label" data-i18n="player.sheetLabel">Sheet</span></button>
+          <button id="sheetBtn" class="sheet-toggle" data-i18n-title="player.sheet" title="Scrolling score" aria-controls="sheetPanel" aria-pressed="false"><span class="sheet-toggle-icon" aria-hidden="true">🎼</span><span class="sheet-toggle-label" data-i18n="player.sheetLabel">Scrolling score</span></button>
           <button id="gearBtn" class="icon-btn" data-i18n-title="player.gear" title="Practice settings">⚙️</button>
           <button id="fsBtn" class="icon-btn" data-i18n-title="player.fs" title="Fullscreen">⛶</button>
         </div>
@@ -290,15 +290,14 @@
           </div>
         </div>
       </main>
-      <div id="sheetPanel" class="sheet-panel hidden" role="dialog" data-i18n-aria="sheet.aria" aria-label="Sheet music">
+      <section id="sheetPanel" class="sheet-panel hidden" aria-labelledby="sheetTitle">
         <div class="sheet-head">
-          <span class="sheet-title" data-i18n="sheet.title">🎼 Sheet music</span>
-          <span class="sheet-hint" data-i18n="sheet.hint">Treble = right hand · Bass = left hand</span>
+          <span id="sheetTitle" class="sheet-title" data-i18n="sheet.title">Scrolling score</span>
           <button id="sheetExport" class="btn btn-ghost sheet-export" data-i18n="sheet.export">⤓ Export PNG</button>
-          <button id="sheetClose" class="icon-btn" data-i18n-title="sheet.close" title="Close sheet music">✕</button>
+          <button id="sheetClose" class="icon-btn" data-i18n-title="sheet.close" title="Close scrolling score">✕</button>
         </div>
         <canvas id="sheetCanvas"></canvas>
-      </div>
+      </section>
     </section>
 
     <!-- ============ PAUSE OVERLAY ============ -->

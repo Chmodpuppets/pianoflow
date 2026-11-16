@@ -288,6 +288,27 @@ export function drawBeamLines(
   }
 }
 
+/** Stack the meter numerator and denominator on both staves. */
+export function drawTimeSignature(
+  ctx: CanvasRenderingContext2D,
+  [numerator, denominator]: [number, number],
+  x: number,
+  staffBottoms: [number, number],
+  gap: number,
+  theme: Theme,
+): void {
+  ctx.save();
+  ctx.fillStyle = theme.text;
+  ctx.font = `bold ${Math.round(gap * 2.2)}px Georgia, serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const bottom of staffBottoms) {
+    ctx.fillText(String(numerator), x, bottom - 3 * gap);
+    ctx.fillText(String(denominator), x, bottom - gap);
+  }
+  ctx.restore();
+}
+
 /**
  * Draw a rest centred on the staff's middle line at (x, middleY). Whole/half rests
  * are the conventional filled blocks (whole hangs below the line above middle, half

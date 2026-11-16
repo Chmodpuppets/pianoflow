@@ -16,6 +16,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'apps/web/dist');
+const entries = JSON.parse(fs.readFileSync(path.join(dist, 'songs/auto.json'), 'utf8'));
+const songCount = new Set(entries.map((entry) => entry.id)).size;
+assert(songCount >= 13, 'expected the bundled song library');
+
 // Guard: the build must use the Pages base, exactly like production.
 const indexHtml = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
 if (!indexHtml.includes('/pianoflow/assets/')) {
@@ -105,7 +109,7 @@ const overflow = (page) => page.evaluate(() => {
 });
 async function shot(page, name) {
   const file = path.join(outDir, name);
-  await page.screenshot({ path: file });
+  await page.screenshot({ path: file, animations: 'disabled' });
   // programmatic non-blank check (model-independent): pixel variance
   const img = await loadImage(file);
   const cv = createCanvas(img.width, img.height);
@@ -156,12 +160,12 @@ await check('desktop: service worker registered under /pianoflow/', async () => 
   });
   assert(scope && scope.endsWith('/pianoflow/'), 'scope=' + scope);
 });
-await check('desktop: guest -> library with 13 songs', async () => {
+await check('desktop: guest -> library with all indexed songs', async () => {
   await page.click('#guestBtn');
   await page.waitForSelector('#screen-library:not(.hidden)');
-  await page.waitForFunction(() => document.querySelectorAll('.song-row').length >= 13, null, { timeout: 20000 });
+  await page.waitForFunction((count) => document.querySelectorAll('.song-row').length === count, songCount, { timeout: 20000 });
   const n = await page.evaluate(() => document.querySelectorAll('.song-row').length);
-  assert.strictEqual(n, 13, 'rows=' + n);
+  assert.strictEqual(n, songCount, 'rows=' + n);
 });
 await check('desktop: sort by title reorders live', async () => {
   await page.selectOption('#sortSel', 'title');
@@ -175,12 +179,12 @@ await check('desktop: search filters live', async () => {
   const t = await page.evaluate(() => document.querySelector('.song-title').textContent);
   assert.strictEqual(t, 'Canon in D');
   await page.fill('#songSearch', '');
-  await page.waitForFunction(() => document.querySelectorAll('.song-row').length === 13);
+  await page.waitForFunction((count) => document.querySelectorAll('.song-row').length === count, songCount);
 });
 await check('desktop: genre chip filters', async () => {
   await page.evaluate(() => [...document.querySelectorAll('#genreChips .chip')].find((c) => c.textContent.includes('Classical')).click());
   const n = await page.evaluate(() => document.querySelectorAll('.song-row').length);
-  assert(n > 0 && n < 13, 'classical rows=' + n);
+  assert(n > 0 && n < songCount, 'classical rows=' + n);
   await page.evaluate(() => document.querySelector('#genreChips .chip').click());
 });
 await check('desktop: favorite toggles + persists', async () => {
@@ -211,7 +215,7 @@ await check('desktop: bulk select + batch favorite + undo', async () => {
   await page.waitForFunction((b) => JSON.parse(localStorage.getItem('pianoflow.favs.v1') || '[]').length === b, before);
   // select all / clear
   await page.click('#bulkAll');
-  await page.waitForFunction(() => document.querySelectorAll('.song-row.selected').length === 13);
+  await page.waitForFunction((count) => document.querySelectorAll('.song-row.selected').length === count, songCount);
   await page.click('#bulkNone');
   await page.waitForFunction(() => document.querySelectorAll('.song-row.selected').length === 0);
   // done exits selection mode
@@ -445,6 +449,23 @@ await check('desktop: library sheet shortcut opens player with sheet visible', a
   await page.click('#backBtn');
   await page.waitForSelector('#screen-library:not(.hidden)');
 });
+await check('desktop: scrolling score choice persists after reload and can be turned off', async () => {
+  await page.click('.song-row .song-sheet');
+  await page.waitForSelector('#sheetPanel:not(.hidden)');
+  await page.reload();
+  await page.click('#guestBtn');
+  await page.click('.song-row .song-play');
+  await page.waitForSelector('#sheetPanel:not(.hidden)');
+  assert.strictEqual(await page.locator('#sheetBtn').getAttribute('aria-pressed'), 'true');
+  await page.click('#sheetBtn');
+  await hidden(page, '#sheetPanel');
+  await page.click('#backBtn');
+  await page.click('.song-row .song-play');
+  await page.waitForSelector('#screen-player:not(.hidden)');
+  await hidden(page, '#sheetPanel');
+  assert.strictEqual(await page.locator('#sheetBtn').getAttribute('aria-pressed'), 'false');
+  await page.click('#backBtn');
+});
 await check('desktop: clear history is undoable via toast', async () => {
   await page.click('#navProgress');
   await page.waitForSelector('#view-progress:not(.hidden)');
@@ -496,7 +517,7 @@ const mLoadOk = await check('mobile: welcome -> library, no horizontal overflow'
   await mp.waitForSelector('#screen-welcome:not(.hidden)');
   await mp.tap('#guestBtn');
   await mp.waitForSelector('#screen-library:not(.hidden)');
-  await mp.waitForFunction(() => document.querySelectorAll('.song-row').length >= 13, null, { timeout: 20000 });
+  await mp.waitForFunction((count) => document.querySelectorAll('.song-row').length === count, songCount, { timeout: 20000 });
   const bad = await overflow(mp);
   assert.strictEqual(bad.length, 0, 'overflow: ' + bad.join(' | '));
   await shot(mp, 'mobile-library.png');
@@ -527,6 +548,12 @@ await check('mobile: player opens, controls reachable, no overflow', async () =>
     assert(box.w > 0 && box.right <= box.vw + 2 && box.bottom <= box.vh + 2 && box.right >= 0, `${sel} unreachable: ${JSON.stringify(box)}`);
   }
   await shot(mp, 'mobile-player.png');
+  await mp.tap('#sheetBtn');
+  await mp.waitForSelector('#sheetPanel:not(.hidden)');
+  assert.deepEqual(await overflow(mp), []);
+  await shot(mp, 'mobile-scrolling-score.png');
+  await mp.tap('#sheetClose');
+  await hidden(mp, '#sheetPanel');
 });
 await check('mobile: touch the on-screen piano registers input', async () => {
   await mp.tap('#modePlay');
